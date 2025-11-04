@@ -1,0 +1,49 @@
+<div class="searchable-select" [class.active]="isOpen" #dropdown>
+  <div class="select-input">
+    <div 
+      class="search-input" 
+      contenteditable="true"
+      [innerHTML]="getDisplayText()"
+      (input)="onSearch($event)"
+      (focus)="onFocus()"
+      (blur)="onBlur()"
+      (keydown)="handleKeydown($event)"
+      autocomplete="off"
+      autocorrect="off"
+      spellcheck="false"
+      inputmode="search"
+      [style.width.px]="isOpen && focusWidthPx ? focusWidthPx : null"
+      #searchInput
+    ></div>
+    <div class="icons-container">
+      <i 
+        *ngIf="allowClear && (selectedValue || (selectedValues && selectedValues.length > 0))" 
+        class="fas fa-times clear-icon" 
+        (click)="clearSelection($event)"
+      ></i>
+      <i class="fas" [class.fa-chevron-down]="!isOpen" [class.fa-chevron-up]="isOpen"></i>
+    </div>
+  </div>
+  
+  <div class="select-dropdown" *ngIf="isOpen" [style.max-height]="maxHeight">
+    <div class="options-container" [class.virtual-scroll]="virtualScroll">
+      <div 
+        class="option" 
+        *ngFor="let option of filteredOptions; let i = index"
+        (mousedown)="selectOption(option)"
+        [class.selected]="isSelected(option)"
+        [class.highlighted]="i === highlightedIndex"
+      >
+        <div class="option-content">
+          <div class="checkbox" *ngIf="multiple">
+            <i class="fas fa-check" *ngIf="isSelected(option)"></i>
+          </div>
+          <span [innerHTML]="sanitizeHtml(option[labelKey])"></span>
+        </div>
+      </div>
+      <div class="no-results" *ngIf="filteredOptions.length === 0">
+        No results found
+      </div>
+    </div>
+  </div>
+</div>

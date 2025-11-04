@@ -1,0 +1,454 @@
+<div class="product-container">
+  <app-loader [show]="isLoading" message="Processing..."></app-loader>
+  <div class="search-section card">
+    <h3>Search Products</h3>
+    <form [formGroup]="searchForm" (ngSubmit)="onSearch()">
+      <div class="search-controls">
+        <div class="form-group">
+          <input 
+            type="text" 
+            formControlName="search" 
+            class="form-control" 
+            placeholder="Search products..."
+          >
+        </div>
+        <div class="form-group">
+          <select formControlName="categoryId" class="form-control">
+            <option value="">All Categories</option>
+            <option *ngFor="let category of categories" [value]="category.id">
+              {{ category.name }}
+            </option>
+          </select>
+        </div>
+        <div class="form-group">
+          <select formControlName="status" class="form-control">
+            <option value="A">Active</option>
+            <option value="I">Inactive</option>
+          </select>
+        </div>
+        <button type="submit" class="search-btn btn btn-primary">
+          <i class="fas fa-search"></i> Search
+        </button>
+
+        <button class="btn btn-sm btn-primary mb-2" (click)="exportProducts()">
+          <i class="fas fa-file-pdf"></i> Export Product
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <button class="btn btn-sm btn-primary mb-2" (click)="openCreateDialog()">
+    <i class="fas fa-plus"></i> Create Product
+  </button>
+
+  <div class="products-list card">
+    <h2>Products</h2>
+
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Category</th>
+            <th>Description</th>
+            <th>Min Stock</th>
+            <th>Status</th>
+            <th>Remaining Quantity</th>
+            <th>Blocked Amount</th>
+            <th>Total Remaining Amount</th>
+            <th>Purchase Amount</th>
+            <th>Sale Amount</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let product of products">
+            <td [innerHTML]="sanitizeHtml(product.name)"></td>
+            <td>{{ product.categoryName }}</td>
+            <td>{{ product.description }}</td>
+            <td>{{ product.minimumStock }}</td>
+            <td>
+              <span [class.badge-active]="product.status === 'A'"
+                    [class.badge-inactive]="product.status === 'I'">
+                {{ product.status === 'A' ? 'Active' : 'Inactive' }}
+              </span>
+            </td>
+            <td [ngClass]="{'negative-quantity': (product?.remainingQuantity ?? 0) < 0}">
+              {{ product?.remainingQuantity ?? 0 }}
+            </td>
+            <td [ngClass]="{'negative-quantity': (product?.blockedQuantity ?? 0) < 0}">
+              {{ product?.blockedQuantity ?? 0 }}
+            </td>
+            <td [ngClass]="{'negative-quantity': (product?.totalRemainingQuantity ?? 0) < 0}">
+              {{ product?.totalRemainingQuantity ?? 0 }}
+            </td>
+            <td>{{ product.purchaseAmount }}</td>
+            <td>{{ product.saleAmount }}</td>
+            <td class="actions">
+              <button class="btn-icon" (click)="editProduct(product)">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="btn-icon delete" (click)="deleteProduct(product.id!)">
+                <i class="fas fa-trash"></i>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <app-pagination
+      *ngIf="totalPages > 0"
+      [currentPage]="currentPage"
+      [pageSize]="pageSize"
+      [totalElements]="totalElements"
+      [pageSizeOptions]="pageSizeOptions"
+      (pageChange)="onPageChange($event)"
+      (pageSizeChange)="onPageSizeChange($event)"
+    ></app-pagination>
+  </div>
+</div>
+
+<!-- Product Dialog -->
+<div class="dialog-backdrop" *ngIf="isDialogOpen" (click)="closeDialog()"></div>
+<div class="dialog" *ngIf="isDialogOpen" [@dialogAnimation]>
+  <div class="dialog-header">
+    <h2>
+      <i class="fas {{ isEditing ? 'fa-edit' : 'fa-plus-circle' }}"></i>
+      {{ isEditing ? 'Edit' : 'Create' }} Product
+    </h2>
+    <button class="close-button" (click)="closeDialog()" title="Close">
+      <i class="fas fa-times"></i>
+    </button>
+  </div>
+  <form [formGroup]="productForm" (ngSubmit)="onSubmit()">
+    <div class="form-grid">
+      <div class="form-group">
+        <label for="name">
+          <i class="fas fa-tag"></i> Product Name <span class="required">*</span>
+        </label>
+        <div class="input-with-button">
+          <button type="button" class="btn-format" (click)="toggleBold()" title="Bold">
+            B
+          </button>
+          <div 
+            contenteditable="true"
+            id="name"
+            class="editable-content"
+            [class.is-invalid]="productForm.get('name')?.invalid && productForm.get('name')?.touched"
+            placeholder="Enter product name"
+          ></div>
+        </div>
+        <div class="invalid-feedback" *ngIf="productForm.get('name')?.invalid && productForm.get('name')?.touched">
+          Product name is required
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="categoryId">
+          <i class="fas fa-folder"></i> Category <span class="required">*</span>
+        </label>
+        <select 
+          id="categoryId" 
+          formControlName="categoryId" 
+          class="form-control"
+          [class.is-invalid]="productForm.get('categoryId')?.invalid && productForm.get('categoryId')?.touched"
+        >
+          <option value="" disabled selected>Select Category</option>
+          <option *ngFor="let category of categories" [value]="category.id">
+            {{ category.name }}
+          </option>
+        </select>
+        <div class="invalid-feedback" *ngIf="productForm.get('categoryId')?.invalid && productForm.get('categoryId')?.touched">
+          Category is required
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="minimumStock">
+          <i class="fas fa-cubes"></i> Minimum Stock <span class="required">*</span>
+        </label>
+        <input 
+          type="number" 
+          id="minimumStock" 
+          formControlName="minimumStock" 
+          class="form-control"
+          min="0"
+          [class.is-invalid]="productForm.get('minimumStock')?.invalid && productForm.get('minimumStock')?.touched"
+          placeholder="Enter minimum stock level"
+        >
+        <div class="invalid-feedback" *ngIf="productForm.get('minimumStock')?.invalid && productForm.get('minimumStock')?.touched">
+          Minimum stock must be 0 or greater
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="status">
+          <i class="fas fa-toggle-on"></i> Status
+        </label>
+        <select 
+          id="status" 
+          formControlName="status" 
+          class="form-control"
+        >
+          <option value="A">Active</option>
+          <option value="I">Inactive</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="purchaseAmount">
+          <i class="fas fa-rupee-sign"></i> Purchase Amount <span class="required">*</span>
+        </label>
+        <input 
+          type="number" 
+          id="purchaseAmount" 
+          formControlName="purchaseAmount" 
+          class="form-control"
+          [class.is-invalid]="isFieldInvalid('purchaseAmount')"
+          [value]="0"
+          min="0"
+          step="0.01"
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="saleAmount">
+          <i class="fas fa-rupee-sign"></i> Sale Amount <span class="required">*</span>
+        </label>
+        <input 
+          type="number" 
+          id="saleAmount" 
+          formControlName="saleAmount" 
+          class="form-control"
+          [class.is-invalid]="isFieldInvalid('saleAmount')"
+          [value]="0"
+          min="0"
+          step="0.01"
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="measurement">
+          <i class="fas fa-comment"></i> Measurement <span class="required">*</span>
+        </label>
+        <input 
+          type="text" 
+          id="measurement" 
+          formControlName="measurement" 
+          class="form-control"
+          [class.is-invalid]="isFieldInvalid('measurement')"
+          [value]="'kg'"
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="weight">
+          <i class="fa-solid fa-weight-scale"></i> Weight <span class="required">*</span>
+        </label>
+        <input 
+          type="number" 
+          id="weight" 
+          formControlName="weight" 
+          class="form-control"
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="type">
+          <i class="fa-solid fa-list"></i> Product Type
+        </label>
+        <select 
+          id="type" 
+          formControlName="type" 
+          class="form-control"
+        >
+          <option *ngFor="let type of productTypes" [value]="type.value">
+            {{ type.label }}
+          </option>
+        </select>
+      </div>
+
+      <!-- SqFeet Multiplier for REGULAR products -->
+      <div class="form-group" *ngIf="productForm.get('type')?.value === 'REGULAR'">
+        <label for="sqFeetMultiplier">
+          <i class="fa-solid fa-ruler-combined"></i> SqFeet Multiplier
+        </label>
+        <input 
+          type="number" 
+          id="sqFeetMultiplier" 
+          formControlName="sqFeetMultiplier" 
+          class="form-control"
+          min="0.1"
+          step="0.001"
+          placeholder="Enter multiplier (default: 3.5)"
+        >
+        <small class="form-text text-muted">
+          Multiplier used for calculating square feet for REGULAR products. Default value is 3.5.
+        </small>
+      </div>
+
+      <div class="form-group" *ngIf="productForm.get('type')?.value === 'POLY_CARBONATE'">
+        <label for="type">
+          <i class="fa-solid fa-list"></i> Sub Product Type
+        </label>
+        <select 
+          id="type" 
+          formControlName="polyCarbonateType" 
+          class="form-control"
+        >
+          <option [value]="PolyCarbonateType.SINGLE">{{PolyCarbonateTypeDisplay[PolyCarbonateType.SINGLE]}}</option>
+          <option [value]="PolyCarbonateType.DOUBLE">{{PolyCarbonateTypeDisplay[PolyCarbonateType.DOUBLE]}}</option>
+          <option [value]="PolyCarbonateType.FULL_SHEET">{{PolyCarbonateTypeDisplay[PolyCarbonateType.FULL_SHEET]}}</option>
+        </select>
+      </div>
+
+      <!-- Accessories Rates -->
+      <div class="form-group full-width" *ngIf="productForm.get('type')?.value === 'ACCESSORIES'" formGroupName="accessoriesWeight">
+        <label>
+          <i class="fas fa-ruler"></i> Accessories Size Weight (per size)
+        </label>
+        <div class="rates-tables-grid">
+          <div class="rates-table-wrapper">
+            <table class="rates-table premium" aria-describedby="accessoryRatesSmallCaption">
+              <caption id="accessoryRatesSmallCaption">Small sizes</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Size</th>
+                  <th scope="col">Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">6</th>
+                  <td>
+                    <input type="number" class="form-control" formControlName="size6" min="0" step="0.01" placeholder="0.00">
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row">8</th>
+                  <td>
+                    <input type="number" class="form-control" formControlName="size8" min="0" step="0.01" placeholder="0.00">
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row">12</th>
+                  <td>
+                    <input type="number" class="form-control" formControlName="size12" min="0" step="0.01" placeholder="0.00">
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="rates-table-wrapper">
+            <table class="rates-table premium" aria-describedby="accessoryRatesLargeCaption">
+              <caption id="accessoryRatesLargeCaption">Large sizes</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Size</th>
+                  <th scope="col">Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">16</th>
+                  <td>
+                    <input type="number" class="form-control" formControlName="size16" min="0" step="0.01" placeholder="0.00">
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row">24</th>
+                  <td>
+                    <input type="number" class="form-control" formControlName="size24" min="0" step="0.01" placeholder="0.00">
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row">32</th>
+                  <td>
+                    <input type="number" class="form-control" formControlName="size32" min="0" step="0.01" placeholder="0.00">
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row">48</th>
+                  <td>
+                    <input type="number" class="form-control" formControlName="size48" min="0" step="0.01" placeholder="0.00">
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="remainingQuantity">
+          <i class="fas fa-cubes"></i> Remaining Quantity <span class="required">*</span>
+        </label>
+        <input 
+          type="number" 
+          id="remainingQuantity" 
+          formControlName="remainingQuantity" 
+          class="form-control"
+          [class.is-invalid]="productForm.get('remainingQuantity')?.invalid && productForm.get('remainingQuantity')?.touched"
+          (input)="validateRemainingQuantity()"
+        >
+        <!-- <div class="invalid-feedback" *ngIf="productForm.get('remainingQuantity')?.invalid && productForm.get('remainingQuantity')?.touched">
+          Remaining quantity must be equal to or greater than blocked amount
+        </div> -->
+      </div>
+
+      <div class="form-group">
+        <label for="blockedQuantity">
+          <i class="fas fa-ban"></i> Blocked Amount
+        </label>
+        <input 
+          type="number" 
+          id="blockedQuantity" 
+          formControlName="blockedQuantity" 
+          class="form-control"
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="totalRemainingQuantity">
+          <i class="fas fa-calculator"></i> Total Remaining Amount
+        </label>
+        <input 
+          type="number" 
+          id="totalRemainingQuantity" 
+          formControlName="totalRemainingQuantity" 
+          class="form-control"
+          [disabled]="true"
+        >
+      </div>
+      
+      <div class="form-group full-width">
+        <label for="description">
+          <i class="fas fa-align-left"></i> Description
+        </label>
+        <textarea 
+          id="description" 
+          formControlName="description" 
+          class="form-control"
+          rows="3"
+          placeholder="Enter product description"
+        ></textarea>
+      </div>
+    </div>
+
+    <div class="dialog-actions">
+      <button type="button" class="btn btn-sm btn-secondary" (click)="closeDialog()">
+        <i class="fas fa-times"></i> Cancel
+      </button>
+      <button 
+        type="submit" 
+        class="btn btn-sm btn-primary"
+        [disabled]="productForm.invalid || isLoading"
+      >
+        <i class="fas" [ngClass]="isLoading ? 'fa-spinner fa-spin' : (isEditing ? 'fa-save' : 'fa-plus')"></i>
+        {{ isEditing ? 'Update' : 'Create' }}
+      </button>
+    </div>
+  </form>
+</div>

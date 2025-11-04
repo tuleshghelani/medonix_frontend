@@ -1,0 +1,79 @@
+<header class="header">
+  <nav class="nav-container">
+    <div class="nav-top">
+      <!-- <div class="logo">
+        <span>Inventory System</span>
+      </div> -->
+      
+      <button class="mobile-menu-toggle" (click)="toggleMobileMenu()" *ngIf="isAuthenticated">
+        <i class="fas" [class.fa-bars]="!isMobileMenuOpen" [class.fa-times]="isMobileMenuOpen"></i>
+      </button>
+    </div>
+
+    <div class="nav-content" [class.show]="isMobileMenuOpen" *ngIf="isAuthenticated">
+      <ul class="nav-links">
+        <li class="dropdown">
+          <a (click)="toggleMasterMenu($event)" [class.active]="isMasterActive()">
+            <i class="fas fa-th-large"></i> Master
+            <i class="fas fa-chevron-down"></i>
+          </a>
+          <ul class="dropdown-menu" [class.show]="showMasterMenu">
+            <li *ngIf="canViewMenu('category')">
+              <a routerLink="/category" routerLinkActive="active">Category</a>
+            </li>
+            <li *ngIf="canViewMenu('product')">
+              <a routerLink="/product" routerLinkActive="active">Product</a>
+            </li>
+            <li *ngIf="isAdmin()">
+              <a routerLink="/customer" routerLinkActive="active">Customer</a>
+            </li>
+            <li *ngIf="isAdmin()">
+              <a routerLink="/employee" routerLinkActive="active">Employee</a>
+            </li>
+            <li *ngIf="isAdmin()">
+              <a routerLink="/users" routerLinkActive="active">Users</a>
+            </li>
+            <li *ngIf="isAdmin()">
+              <a routerLink="/chart" routerLinkActive="active">Chart</a>
+            </li>
+            <li *ngIf="isAdmin()">
+              <a routerLink="/data-center" routerLinkActive="active">Data Center</a>
+            </li>
+          </ul>
+        </li>
+        
+        <li class="dropdown" *ngIf="isAdmin()">
+          <a (click)="toggleTransactionMenu($event)" [class.active]="isTransactionActive()">
+            <i class="fas fa-exchange-alt"></i> Transaction
+            <i class="fas fa-chevron-down"></i>
+          </a>
+          <ul class="dropdown-menu" [class.show]="showTransactionMenu">
+            <li><a routerLink="/purchase" routerLinkActive="active">Purchase</a></li>
+            <li><a routerLink="/sale" routerLinkActive="active">Sale</a></li>
+          </ul>
+        </li>
+        
+        <li class="dropdown" *ngIf="canViewMenu('quotation')">
+          <a (click)="toggleQuotationMenu($event)" [class.active]="isQuotationActive()">
+            <i class="fas fa-file-alt"></i> Quotation
+            <i class="fas fa-chevron-down"></i>
+          </a>
+          <ul class="dropdown-menu" [class.show]="showQuotationMenu">
+            <li><a routerLink="/quotation" routerLinkActive="active">Quotation List</a></li>
+            <li><a routerLink="/quotation/create" routerLinkActive="active">Create Quotation</a></li>
+            <li><a routerLink="/quotation/order" routerLinkActive="active">Order</a></li>
+          </ul>
+        </li>
+        <li *ngIf="canViewMenu('attendance')">
+          <a routerLink="/attendance" routerLinkActive="active">Attendance</a>
+        </li>
+      </ul>
+
+      <div class="nav-actions">
+        <button class="btn btn-logout" (click)="logout()">
+          <i class="fas fa-sign-out-alt"></i> Logout
+        </button>
+      </div>
+    </div>
+  </nav>
+</header>

@@ -1,0 +1,49 @@
+@import '../add-quotation/add-quotation.component.scss';
+
+// Dispatch-specific tweaks
+.card-header {
+  background-image: linear-gradient(135deg, var(--primary) 0%, #1d976c 100%);
+}
+
+.products-table th {
+  white-space: nowrap;
+}
+
+.form-field-container {
+  position: relative;
+  margin-bottom: 1rem;
+  min-width: 100px !important;
+}
+// Reduce searchable-select width only on Dispatch page
+.select-group app-searchable-select {
+  width: 120px !important;
+}
+
+// Highlight dispatched rows
+.products-table tr.dispatched-row {
+  background-color: #C5C6C7; // light orange
+}
+
+// Ensure Status select remains visible and usable on small desktop widths
+.products-table td.status-col select,
+.products-table th.status-col select {
+  min-width: 85px;
+}
+
+// Make the last two columns sticky so they don't scroll out of view
+.products-table {
+  th.status-col,
+  td.status-col {
+    // position: sticky;
+    // right: 40px; // placed just before created roll
+    // background: #fff;
+    // z-index: 2;
+    min-width: 85px;
+  }
+}
+
+// Ensure the table can scroll horizontally if needed
+.table-responsive {
+  overflow-x: auto;
+}
+
