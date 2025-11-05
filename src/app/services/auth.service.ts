@@ -129,7 +129,7 @@ export class AuthService {
     if (!encryptedRoles) return [];
     
     const rolesString = this.encryptionService.decrypt(encryptedRoles);
-    // Handle the string format "[ADMIN, PRODUCT_MANAGER]"
+    // Handle the string format "[ADMIN, STAFF_ADMIN]"
     console.log(rolesString);
     return rolesString
       .replace('[', '')
@@ -148,6 +148,6 @@ export class AuthService {
   }
 
   isProductManager(): boolean {
-    return this.hasRole('PRODUCT_MANAGER');
+    return this.hasRole('STAFF_ADMIN');
   }
 }

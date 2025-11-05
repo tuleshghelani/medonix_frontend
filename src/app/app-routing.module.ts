@@ -24,6 +24,7 @@ import { DataCenterComponent } from './components/data-center/data-center.compon
 import { RoleGuard } from './guards/role.guard';
 import { UserListComponent } from './components/users/user-list/user-list.component';
 import { AddUserComponent } from './components/users/add-user/add-user.component';
+import { AddDealerComponent } from './components/dealers/add-dealer/add-dealer.component';
 
 const routes: Routes = [
   { path: '', redirectTo: '/login', pathMatch: 'full' },
@@ -32,13 +33,13 @@ const routes: Routes = [
     path: 'category', 
     component: CategoryComponent, 
     canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN', 'PRODUCT_MANAGER'] }
+    data: { roles: ['ADMIN', 'STAFF_ADMIN'] }
   },
   { 
     path: 'product', 
     component: ProductComponent, 
     canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN', 'PRODUCT_MANAGER'] }
+    data: { roles: ['ADMIN', 'STAFF_ADMIN'] }
   },
   { 
     path: 'purchase', 
@@ -128,19 +129,19 @@ const routes: Routes = [
     path: 'attendance',
     component: AttendanceListComponent,
     canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN', 'PRODUCT_MANAGER'] }
+    data: { roles: ['ADMIN', 'STAFF_ADMIN'] }
   },
   {
     path: 'attendance/create',
     component: CreateAttendanceComponent,
     canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN', 'PRODUCT_MANAGER'] }
+    data: { roles: ['ADMIN', 'STAFF_ADMIN'] }
   },
   {
     path: 'attendance/details',
     component: AttendanceDetailComponent,
     canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN', 'PRODUCT_MANAGER'] }
+    data: { roles: ['ADMIN', 'STAFF_ADMIN'] }
   },
   {
     path: 'daily-profit',
@@ -151,7 +152,7 @@ const routes: Routes = [
     path: 'quotation', 
     loadChildren: () => import('./components/all-quotation/quotation.module').then(m => m.QuotationModule),
     canActivate: [AuthGuard, RoleGuard],
-    data: { preload: true, roles: ['ADMIN', 'PRODUCT_MANAGER'] }
+    data: { preload: true, roles: ['ADMIN', 'STAFF_ADMIN'] }
   },  
   {
     path: 'data-center',
@@ -170,6 +171,12 @@ const routes: Routes = [
     component: AddUserComponent,
     canActivate: [AuthGuard, RoleGuard],
     data: { roles: ['ADMIN'] }
+  },
+  {
+    path: 'dealers/register',
+    component: AddDealerComponent,
+    // canActivate: [AuthGuard, RoleGuard],
+    data: { roles: ['ADMIN','STAFF_ADMIN','DEALER'] }
   },
   {
     path: 'chart',

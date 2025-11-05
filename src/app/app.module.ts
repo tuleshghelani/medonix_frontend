@@ -14,12 +14,14 @@ import { AppRoutingModule } from './app-routing.module';
 import { LoaderComponent } from './shared/components/loader/loader.component';
 import { RoundPipe } from './round.pipe';
 import { DataCenterComponent } from './components/data-center/data-center.component';
+import { AddDealerComponent } from './components/dealers/add-dealer/add-dealer.component';
 
 @NgModule({
   declarations: [
     AppComponent,
     LoginComponent,
-    HeaderComponent
+    HeaderComponent,
+    AddDealerComponent
   ],
   imports: [
     BrowserModule,
