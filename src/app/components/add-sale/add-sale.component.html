@@ -106,7 +106,7 @@
                 <tr>
                   <th>Product Name</th>
                   <th>Quantity</th>
-                  <th>Coil Number</th>
+                  <th>Batch Number</th>
                   <th>Sale Rate</th>
                   <th>Final Price</th>
                   <th>Remarks</th>
@@ -154,7 +154,7 @@
                         formControlName="coilNumber" 
                         class="form-control"
                         [class.is-invalid]="isProductFieldInvalid(i, 'coilNumber')"
-                        placeholder="coil Number"
+                        placeholder="Batch Number"
                       >
                       <div class="invalid-feedback" *ngIf="productsFormArray.at(i).get('coilNumber')?.errors?.['doubleQuotes']">
                         Double quotes are not allowed
