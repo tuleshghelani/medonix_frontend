@@ -19,7 +19,9 @@ interface ProductForm {
   quantity: number;
   batchNumber: string;
   unitPrice: number;
-  finalPrice: number;
+  price: number;
+  taxPercentage: number;
+  taxAmount: number;
   remarks: string
 }
 @Component({
@@ -89,6 +91,7 @@ export class AddSaleComponent implements OnInit, OnDestroy {
 
   private initForm() {
     this.saleForm = this.fb.group({
+      id: [null],
       customerId: ['', Validators.required],
       saleDate: [formatDate(new Date(), 'yyyy-MM-dd', 'en'), Validators.required],
       invoiceNumber: ['', Validators.required],
@@ -106,7 +109,9 @@ export class AddSaleComponent implements OnInit, OnDestroy {
       quantity: ['', [Validators.required, Validators.min(1)]],
       batchNumber: ['', [this.noDoubleQuotesValidator()]],
       unitPrice: ['', [Validators.required, Validators.min(0.01)]],
-      finalPrice: [{ value: 0, disabled: true }],
+      price: [{ value: 0, disabled: true }],
+      taxPercentage: [{ value: 0, disabled: true }],
+      taxAmount: [{ value: 0, disabled: true }],
       remarks:[null, []]
     });
   }
@@ -140,12 +145,28 @@ export class AddSaleComponent implements OnInit, OnDestroy {
   }
 
   private setupProductCalculations(group: FormGroup, index: number) {
-    const subscription = group.valueChanges
+    // Listen to product selection to get tax percentage
+    const productIdSubscription = group.get('productId')?.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((productId) => {
+        if (productId) {
+          const selectedProduct = this.products.find(p => p.id === productId);
+          if (selectedProduct) {
+            const taxPercentage = selectedProduct.taxPercentage || 0;
+            group.patchValue({ taxPercentage }, { emitEvent: false });
+            this.calculateProductPrice(index);
+          }
+        }
+      });
+
+    // Listen to quantity and unitPrice changes
+    const valueSubscription = group.valueChanges
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
         this.calculateProductPrice(index);
       });
-    this.productSubscriptions[index] = subscription;
+    
+    this.productSubscriptions[index] = valueSubscription;
   }
 
   private calculateProductPrice(index: number): void {
@@ -154,18 +175,30 @@ export class AddSaleComponent implements OnInit, OnDestroy {
 
     const quantity = Number(group.get('quantity')?.value || 0);
     const unitPrice = Number(group.get('unitPrice')?.value || 0);
-    const finalPrice = Number((quantity * unitPrice).toFixed(2));
+    const taxPercentage = Number(group.get('taxPercentage')?.value || 0);
+    
+    // Calculate price = unitPrice * quantity
+    const price = Number((quantity * unitPrice).toFixed(2));
+    
+    // Calculate taxAmount = (price * taxPercentage) / 100
+    const taxAmount = Number((price * taxPercentage / 100).toFixed(2));
 
     group.patchValue({
-      finalPrice: finalPrice
+      price: price,
+      taxAmount: taxAmount
     }, { emitEvent: false });
 
     this.calculateTotalAmount();
   }
 
   getTotalAmount(): number {
-    return Math.round(this.productsFormArray.controls
-      .reduce((total, group: any) => total + (group.get('finalPrice').value || 0), 0));
+    return this.productsFormArray.controls
+      .reduce((total, group: any) => total + (group.get('price').value || 0), 0);
+  }
+
+  getTotalTaxAmount(): number {
+    return this.productsFormArray.controls
+      .reduce((total, group: any) => total + (group.get('taxAmount').value || 0), 0);
   }
 
   private loadProducts(): void {
@@ -260,6 +293,8 @@ export class AddSaleComponent implements OnInit, OnDestroy {
   }
 
   resetForm() {
+    this.isEdit = false;
+    this.saleForm.patchValue({ id: null });
     this.initForm();
   }
 
@@ -269,16 +304,22 @@ export class AddSaleComponent implements OnInit, OnDestroy {
     if (this.saleForm.valid) {
       this.loading = true;
       const formData = this.prepareFormData();
-      this.saleService.createSale(formData).subscribe({
+      
+      const serviceCall = this.isEdit 
+        ? this.saleService.updateSale(formData)
+        : this.saleService.createSale(formData);
+      
+      serviceCall.subscribe({
         next: (response: any) => {
           if (response?.success) {
-            this.snackbar.success('Sale created successfully');
-            this.resetForm();
+            this.snackbar.success(`Sale ${this.isEdit ? 'updated' : 'created'} successfully`);
+            localStorage.removeItem('saleId');
+            this.router.navigate(['/sale']);
           }
           this.loading = false;
         },
         error: (error) => {
-          this.snackbar.error(error?.error?.message || 'Failed to create sale');
+          this.snackbar.error(error?.error?.message || `Failed to ${this.isEdit ? 'update' : 'create'} sale`);
           this.loading = false;
         }
       });
@@ -293,15 +334,31 @@ export class AddSaleComponent implements OnInit, OnDestroy {
 
   private prepareFormData() {
     const formValue = this.saleForm.value;
-    return {
-      ...formValue,
+    const data: any = {
       saleDate: formatDate(formValue.saleDate, 'dd-MM-yyyy', 'en'),
-      products: formValue.products.map((product: ProductForm) => ({
-        ...product,
-        finalPrice: this.productsFormArray.at(formValue.products.indexOf(product)).get('finalPrice')?.value
-      })),
-      isBlack: Boolean(formValue.isBlack)
+      customerId: formValue.customerId,
+      invoiceNumber: formValue.invoiceNumber,
+      price: this.getTotalAmount(),
+      taxAmount: this.getTotalTaxAmount(),
+      isBlack: Boolean(formValue.isBlack),
+      products: formValue.products.map((product: ProductForm, index: number) => ({
+        productId: product.productId,
+        quantity: product.quantity,
+        batchNumber: product.batchNumber,
+        unitPrice: product.unitPrice,
+        price: this.productsFormArray.at(index).get('price')?.value,
+        taxPercentage: this.productsFormArray.at(index).get('taxPercentage')?.value,
+        taxAmount: this.productsFormArray.at(index).get('taxAmount')?.value,
+        remarks: product.remarks
+      }))
     };
+    
+    // Include id only when updating
+    if (this.isEdit && formValue.id) {
+      data.id = formValue.id;
+    }
+    
+    return data;
   }
 
   private markFormGroupTouched(formGroup: FormGroup | FormArray) {
@@ -316,10 +373,17 @@ export class AddSaleComponent implements OnInit, OnDestroy {
   }
 
   private calculateTotalAmount(): void {
-    const total = this.productsFormArray.controls
-      .reduce((sum, group: any) => sum + (group.get('finalPrice').value || 0), 0);
+    const totalPrice = this.productsFormArray.controls
+      .reduce((sum, group: any) => sum + (group.get('price').value || 0), 0);
+    
+    const totalTaxAmount = this.productsFormArray.controls
+      .reduce((sum, group: any) => sum + (group.get('taxAmount').value || 0), 0);
       
-    this.saleForm.patchValue({ totalAmount: total }, { emitEvent: false });
+    this.saleForm.patchValue({ 
+      price: totalPrice,
+      taxAmount: totalTaxAmount,
+      totalAmount: totalPrice + totalTaxAmount 
+    }, { emitEvent: false });
   }
 
   private noDoubleQuotesValidator(): ValidatorFn {
@@ -329,9 +393,14 @@ export class AddSaleComponent implements OnInit, OnDestroy {
     };
   }
 
-  getFormattedFinalPrice(index: number): string {
-    const finalPrice = this.productsFormArray.at(index).get('finalPrice')?.value;
-    return finalPrice ? finalPrice.toFixed(2) : '0.00';
+  getFormattedPrice(index: number): string {
+    const price = this.productsFormArray.at(index).get('price')?.value;
+    return price ? price.toFixed(2) : '0.00';
+  }
+
+  getFormattedTaxAmount(index: number): string {
+    const taxAmount = this.productsFormArray.at(index).get('taxAmount')?.value;
+    return taxAmount ? taxAmount.toFixed(2) : '0.00';
   }
 
   private fetchSaleDetails(id: number): void {
@@ -340,10 +409,11 @@ export class AddSaleComponent implements OnInit, OnDestroy {
         console.log('response : ', response);
           if (response.id) {
             console.log('response.data : ', response.id);
+            this.isEdit = true;
             this.populateForm(response);
           }
         },
-        error: (error) => {
+        error: (error: any) => {
           this.snackbar.error(error?.error?.message || 'Failed to load sale details');
         }
       });
@@ -352,6 +422,7 @@ export class AddSaleComponent implements OnInit, OnDestroy {
   private populateForm(data: any): void {
     this.saleForm.patchValue({
       customerId: data.customerId,
+      id: data.id,
       saleDate: formatDate(new Date(data.saleDate), 'yyyy-MM-dd', 'en'),
       invoiceNumber: data.invoiceNumber,
       isBlack: data.isBlack
@@ -361,13 +432,16 @@ export class AddSaleComponent implements OnInit, OnDestroy {
     this.productsFormArray.clear();
 
     // Populate products
-    data.items.forEach((item: any) => {
+    data.items.forEach((item: any, index: number) => {
       const productGroup = this.createProductFormGroup();
+      this.setupProductCalculations(productGroup, index);
       productGroup.patchValue({
         productId: item.productId,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
-        finalPrice: item.finalPrice,
+        price: item.price,
+        taxPercentage: item.taxPercentage,
+        taxAmount: item.taxAmount,
         batchNumber: item.batchNumber,
         remarks: item.remarks
       });

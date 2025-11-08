@@ -20,8 +20,8 @@ export class SaleService {
     return this.http.post(`${this.apiUrl}/create`, sale);
   }
 
-  updateSale(id: number, sale: Sale): Observable<any> {
-    return this.http.put(`${this.apiUrl}/${id}`, sale);
+  updateSale(sale: any): Observable<any> {
+    return this.http.post(`${this.apiUrl}/create`, sale);
   }
 
   deleteSale(id: number): Observable<any> {

@@ -17,6 +17,10 @@ export interface Sale {
   salesDate?: string;
   otherExpenses?: number;
   totalAmount?: number;
+  price?: number;
+  taxAmount?: number;
+  customerId?: number;
+  products?: SaleProduct[];
 }
 
 export interface SaleSearchRequest {
@@ -35,4 +39,15 @@ export interface SaleResponse {
     totalElements: number;
     totalPages: number;
   };
+}
+
+export interface SaleProduct {
+  productId: number;
+  quantity: number;
+  unitPrice: number;
+  price: number;
+  taxPercentage: number;
+  taxAmount: number;
+  batchNumber?: string;
+  remarks?: string;
 }
