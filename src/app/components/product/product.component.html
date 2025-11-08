@@ -243,141 +243,22 @@
       </div>
 
       <div class="form-group">
-        <label for="weight">
-          <i class="fa-solid fa-weight-scale"></i> Weight <span class="required">*</span>
+        <label for="taxPercentage">
+          <i class="fas fa-percent"></i> Tax Percentage <span class="required">*</span>
         </label>
         <input 
           type="number" 
-          id="weight" 
-          formControlName="weight" 
+          id="taxPercentage" 
+          formControlName="taxPercentage" 
           class="form-control"
+          min="0"
+          max="100"
+          step="0.01"
+          [class.is-invalid]="isFieldInvalid('taxPercentage')"
+          placeholder="Enter tax percentage"
         >
-      </div>
-
-      <div class="form-group">
-        <label for="type">
-          <i class="fa-solid fa-list"></i> Product Type
-        </label>
-        <select 
-          id="type" 
-          formControlName="type" 
-          class="form-control"
-        >
-          <option *ngFor="let type of productTypes" [value]="type.value">
-            {{ type.label }}
-          </option>
-        </select>
-      </div>
-
-      <!-- SqFeet Multiplier for REGULAR products -->
-      <div class="form-group" *ngIf="productForm.get('type')?.value === 'REGULAR'">
-        <label for="sqFeetMultiplier">
-          <i class="fa-solid fa-ruler-combined"></i> SqFeet Multiplier
-        </label>
-        <input 
-          type="number" 
-          id="sqFeetMultiplier" 
-          formControlName="sqFeetMultiplier" 
-          class="form-control"
-          min="0.1"
-          step="0.001"
-          placeholder="Enter multiplier (default: 3.5)"
-        >
-        <small class="form-text text-muted">
-          Multiplier used for calculating square feet for REGULAR products. Default value is 3.5.
-        </small>
-      </div>
-
-      <div class="form-group" *ngIf="productForm.get('type')?.value === 'POLY_CARBONATE'">
-        <label for="type">
-          <i class="fa-solid fa-list"></i> Sub Product Type
-        </label>
-        <select 
-          id="type" 
-          formControlName="polyCarbonateType" 
-          class="form-control"
-        >
-          <option [value]="PolyCarbonateType.SINGLE">{{PolyCarbonateTypeDisplay[PolyCarbonateType.SINGLE]}}</option>
-          <option [value]="PolyCarbonateType.DOUBLE">{{PolyCarbonateTypeDisplay[PolyCarbonateType.DOUBLE]}}</option>
-          <option [value]="PolyCarbonateType.FULL_SHEET">{{PolyCarbonateTypeDisplay[PolyCarbonateType.FULL_SHEET]}}</option>
-        </select>
-      </div>
-
-      <!-- Accessories Rates -->
-      <div class="form-group full-width" *ngIf="productForm.get('type')?.value === 'ACCESSORIES'" formGroupName="accessoriesWeight">
-        <label>
-          <i class="fas fa-ruler"></i> Accessories Size Weight (per size)
-        </label>
-        <div class="rates-tables-grid">
-          <div class="rates-table-wrapper">
-            <table class="rates-table premium" aria-describedby="accessoryRatesSmallCaption">
-              <caption id="accessoryRatesSmallCaption">Small sizes</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Size</th>
-                  <th scope="col">Rate</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th scope="row">6</th>
-                  <td>
-                    <input type="number" class="form-control" formControlName="size6" min="0" step="0.01" placeholder="0.00">
-                  </td>
-                </tr>
-                <tr>
-                  <th scope="row">8</th>
-                  <td>
-                    <input type="number" class="form-control" formControlName="size8" min="0" step="0.01" placeholder="0.00">
-                  </td>
-                </tr>
-                <tr>
-                  <th scope="row">12</th>
-                  <td>
-                    <input type="number" class="form-control" formControlName="size12" min="0" step="0.01" placeholder="0.00">
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="rates-table-wrapper">
-            <table class="rates-table premium" aria-describedby="accessoryRatesLargeCaption">
-              <caption id="accessoryRatesLargeCaption">Large sizes</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Size</th>
-                  <th scope="col">Rate</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th scope="row">16</th>
-                  <td>
-                    <input type="number" class="form-control" formControlName="size16" min="0" step="0.01" placeholder="0.00">
-                  </td>
-                </tr>
-                <tr>
-                  <th scope="row">24</th>
-                  <td>
-                    <input type="number" class="form-control" formControlName="size24" min="0" step="0.01" placeholder="0.00">
-                  </td>
-                </tr>
-                <tr>
-                  <th scope="row">32</th>
-                  <td>
-                    <input type="number" class="form-control" formControlName="size32" min="0" step="0.01" placeholder="0.00">
-                  </td>
-                </tr>
-                <tr>
-                  <th scope="row">48</th>
-                  <td>
-                    <input type="number" class="form-control" formControlName="size48" min="0" step="0.01" placeholder="0.00">
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+        <div class="invalid-feedback" *ngIf="isFieldInvalid('taxPercentage')">
+          Tax percentage must be between 0 and 100
         </div>
       </div>
 

@@ -14,7 +14,7 @@
           >
           <input 
             type="text" 
-            formControlName="coilNumber" 
+            formControlName="batchNumber" 
             class="form-control" 
             placeholder="Search by Batch Number..."
           >
@@ -90,7 +90,7 @@
             <td>{{ purchase.invoiceNumber }}</td>
             <td>{{ purchase.customerName }}</td>
             <td>{{ purchase.purchaseDate |  date:'dd-MM-yyyy' }}</td>
-            <td>{{ purchase.totalPurchaseAmount ?? 0 | round }}</td>
+            <td>{{ purchase.totalPurchaseAmount ?? 0 }}</td>
             <td class="actions">
               <button 
                 class="btn-icon edit" 

@@ -12,7 +12,7 @@ export interface Purchase {
   remainingQuantity?: number;
   // totalAmount?: number;
   remarks?: string;
-  coilNumber?: string;
+  batchNumber?: string;
 
   id?: number;
   customerId: number;
@@ -23,6 +23,8 @@ export interface Purchase {
   products: PurchaseProduct[];
   totalAmount: number;
   totalProducts: number;
+  price?: number;
+  taxAmount?: number;
 }
 
 export interface PurchaseSearchRequest {
@@ -43,7 +45,9 @@ export interface PurchaseProduct {
   productId: number;
   quantity: number;
   unitPrice: number;
-  discountPercentage: number;
-  discountAmount: number;
-  finalPrice: number;
+  price: number;
+  taxPercentage: number;
+  taxAmount: number;
+  batchNumber?: string;
+  remarks?: string;
 }

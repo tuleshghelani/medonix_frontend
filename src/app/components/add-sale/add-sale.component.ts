@@ -17,7 +17,7 @@ import { EncryptionService } from '../../shared/services/encryption.service';
 interface ProductForm {
   productId: string;
   quantity: number;
-  coilNumber: string;
+  batchNumber: string;
   unitPrice: number;
   finalPrice: number;
   remarks: string
@@ -104,7 +104,7 @@ export class AddSaleComponent implements OnInit, OnDestroy {
     return this.fb.group({
       productId: ['', Validators.required],
       quantity: ['', [Validators.required, Validators.min(1)]],
-      coilNumber: ['', [this.noDoubleQuotesValidator()]],
+      batchNumber: ['', [this.noDoubleQuotesValidator()]],
       unitPrice: ['', [Validators.required, Validators.min(0.01)]],
       finalPrice: [{ value: 0, disabled: true }],
       remarks:[null, []]
@@ -368,7 +368,7 @@ export class AddSaleComponent implements OnInit, OnDestroy {
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         finalPrice: item.finalPrice,
-        coilNumber: item.coilNumber,
+        batchNumber: item.batchNumber,
         remarks: item.remarks
       });
       this.productsFormArray.push(productGroup);

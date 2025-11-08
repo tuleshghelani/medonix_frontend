@@ -82,7 +82,7 @@ export class PurchaseComponent implements OnInit {
       customerId: [''],
       startDate: [''],
       endDate: [''],
-      coilNumber: ['']
+      batchNumber: ['']
     });
   }
 

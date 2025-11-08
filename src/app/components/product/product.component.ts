@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ProductService } from '../../services/product.service';
 import { CategoryService } from '../../services/category.service';
-import { Product, ProductMainType, PolyCarbonateType, PolyCarbonateTypeDisplay } from '../../models/product.model';
+import { Product, ProductMainType } from '../../models/product.model';
 import { Category } from '../../models/category.model';
 import { ToastrService } from 'ngx-toastr';
 import { trigger, transition, style, animate } from '@angular/animations';
@@ -57,17 +57,6 @@ export class ProductComponent implements OnInit {
   endIndex = 0;
   isDialogOpen = false;
 
-  productTypes = [
-    { value: 'NOS', label: ProductMainType.NOS },
-    { value: 'REGULAR', label: ProductMainType.REGULAR },
-    { value: 'POLY_CARBONATE', label: ProductMainType.POLY_CARBONATE },
-    { value: 'POLY_CARBONATE_ROLL', label: ProductMainType.POLY_CARBONATE_ROLL },
-    { value: 'ACCESSORIES', label: ProductMainType.ACCESSORIES }
-  ];
-
-  PolyCarbonateType = PolyCarbonateType;
-  PolyCarbonateTypeDisplay = PolyCarbonateTypeDisplay;
-
   constructor(
     private productService: ProductService,
     private categoryService: CategoryService,
@@ -92,23 +81,11 @@ export class ProductComponent implements OnInit {
       saleAmount: [0, [Validators.required, Validators.min(0)]],
       measurement: ['kg'],
       status: ['A'],
-      weight: [0, [Validators.required, Validators.min(0)]],
-      type: ['NOS'],
       description: [''],
-      polyCarbonateType: [''],
-      sqFeetMultiplier: [3.5], // Default value
       remainingQuantity: [0, [Validators.required]],
       blockedQuantity: [0, [Validators.required, Validators.min(0)]],
       totalRemainingQuantity: [{ value: 0, disabled: true }],
-      accessoriesWeight: this.fb.group({
-        size6: [0, [Validators.min(0)]],
-        size8: [0, [Validators.min(0)]],
-        size12: [0, [Validators.min(0)]],
-        size16: [0, [Validators.min(0)]],
-        size24: [0, [Validators.min(0)]],
-        size32: [0, [Validators.min(0)]],
-        size48: [0, [Validators.min(0)]]
-      })
+      taxPercentage: [5, [Validators.required, Validators.min(0), Validators.max(100)]]
     });
 
     // Add value change subscriptions for automatic calculation
@@ -118,23 +95,6 @@ export class ProductComponent implements OnInit {
 
     this.productForm.get('blockedQuantity')?.valueChanges.subscribe(() => {
       this.calculateTotalRemainingQuantity();
-    });
-
-    // Add listener for type changes to show/hide sqFeetMultiplier field
-    this.productForm.get('type')?.valueChanges.subscribe((type) => {
-      const sqFeetMultiplierControl = this.productForm.get('sqFeetMultiplier');
-      if (type === 'REGULAR') {
-        // For REGULAR products, make sqFeetMultiplier available but not required
-        if (sqFeetMultiplierControl) {
-          sqFeetMultiplierControl.enable();
-        }
-      } else {
-        // For non-REGULAR products, disable and reset the field
-        if (sqFeetMultiplierControl) {
-          sqFeetMultiplierControl.disable();
-          sqFeetMultiplierControl.setValue(3.5); // Reset to default
-        }
-      }
     });
 
     // Update the name control listener
@@ -219,50 +179,8 @@ export class ProductComponent implements OnInit {
     this.isLoading = true;
     const productData: any = {
       ...this.productForm.value,
-      name: productName,
-      polyCarbonateType: this.productForm.get('type')?.value === 'POLY_CARBONATE' 
-        ? this.productForm.get('polyCarbonateType')?.value 
-        : null
+      name: productName
     };
-
-    // For REGULAR products, ensure sqFeetMultiplier is included
-    if (this.productForm.get('type')?.value === 'REGULAR') {
-      // If sqFeetMultiplier is null, zero, or not set, use default 3.5
-      const multiplier = this.productForm.get('sqFeetMultiplier')?.value;
-      productData.sqFeetMultiplier = (multiplier && multiplier > 0) ? multiplier : 3.5;
-    } else {
-      // For non-REGULAR products, don't send sqFeetMultiplier
-      delete productData.sqFeetMultiplier;
-    }
-
-    // Map accessories size rates only when type is ACCESSORIES
-    if (this.productForm.get('type')?.value === 'ACCESSORIES') {
-      const rates = this.productForm.get('accessoriesWeight')?.value || {};
-
-      // accessoriesWeight must have numeric string keys
-      productData.accessoriesWeight = {
-        '6': Number(rates.size6) || 0,
-        '8': Number(rates.size8) || 0,
-        '12': Number(rates.size12) || 0,
-        '16': Number(rates.size16) || 0,
-        '24': Number(rates.size24) || 0,
-        '32': Number(rates.size32) || 0,
-        '48': Number(rates.size48) || 0
-      };
-
-      // accessories_size_rate must have size* keys
-      productData.accessories_size_rate = {
-        size6: Number(rates.size6) || 0,
-        size8: Number(rates.size8) || 0,
-        size12: Number(rates.size12) || 0,
-        size16: Number(rates.size16) || 0,
-        size24: Number(rates.size24) || 0,
-        size32: Number(rates.size32) || 0,
-        size48: Number(rates.size48) || 0
-      };
-    } else {
-      productData.accessories_size_rate = null;
-    }
 
     const request = this.isEditing
       ? this.productService.updateProduct(this.editingId!, productData)
@@ -317,46 +235,11 @@ export class ProductComponent implements OnInit {
       saleAmount: product.saleAmount,
       measurement: product.measurement,
       status: product.status,
-      weight: product.weight,
-      type: product.type,
-      sqFeetMultiplier: product.sqFeetMultiplier && product.sqFeetMultiplier > 0 
-        ? product.sqFeetMultiplier 
-        : 3.5, // Default value if null, zero, or not set
       remainingQuantity: product.remainingQuantity,
       blockedQuantity: product.blockedQuantity,
       totalRemainingQuantity: product.totalRemainingQuantity,
-      ...( product?.polyCarbonateType ? {polyCarbonateType: product.polyCarbonateType} : {})
+      taxPercentage: product.taxPercentage ?? 5
     });
-
-    // Handle field enabling/disabling based on product type
-    /*const sqFeetMultiplierControl = this.productForm.get('sqFeetMultiplier');
-    if (product.type === ProductMainType.REGULAR) {
-      if (sqFeetMultiplierControl) {
-        sqFeetMultiplierControl.enable();
-      }
-    } else {
-      if (sqFeetMultiplierControl) {
-        sqFeetMultiplierControl.disable();
-      }
-    }*/
-
-    // Populate accessories rates if present (prefer new accessoriesWeight from API, fallback to legacy accessories_size_rate)
-    const accessories = (product as any)?.accessoriesWeight || (product as any)?.accessories_size_rate || null;
-    if (accessories) {
-      this.productForm.get('accessoriesWeight')?.patchValue({
-        size6: accessories['6'] ?? accessories['size6'] ?? 0,
-        size8: accessories['8'] ?? accessories['size8'] ?? 0,
-        size12: accessories['12'] ?? accessories['size12'] ?? 0,
-        size16: accessories['16'] ?? accessories['size16'] ?? 0,
-        size24: accessories['24'] ?? accessories['size24'] ?? 0,
-        size32: accessories['32'] ?? accessories['size32'] ?? 0,
-        size48: accessories['48'] ?? accessories['size48'] ?? 0
-      });
-    } else {
-      this.productForm.get('accessoriesWeight')?.reset({
-        size6: 0, size8: 0, size12: 0, size16: 0, size24: 0, size32: 0, size48: 0
-      });
-    }
 
     // Calculate total remaining quantity after setting values
     this.calculateTotalRemainingQuantity();
@@ -398,20 +281,15 @@ export class ProductComponent implements OnInit {
   resetForm(): void {
     this.isEditing = false;
     this.editingId = undefined;
-    this.productForm.reset({ status: 'A',
+    this.productForm.reset({
+      status: 'A',
       purchaseAmount: 0,
       saleAmount: 0,
       measurement: 'kg',
-      weight: 0,
-      type: ProductMainType.NOS,
-      sqFeetMultiplier: 3.5 // Default value
+      taxPercentage: 5,
+      remainingQuantity: 0,
+      blockedQuantity: 0
     });
-    
-    // Ensure sqFeetMultiplier is disabled for non-REGULAR products by default
-    const sqFeetMultiplierControl = this.productForm.get('sqFeetMultiplier');
-    if (sqFeetMultiplierControl) {
-      sqFeetMultiplierControl.disable();
-    }
   }
 
   onSearch(): void {
@@ -436,25 +314,13 @@ export class ProductComponent implements OnInit {
     this.editingId = undefined;
     this.productForm.reset({
       status: 'A',
-      type: 'NOS',
       minimumStock: 0,
       purchaseAmount: 0,
       saleAmount: 0,
       measurement: 'kg',
-      weight: 0,
-      sqFeetMultiplier: 3.5, // Default value
+      taxPercentage: 5,
       remainingQuantity: 0,
       blockedQuantity: 0
-    });
-    
-    // Ensure sqFeetMultiplier is disabled for non-REGULAR products by default
-    const sqFeetMultiplierControl = this.productForm.get('sqFeetMultiplier');
-    if (sqFeetMultiplierControl) {
-      sqFeetMultiplierControl.disable();
-    }
-    
-    this.productForm.get('accessoriesWeight')?.reset({
-      size6: 0, size8: 0, size12: 0, size16: 0, size24: 0, size32: 0, size48: 0
     });
     
     // Calculate initial total remaining quantity

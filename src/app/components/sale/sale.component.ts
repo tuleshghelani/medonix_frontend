@@ -81,7 +81,7 @@ export class SaleComponent implements OnInit {
       customerId: [''],
       startDate: [''],
       endDate: [''],
-      coilNumber: ['']
+      batchNumber: ['']
     });
   }
 

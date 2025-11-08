@@ -20,6 +20,10 @@ export class PurchaseService {
     return this.http.post(`${this.apiUrl}/create`, purchase);
   }
 
+  updatePurchase(purchase: any): Observable<any> {
+    return this.http.post(`${this.apiUrl}/create`, purchase);
+  }
+
   deletePurchase(id: number): Observable<any> {
     return this.http.delete(`${this.apiUrl}/${id}`);
   }
