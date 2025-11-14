@@ -8,7 +8,7 @@ import { map } from 'rxjs/operators';
   providedIn: 'root'
 })
 export class TransportService {
-  private apiUrl = `${environment.apiUrl}/api/transport`;
+  private apiUrl = `${environment.apiUrl}/api/transports`;
 
   constructor(private http: HttpClient) {}
 

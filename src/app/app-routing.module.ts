@@ -9,8 +9,6 @@ import { SaleComponent } from './components/sale/sale.component';
 import { ProfitComponent } from './components/profit/profit.component';
 import { CustomerComponent } from './components/customer/customer.component';
 import { AddCombinedPurchaseSaleComponent } from './components/add-combined-purchase-sale/add-combined-purchase-sale.component';
-import { TransportComponent } from './components/Transports/transport/transport.component';
-import { TransportListComponent } from './components/Transports/transport-list/transport-list.component';
 import { EmployeeListComponent } from './components/employee/employee-list/employee-list.component';
 import { EmployeeFormComponent } from './components/employee/employee-form/employee-form.component';
 import { EmployeeOrderListComponent } from './components/employee-order/employee-order-list/employee-order-list.component';
@@ -25,6 +23,8 @@ import { RoleGuard } from './guards/role.guard';
 import { UserListComponent } from './components/users/user-list/user-list.component';
 import { AddUserComponent } from './components/users/add-user/add-user.component';
 import { AddDealerComponent } from './components/dealers/add-dealer/add-dealer.component';
+import { TransportMasterListComponent } from './components/Transports/transport-master-list/transport-master-list.component';
+import { AddTransportComponent } from './components/Transports/add-transport/add-transport.component';
 
 const routes: Routes = [
   { path: '', redirectTo: '/login', pathMatch: 'full' },
@@ -75,19 +75,22 @@ const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
-    path: 'transport/create',
-    component: TransportComponent,
-    canActivate: [AuthGuard]
+    path: 'transport-master',
+    component: TransportMasterListComponent,
+    canActivate: [AuthGuard, RoleGuard],
+    data: { roles: ['ADMIN', 'SALES_AND_MARKETING', 'DISPATCH'] }
   },
   {
-    path: 'transport',
-    component: TransportListComponent,
-    canActivate: [AuthGuard]
+    path: 'transport-master/create',
+    component: AddTransportComponent,
+    canActivate: [AuthGuard, RoleGuard],
+    data: { roles: ['ADMIN', 'SALES_AND_MARKETING', 'DISPATCH'] }
   },
   {
-    path: 'transport/edit/:id',
-    component: TransportComponent,
-    canActivate: [AuthGuard]
+    path: 'transport-master/edit',
+    component: AddTransportComponent,
+    canActivate: [AuthGuard, RoleGuard],
+    data: { roles: ['ADMIN', 'SALES_AND_MARKETING', 'DISPATCH'] }
   },
   {
     path: 'employee',

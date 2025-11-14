@@ -1,0 +1,85 @@
+<div class="transport-master-list">
+  <div class="search-section card">
+    <h2>Transport Masters</h2>
+    <form [formGroup]="searchForm" (ngSubmit)="onSearch()">
+      <div class="search-controls">
+        <input type="text" class="form-control" placeholder="Search by name, GST, mobile" formControlName="search" />
+        <div class="button-group">
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-search"></i> Search
+          </button>
+          <button type="button" class="btn btn-secondary" (click)="reset()">
+            <i class="fas fa-undo"></i> Reset
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="action-buttons">
+    <a class="btn btn-sm btn-primary" (click)="goToCreateTransport()">
+      <i class="fas fa-plus"></i> Add Transport
+    </a>
+  </div>
+
+  <div class="card">
+    <app-loader [show]="isLoading"></app-loader>
+    <div class="table-responsive" [class.loading]="isLoading">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Mobile</th>
+            <th>GST</th>
+            <th>Remarks</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let t of transports; let i = index">
+            <td>{{ startIndex + i + 1 }}</td>
+            <td>{{ t.name }}</td>
+            <td>{{ t.mobile }}</td>
+            <td>{{ t.gst }}</td>
+            <td>{{ t.remarks }}</td>
+            <td>
+              <span [class]="'status-badge ' + (t.status === 'A' ? 'active' : 'inactive')">
+                {{ t.status === 'A' ? 'Active' : 'Inactive' }}
+              </span>
+            </td>
+            <td class="actions">
+              <button 
+              class="btn-icon edit" 
+              [routerLink]="['/transport-master/edit']"
+              (click)="$event.preventDefault(); onEdit(t.id)"
+              title="Edit Employee"
+            >
+              <i class="fas fa-edit"></i>
+            </button>
+              <button class="btn-icon delete" (click)="delete(t.id)" title="Delete">
+                <i class="fas fa-trash"></i>
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="!isLoading && transports.length === 0">
+            <td colspan="6" class="text-center">No transports found</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <app-pagination
+      *ngIf="totalPages > 0"
+      [currentPage]="currentPage"
+      [pageSize]="pageSize"
+      [totalElements]="totalElements"
+      [pageSizeOptions]="pageSizeOptions"
+      (pageChange)="onPageChange($event)"
+      (pageSizeChange)="onPageSizeChange($event)"
+    ></app-pagination>
+  </div>
+</div>
+
+

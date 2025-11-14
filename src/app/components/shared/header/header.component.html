@@ -38,11 +38,11 @@
                 <i class="fas fa-users"></i> Customer
               </a>
             </li>
-            <li *ngIf="permissions.canViewEmployee">
+            <!-- <li *ngIf="permissions.canViewEmployee">
               <a routerLink="/employee" routerLinkActive="active" (click)="closeAllMenus()">
                 <i class="fas fa-user-tie"></i> Employee
               </a>
-            </li>
+            </li> -->
             <li *ngIf="isAdmin()">
               <a routerLink="/employee" routerLinkActive="active">Employee</a>
             </li>
@@ -54,7 +54,7 @@
             <li *ngIf="isAdmin()">
               <a routerLink="/users" routerLinkActive="active">Users</a>
             </li>
-            <li *ngIf="permissions.canViewFollowup">
+            <!-- <li *ngIf="permissions.canViewFollowup">
               <a routerLink="/followup" routerLinkActive="active" (click)="closeAllMenus()">
                 <i class="fas fa-university"></i>Followup
               </a>
@@ -63,7 +63,7 @@
               <a routerLink="/payment-history" routerLinkActive="active" (click)="closeAllMenus()">
                 <i class="fas fa-money-bill-wave"></i> Payment
               </a>
-            </li>
+            </li> -->
           </ul>
         </li>
         
