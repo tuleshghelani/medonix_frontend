@@ -113,7 +113,7 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
       termsConditions: [''],
       items: this.fb.array([]),
       address: [''],
-      quotationDiscountPercentage: [100, [Validators.required, Validators.min(0), Validators.max(100)]],
+      quotationDiscountPercentage: [0, [Validators.required, Validators.min(0), Validators.max(100)]],
       transportMasterId: [null],
       caseNumber: [''],
       packagingAndForwadingCharges: [0, [Validators.required, Validators.min(0)]]
@@ -149,10 +149,8 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
       id: [initialData?.id || ''],
       productId: [initialData?.productId || '', Validators.required],
       productType: [initialData?.productType || ''],
-      quantity: [initialData?.quantity || 1, [Validators.required, Validators.min(1)]],
+      quantity: [initialData?.quantity || 1, [Validators.required, Validators.min(0.001)]],
       unitPrice: [initialData?.unitPrice || 0, [Validators.required, Validators.min(0.01)]],
-      numberOfRoll: [initialData?.numberOfRoll ?? 0, [Validators.required, Validators.min(0)]],
-      weightPerRoll: [initialData?.weightPerRoll ?? 0, [Validators.required, Validators.min(0)]],
       quotationItemStatus: [initialData?.quotationItemStatus || null],
       remarks: [initialData?.remarks || ''],
       price: [initialData?.price || 0],
@@ -224,14 +222,11 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
       id: [null],
       productId: ['', Validators.required],
       productType: [''],
-      quantity: [0, [Validators.required, Validators.min(0)]],
+      quantity: [1, [Validators.required, Validators.min(0.001)]],
       unitPrice: [0, [Validators.required, Validators.min(0.01)]],
-      numberOfRoll: [0, [Validators.required, Validators.min(0)]],
-      weightPerRoll: [0, [Validators.required, Validators.min(0)]],
-      isQuantityManual: [false],
       remarks: [''],
       price: [0],
-      taxPercentage: [0],
+      taxPercentage: [18],
       taxAmount: [0],
       finalPrice: [0],
       quotationDiscountAmount: [0],
@@ -283,57 +278,29 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
         console.log('selectedProduct >>>', selectedProduct);
         
         if (selectedProduct) {
-          console.log(`Product tax percentage: ${selectedProduct.tax_percentage !== undefined ? selectedProduct.tax_percentage : 'not specified, using default 18'}%`);
+          console.log(`Product tax percentage: ${selectedProduct.taxPercentage !== undefined ? selectedProduct.taxPercentage : 'not specified, using default 18'}%`);
           this.fetchProductPrice(index, selectedProduct);
         }
       });
 
-    // Auto-calculate quantity = numberOfRoll * weightPerRoll unless user manually edits quantity
-    group.get('numberOfRoll')?.valueChanges
-      .pipe(takeUntil(this.destroy$), debounceTime(50))
-      .subscribe(() => this.updateQuantityFromRolls(index));
-    group.get('weightPerRoll')?.valueChanges
-      .pipe(takeUntil(this.destroy$), debounceTime(50))
-      .subscribe(() => this.updateQuantityFromRolls(index));
+    // Handle quantity changes directly
     group.get('quantity')?.valueChanges
       .pipe(takeUntil(this.destroy$), debounceTime(50))
-      .subscribe(() => this.markQuantityManual(index));
+      .subscribe(() => this.calculateItemPrice(index));
+
+    // Recalculate when unit price changes
+    group.get('unitPrice')?.valueChanges
+      .pipe(takeUntil(this.destroy$), debounceTime(50))
+      .subscribe(() => this.calculateItemPrice(index));
+
+    // Recalculate when tax percentage changes (e.g., after product select)
+    group.get('taxPercentage')?.valueChanges
+      .pipe(takeUntil(this.destroy$), debounceTime(50))
+      .subscribe(() => this.calculateItemPrice(index));
   }
 
-  private markQuantityManual(index: number) {
-    const group = this.itemsFormArray.at(index) as FormGroup;
-    if (!group) return;
-    // If quantity was changed directly by user, mark manual
-    if (!group.get('isQuantityManual')?.value) {
-      group.patchValue({ isQuantityManual: true }, { emitEvent: false });
-    }
-  }
 
-  onQuantityEdit(index: number) {
-    this.markQuantityManual(index);
-    this.calculateItemPrice(index);
-  }
-
-  onRollWeightChange(index: number) {
-    this.updateQuantityFromRolls(index);
-  }
-
-  private updateQuantityFromRolls(index: number) {
-    const group = this.itemsFormArray.at(index) as FormGroup;
-    if (!group) return;
-    const isManual = !!group.get('isQuantityManual')?.value;
-    if (isManual) {
-      // Do not auto-update quantity once user has manually edited it
-      return;
-    }
-    const rolls = Number(group.get('numberOfRoll')?.value || 0);
-    const weight = Number(group.get('weightPerRoll')?.value || 0);
-    const computedQty = Number((rolls * weight).toFixed(3));
-    group.patchValue({ quantity: computedQty }, { emitEvent: false });
-    this.calculateItemPrice(index);
-  }
-
-  private calculateItemPrice(index: number, skipChangeDetection = false): void {
+  calculateItemPrice(index: number, skipChangeDetection = false): void {
     const group = this.itemsFormArray.at(index) as FormGroup;
     
     const values = {
@@ -347,26 +314,41 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
     console.log(`Tax percentage used for calculation: ${values.taxPercentage}%`);
     console.log(`Quotation discount percentage on tax only: ${quotationDiscountPercentage}%`);
 
+    // Calculate base price (quantity × unit price)
     const basePrice = Number((values.quantity * values.unitPrice).toFixed(2));
-    // Tax is calculated on base price
+    
+    // Calculate gross tax amount (base price × tax percentage)
     const grossTaxAmount = Number(((basePrice * values.taxPercentage) / 100).toFixed(2));
-    // Quotation discount applies on tax only
+    
+    // Calculate quotation discount amount as a percentage of tax amount
+    // Example: tax=100, quotationDiscountPercentage=60 => discount=60, netTax=40
     const quotationDiscountAmount = Number(((grossTaxAmount * quotationDiscountPercentage) / 100).toFixed(2));
+    
+    // Calculate net tax amount (gross tax amount - quotation discount amount)
     const netTaxAmount = Number((grossTaxAmount - quotationDiscountAmount).toFixed(2));
-    const finalPrice = Number((basePrice + netTaxAmount).toFixed(2));
+    
+    // Ensure net tax is not negative
+    const finalTaxAmount = Math.max(0, netTaxAmount);
+    
+    // Calculate final price (base price + final tax amount)
+    const finalPrice = Number((basePrice + finalTaxAmount).toFixed(2));
 
     group.patchValue({
       price: basePrice,
       quotationDiscountAmount: quotationDiscountAmount,
-      taxAmount: netTaxAmount,
+      taxAmount: finalTaxAmount,
       finalPrice: finalPrice
     }, { emitEvent: false });
 
     console.log(`Item ${index} calculated:`, {
+      quantity: values.quantity,
+      unitPrice: values.unitPrice,
       basePrice,
+      taxPercentage: values.taxPercentage,
+      grossTaxAmount,
       quotationDiscountPercentage,
       quotationDiscountAmount,
-      netTaxAmount,
+      netTaxAmount: finalTaxAmount,
       finalPrice
     });
 
@@ -532,7 +514,7 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
       validUntil: formatDate(validUntil, 'yyyy-MM-dd', 'en'),
       remarks: '',
       termsConditions: '',
-      quotationDiscountPercentage: 100
+      quotationDiscountPercentage: 0
     });
 
     while (this.itemsFormArray.length) {
@@ -559,7 +541,7 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
       const errors = control.errors;
       if (errors) {
         if (errors['required']) return true;
-        if (errors['min'] && (fieldName === 'quantity' || fieldName === 'unitPrice' || fieldName === 'numberOfRoll' || fieldName === 'weightPerRoll')) return true;
+        if (errors['min'] && (fieldName === 'quantity' || fieldName === 'unitPrice')) return true;
       }
     }
 
@@ -616,8 +598,8 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
     
     const itemGroup = this.itemsFormArray.at(index);
     
-    const taxPercentage = selectedProduct.tax_percentage !== undefined ? 
-                        selectedProduct.tax_percentage : 0;
+    const taxPercentage = selectedProduct.taxPercentage !== undefined ? 
+                        selectedProduct.taxPercentage : 18;
     
     console.log(`Setting tax percentage for ${selectedProduct.name}: ${taxPercentage}%`);
     
@@ -636,6 +618,7 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
         itemGroup.patchValue({
           unitPrice: this.productPriceCache.get(cacheKey)
         }, { emitEvent: true });
+        this.calculateItemPrice(index);
         return;
       }
       
@@ -643,8 +626,9 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
       this.loadingPriceIndex = index;
       
       itemGroup.patchValue({
-        unitPrice: selectedProduct.sale_amount || 0
+        unitPrice: (selectedProduct.saleAmount ?? selectedProduct.sale_amount ?? 0)
       }, { emitEvent: true });
+      this.calculateItemPrice(index);
       // this.priceService.getLatestPrices({
       //   productId: selectedProduct.id,
       //   customerId: customerId
@@ -687,8 +671,9 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
       // });
     } else {
       itemGroup.patchValue({
-        unitPrice: selectedProduct.sale_amount || 0
+        unitPrice: (selectedProduct.saleAmount ?? selectedProduct.sale_amount ?? 0)
       }, { emitEvent: true });
+      this.calculateItemPrice(index);
     }
   }
 
@@ -759,7 +744,7 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
       termsConditions: data.termsConditions || '',
       address: data.address,
       contactNumber: data.contactNumber,
-      quotationDiscountPercentage: data.quotationDiscountPercentage || data.quotationDiscount || 100,
+      quotationDiscountPercentage: data.quotationDiscountPercentage || data.quotationDiscount || 0,
       transportMasterId: data.transportMasterId || null,
       caseNumber: data.caseNumber || '',
       packagingAndForwadingCharges: data.packagingAndForwadingCharges ?? 0
@@ -768,8 +753,8 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
     if (data.items && Array.isArray(data.items)) {
       data.items.forEach((item: any) => {
         const product = this.products.find(p => p.id === item.productId);
-        const taxPercentage = product?.tax_percentage !== undefined 
-          ? product.tax_percentage 
+        const taxPercentage = product?.taxPercentage !== undefined 
+          ? product.taxPercentage 
           : (item.taxPercentage ?? 18);
 
         console.log(`Loaded item ${item.productId} with tax percentage: ${taxPercentage}%`);
@@ -778,10 +763,8 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
           id: [item.id || null],
           productId: [item.productId || '', Validators.required],
           productType: [item.productType || ''],
-          quantity: [item.quantity || 1, [Validators.required, Validators.min(1)]],
+          quantity: [item.quantity || 1, [Validators.required, Validators.min(0.001)]],
           unitPrice: [item.unitPrice || 0, [Validators.required, Validators.min(0.01)]],
-          numberOfRoll: [item.numberOfRoll ?? 0, [Validators.required, Validators.min(0)]],
-          weightPerRoll: [item.weightPerRoll ?? 0, [Validators.required, Validators.min(0)]],
           remarks: [item.remarks || ''],
           price: [item.price || 0],
           taxPercentage: [taxPercentage],
@@ -848,8 +831,6 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
         productType: control.get('productType')?.value,
         quantity: control.get('quantity')?.value,
         unitPrice: control.get('unitPrice')?.value,
-        numberOfRoll: control.get('numberOfRoll')?.value,
-        weightPerRoll: control.get('weightPerRoll')?.value,
         remarks: control.get('remarks')?.value,
         price: control.get('price')?.value,
         taxPercentage: control.get('taxPercentage')?.value,
@@ -938,6 +919,42 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
       B: QuotationItemStatus.B,
     } as unknown as Record<string, string>;
     return map[code] || String(code);
+  }
+
+  // Touch event handling for mobile devices
+  private touchStartTime: number = 0;
+  private touchStartX: number = 0;
+  private touchStartY: number = 0;
+  private isTouchScrolling: boolean = false;
+
+  handleTouchStart(event: TouchEvent): void {
+    this.touchStartTime = Date.now();
+    this.touchStartX = event.touches[0].clientX;
+    this.touchStartY = event.touches[0].clientY;
+    this.isTouchScrolling = false;
+  }
+
+  handleTouchMove(event: TouchEvent): void {
+    const touchMoveX = event.touches[0].clientX;
+    const touchMoveY = event.touches[0].clientY;
+    const deltaX = Math.abs(touchMoveX - this.touchStartX);
+    const deltaY = Math.abs(touchMoveY - this.touchStartY);
+    
+    // If user has moved more than 10px, consider it scrolling/dragging
+    if (deltaX > 10 || deltaY > 10) {
+      this.isTouchScrolling = true;
+    }
+  }
+
+  handleTouchEnd(event: TouchEvent): void {
+    const touchEndTime = Date.now();
+    const touchDuration = touchEndTime - this.touchStartTime;
+    
+    // Prevent accidental form submissions from quick taps
+    if (touchDuration < 200 && !this.isTouchScrolling) {
+      // This was a quick tap, not a scroll
+      event.preventDefault();
+    }
   }
 
 }

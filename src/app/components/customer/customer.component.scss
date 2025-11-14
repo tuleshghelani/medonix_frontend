@@ -58,6 +58,11 @@
     background-color: rgba($text-secondary, 0.1);
     color: var(--text-secondary);
   }
+
+  &.pending {
+    background-color: rgba($supporting, 0.12);
+    color: var(--supporting);
+  }
 }
 
 
@@ -172,6 +177,11 @@
 
       &.inactive {
         background-color: var(--primary);
+        color: white;
+      }
+
+      &.pending {
+        background-color: var(--supporting);
         color: white;
       }
     }

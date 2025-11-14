@@ -5,15 +5,27 @@
   cursor: pointer;
   transition: all 0.3s ease;
   font-weight: 500;
+  // Prevent zoom on iOS
+  touch-action: manipulation;
+  // Improve touch target size for mobile
+  @media (max-width: 768px) {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 .add-quotation-container {
     padding: 2rem;
     // max-width: 1400px; 
     margin: 0 auto;
+    // Improve touch scrolling on mobile
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
   
     @media (max-width: 768px) {
       padding: 1rem;
+      // Prevent horizontal scroll on mobile
+      overflow-x: hidden;
     }
   }
   
@@ -199,6 +211,7 @@
 /* Hide number input arrows in Firefox */
 .custom-table input[type="number"] {
   -moz-appearance: textfield;
+  appearance: textfield; /* Standard property for compatibility */
 }
 
 .custom-table th {
@@ -461,10 +474,45 @@
     overflow-x: auto;
     min-height: 500px;
     -webkit-overflow-scrolling: touch;
+    // Improve mobile scrolling
+    touch-action: pan-x;
+    
+    // Custom scrollbar for webkit browsers
+    &::-webkit-scrollbar {
+      height: 8px;
+    }
+    
+    &::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 4px;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background: #c1c1c1;
+      border-radius: 4px;
+      
+      &:hover {
+        background: #a8a8a8;
+      }
+    }
   
     @media (max-width: 768px) {
       margin: 0 -1rem;
       padding: 0 1rem;
+      // Make table more mobile-friendly
+      .products-table {
+        font-size: 0.875rem;
+        
+        th, td {
+          padding: 0.5rem 0.25rem;
+          min-width: 80px;
+          
+          input {
+            font-size: 0.875rem;
+            padding: 0.25rem;
+          }
+        }
+      }
     }
   }
   
@@ -482,25 +530,35 @@
       padding: 1rem;
       white-space: nowrap;
       border-bottom: 2px solid var(--border-color);
+      // Sticky header for mobile
+      @media (max-width: 768px) {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background-color: var(--background-light);
+        padding: 0.75rem 0.5rem;
+        font-size: 0.8rem;
+      }
     }
   
     td {
       padding: 0.75rem 1rem;
       vertical-align: middle;
       border-bottom: 1px solid var(--border-color);
-  
+      
       .form-control {
-        // min-width: 90px;
-        // height: 40px;
+        // Improve touch targets
+        @media (max-width: 768px) {
+          min-height: 40px;
+          font-size: 16px; // Prevent zoom on iOS
+        }
       }
       select {
         width: 38px;
       }
   
       &:first-child {
-        .form-control {
-          // min-width: 200px;
-        }
+        /* Product column styling can be added here if needed */
       }
     }
   
@@ -514,7 +572,7 @@
   
     @media (max-width: 768px) {
       td, th {
-        padding: 0.5rem;
+        padding: 0.5rem 0.25rem;
       }
     }
   }
@@ -576,9 +634,33 @@
   align-items: flex-start;
   gap: 0.5rem;
   width: 100%;
+  // Prevent dropdown issues on mobile
+  position: relative;
 
   app-searchable-select {
     flex: 1;
+    // Ensure dropdown appears above content on mobile
+    z-index: 100;
+    
+    // Mobile dropdown positioning
+    @media (max-width: 768px) {
+      position: relative;
+      
+      // Override any fixed positioning that might cause issues
+      ::ng-deep .dropdown-menu {
+        position: fixed !important;
+        top: auto !important;
+        left: 1rem !important;
+        right: 1rem !important;
+        width: calc(100vw - 2rem) !important;
+        max-width: none !important;
+        z-index: 1000 !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
+        border-radius: 8px !important;
+        max-height: 50vh !important;
+        overflow-y: auto !important;
+      }
+    }
   }
 
   .btn-icon.refresh {
@@ -593,6 +675,8 @@
     background: white;
     transition: all 0.3s ease;
     color: var(--primary);
+    // Prevent zoom on iOS
+    touch-action: manipulation;
 
     &:hover:not(:disabled) {
       background: var(--primary);
@@ -602,6 +686,11 @@
     &:disabled {
       opacity: 0.6;
       cursor: not-allowed;
+    }
+
+    @media (max-width: 768px) {
+      height: 44px;
+      width: 44px;
     }
 
     i {
@@ -727,7 +816,7 @@
         min-width: 100px;
         
         &:nth-child(1) {
-          // min-width: 200px;
+          /* Product column - make it wider on mobile if needed */
         }
       }
     }
@@ -769,7 +858,7 @@
     padding: 0.5rem;
     
     &:first-child {
-      // min-width: 200px;
+      /* First column styling can be added here if needed */
     }
   }
 }
@@ -786,6 +875,113 @@
       .input-group input {
         width: 100%;
       }
+    }
+  }
+}
+
+// Enhanced mobile responsive styles
+@media (max-width: 768px) {
+  .products-header {
+    flex-direction: column;
+    align-items: flex-start;
+    
+    .quotation-discount-wrapper {
+      width: 100%;
+      margin-top: 0.75rem;
+      flex-direction: column;
+      align-items: stretch;
+      
+      .quotation-discount-field {
+        width: 100%;
+        margin-bottom: 1rem;
+        
+        .input-group input {
+          font-size: 16px; // Prevent zoom on iOS
+          height: 44px; // Better touch target
+        }
+      }
+      
+      button {
+        width: 100%;
+        height: 44px;
+        font-size: 16px;
+      }
+    }
+  }
+  
+  .table-responsive {
+    .products-table {
+      th, td {
+        white-space: nowrap;
+        min-width: 80px;
+        font-size: 0.875rem;
+        
+        &:nth-child(1) {
+          // Product column - make it wider on mobile
+          min-width: 150px;
+        }
+      }
+      
+      // Better mobile input styling
+      input {
+        font-size: 16px !important; // Prevent zoom on iOS
+        padding: 0.5rem !important;
+        min-height: 40px !important;
+      }
+    }
+  }
+  
+  // Form improvements for mobile
+  .form-group {
+    margin-bottom: 1rem;
+    
+    input, textarea, select {
+      font-size: 16px !important; // Prevent zoom on iOS
+      min-height: 44px !important;
+      padding: 0.75rem !important;
+    }
+  }
+  
+  // Better button spacing on mobile
+  .form-actions {
+    gap: 0.75rem;
+    
+    .btn {
+      height: 44px;
+      font-size: 16px;
+    }
+  }
+}
+
+// Enhanced responsive adjustments for mobile devices
+@media (max-width: 768px) {
+  .quotation-discount-wrapper {
+    flex-direction: column;
+    align-items: stretch;
+    
+    .quotation-discount-field {
+      margin-bottom: 10px;
+      
+      .input-group input {
+        width: 100%;
+        font-size: 16px; // Prevent zoom on iOS
+        height: 44px; // Better touch target
+      }
+    }
+  }
+  
+  // Prevent horizontal scroll and improve touch experience
+  .add-quotation-container {
+    overflow-x: hidden;
+    touch-action: pan-y;
+  }
+  
+  // Improve form field spacing on mobile
+  .header-section .form-row {
+    gap: 1rem;
+    
+    .form-group {
+      margin-bottom: 1rem;
     }
   }
 }

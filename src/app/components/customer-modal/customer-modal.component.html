@@ -2,7 +2,7 @@
     
   <div class="modal-container" (click)="$event.stopPropagation()">
     <div class="modal-header">
-      <h4><i class="fas fa-user"></i> {{ isEditing ? 'Update' : 'Add New' }} Customer</h4>
+      <h4><i class="fas fa-user"></i> {{ isEditing ? 'Update' : 'Add New' }} Customer/ Dealer</h4>
       <button class="btn close" (click)="close()" title="Close">
         <i class="fa-solid fa-xmark"></i>
       </button>
@@ -98,12 +98,23 @@
 
         <div class="form-group">
           <label for="nextActionDate">Next Action Date</label>
-          <input 
-            type="datetime-local" 
-            id="nextActionDate" 
-            formControlName="nextActionDate" 
-            class="form-control"
-          >
+          <div class="input-group">
+            <input 
+              type="datetime-local" 
+              id="nextActionDate" 
+              formControlName="nextActionDate" 
+              class="form-control"
+            >
+            <button 
+              type="button" 
+              class="btn btn-outline-secondary"
+              title="Clear date"
+              (click)="clearNextActionDate($event)"
+              (touchstart)="$event.preventDefault(); clearNextActionDate($event)"
+            >
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
         </div>
 
         <div class="form-group">
@@ -137,6 +148,16 @@
             rows="3"
           ></textarea>
         </div>
+
+        <div class="form-group">
+          <label for="status">Status</label>
+          <select id="status" formControlName="status" class="form-control" title="Select status">
+            <option value="A">Active</option>
+            <option value="I">Inactive</option>
+            <option value="P">Pending</option>
+          </select>
+        </div>
+
       </div>
 
       <div class="modal-actions">

@@ -13,7 +13,7 @@
   
       <!-- create quotation section -->
       <form [formGroup]="quotationForm" (ngSubmit)="onSubmit()" (keydown.enter)="$event.preventDefault()"
-        class="quotation-form">
+        class="quotation-form" (touchstart)="handleTouchStart($event)" (touchmove)="handleTouchMove($event)" (touchend)="handleTouchEnd($event)">
         <div class="create-quotation-section">
           <div class="create-quotation-header">
             <h3><i class="fa-solid fa-receipt"></i> Create Quotation </h3>
@@ -161,8 +161,6 @@
               <thead>
                 <tr>
                   <th>Product</th>
-                  <th>No. of Roll</th>
-                  <th>Weight Per Roll</th>
                   <th>Quantity</th>
                   <th>Unit Price</th>
                   <th>Remarks</th>
@@ -197,6 +195,7 @@
                           (click)="refreshProducts()"
                           [disabled]="isLoadingProducts" 
                           title="Refresh Products"
+                          (touchstart)="$event.preventDefault()"
                         >
                           <i class="fas" [ngClass]="isLoadingProducts ? 'fa-spinner fa-spin' : 'fa-sync-alt'"></i>
                         </button>
@@ -204,37 +203,21 @@
                     </div>
                   </td>
   
-                  <!-- Common fields -->
+                  <!-- Quantity -->
                   <td>
                     <div class="input-group">
-                      <input type="number" formControlName="numberOfRoll" class="form-control"
-                        [class.is-invalid]="isItemFieldInvalid(i, 'numberOfRoll')" min="0" step="1"
-                        (input)="onRollWeightChange(i)">
+                      <input type="number" formControlName="quantity" class="form-control"
+                        [class.is-invalid]="isItemFieldInvalid(i, 'quantity')" min="0.001" step="0.001"
+                        (input)="calculateItemPrice(i)" (touchstart)="$event.preventDefault()">
                     </div>
                   </td>
-                  <td>
-                    <div class="input-group">
-                      <input type="number" formControlName="weightPerRoll" class="form-control"
-                        [class.is-invalid]="isItemFieldInvalid(i, 'weightPerRoll')" min="0" step="0.01"
-                        (input)="onRollWeightChange(i)">
-                    </div>
-                  </td>
-                  <td>
-                    <input type="number" formControlName="quantity" class="form-control"
-                      [class.is-invalid]="isItemFieldInvalid(i, 'quantity')" min="0" step="0.001"
-                      (input)="onQuantityEdit(i)">
-                  </td>
+                  
+                  <!-- Unit Price -->
                   <td>
                     <div class="input-group">
                       <input type="number" formControlName="unitPrice" class="form-control"
-                        [class.is-invalid]="isItemFieldInvalid(i, 'unitPrice')" min="0.01" step="0.01">
-                      <!-- <span class="input-group-text" *ngIf="isLoadingPrices && loadingPriceIndex === i">
-                        <i class="fas fa-spinner fa-spin"></i>
-                      </span> -->
-                      <!-- Optional debug information -->
-                      <small *ngIf="false" class="form-text text-muted">
-                        PID: {{item.get('productId')?.value}}
-                      </small>
+                        [class.is-invalid]="isItemFieldInvalid(i, 'unitPrice')" min="0.01" step="0.01"
+                        (touchstart)="$event.preventDefault()">
                     </div>
                   </td>
                   
@@ -265,14 +248,14 @@
                   <td>
                     {{ getQuotationItemStatusLabel(item.get('quotationItemStatus')?.value) }}
                   </td>
-                  <!-- Remarks -->
-                  
+                  <!-- Actions -->
                   <td>
                     <button 
                       *ngIf="item?.get('quotationItemStatus')?.value !== 'B'"
                       type="button" 
                       (click)="removeItem(i)" 
-                      class="btn btn-sm btn-danger">
+                      class="btn btn-sm btn-danger"
+                      (touchstart)="$event.preventDefault()">
                       <i class="fa-solid fa-trash"></i>
                     </button>
                   </td>
@@ -282,20 +265,19 @@
                 <tr>
                   <td colspan="1" class="text-end"><strong>Total:</strong></td>
                   <td colspan="1" class="text-end"><strong>item price:</strong></td>
-                  <td colspan="2">
+                  <td colspan="1">
                     <div class="input-group">
-                      <!-- <span class="input-group-text">₹</span> -->
                       <input type="number" [value]="totals.price" class="form-control" readonly>
                     </div>
                   </td>
                   <td colspan="1" class="text-end"><strong>dis.:</strong></td>
-                  <td colspan="2">
+                  <td colspan="1">
                     <div class="input-group">
                       <input type="number" [value]="totals.quotationDiscountAmount" class="form-control" readonly>
                     </div>
                   </td>
                   <td colspan="1" class="text-end"><strong>tax price:</strong></td>
-                  <td colspan="2">
+                  <td colspan="1">
                     <div class="input-group">
                       <input type="number" [value]="totals.tax" class="form-control" readonly>
                     </div>
@@ -303,7 +285,6 @@
                   <td colspan="1" class="text-end"><strong>final price:</strong></td>
                   <td colspan="2">
                     <div class="input-group">
-                      <!-- <span class="input-group-text">₹</span> -->
                       <input type="number" [value]="totals.finalPrice" class="form-control" readonly>
                     </div>
                   </td>

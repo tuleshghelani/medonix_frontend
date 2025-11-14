@@ -20,6 +20,7 @@ export interface CustomerSearchRequest {
   search?: string;
   startDate?: string;
   endDate?: string;
+  status?: 'A' | 'I' | 'P';
 }
 
 export interface CustomerResponse {

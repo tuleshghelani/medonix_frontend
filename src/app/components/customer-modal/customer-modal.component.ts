@@ -165,6 +165,17 @@ export class CustomerModalComponent implements OnInit, OnDestroy {
     }
   }
 
+  clearNextActionDate(evt?: Event) {
+    if (evt) {
+      evt.preventDefault();
+      evt.stopPropagation();
+    }
+    const ctrl = this.customerForm.get('nextActionDate');
+    ctrl?.setValue(null, { emitEvent: true });
+    ctrl?.markAsDirty();
+    ctrl?.markAsTouched();
+  }
+
   close() {
     this.modalService.close();
     this.customerForm.reset();

@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { CustomerService } from '../../services/customer.service';
 import { Customer, CustomerSearchRequest } from '../../models/customer.model';
 import { ToastrService } from 'ngx-toastr';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { CustomerModalComponent } from '../customer-modal/customer-modal.component';
 import { ModalService } from '../../services/modal.service';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
@@ -41,7 +41,8 @@ export class CustomerComponent implements OnInit, OnDestroy {
     private customerService: CustomerService,
     private fb: FormBuilder,
     private toastr: ToastrService,
-    public modalService: ModalService
+    public modalService: ModalService,
+    private router: Router
   ) {
     this.initializeForm();
   }
@@ -75,6 +76,7 @@ export class CustomerComponent implements OnInit, OnDestroy {
   private initializeForm(): void {
     this.searchForm = this.fb.group({
       search: [''],
+      status: [''],
       startDate: [''],
       endDate: ['']
     });
@@ -111,6 +113,9 @@ export class CustomerComponent implements OnInit, OnDestroy {
     if (formValues.endDate) {
       params.endDate = this.formatDateForApi(formValues.endDate, false);
     }
+    if (formValues.status) {
+      params.status = formValues.status;
+    }
 
     this.customerService.searchCustomers(params)
       .pipe(takeUntil(this.destroy$))
@@ -146,6 +151,9 @@ export class CustomerComponent implements OnInit, OnDestroy {
     this.loadCustomers();
   }
 
+  openDealerRegister() {
+    this.router.navigate(['/dealers/register']);
+  }
   // Update the openCustomerModal method
   openCustomerModal(customer?: Customer) {
     this.modalService.open('customer', customer);
@@ -161,7 +169,7 @@ export class CustomerComponent implements OnInit, OnDestroy {
   }
 
   resetForm(): void {
-    this.searchForm.reset();
+    this.searchForm.reset({ search: '', status: '', startDate: '', endDate: '' });
     this.currentPage = 0;
     this.loadCustomers();
   }

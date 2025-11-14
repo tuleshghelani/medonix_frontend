@@ -11,6 +11,13 @@
             placeholder="Search customers..."
           >
         </div>
+        <div class="form-group status-filter">
+          <select formControlName="status" class="form-control" title="Filter by status">
+            <option value="A">Active</option>
+            <option value="I">Inactive</option>
+            <option value="P">Pending</option>
+          </select>
+        </div>
         <div class="form-group">
           <input 
             type="date" 
@@ -39,8 +46,8 @@
     </form>
   </div>
 
-  <button class="btn btn-sm btn-primary add-customer-btn mb-2" (click)="openCustomerModal()">
-    <i class="fas fa-plus"></i> Add Customer
+  <button class="btn btn-sm btn-primary add-customer-btn mb-2" (click)="openDealerRegister()">
+    <i class="fas fa-plus"></i> Add Customer / Dealer
   </button>
 
   <div class="customers-list card">
@@ -73,11 +80,18 @@
               <td>{{customer.gst}}</td>
               <td>{{customer.address}}</td>
               <td>₹{{customer.remainingPaymentAmount | number:'1.2-2'}}</td>
-              <td>{{customer.nextActionDate | date:'medium'}}</td>
+              <td>{{ (customer.nextActionDate || null) | date:'medium' }}</td>
               <td>{{customer.remarks}}</td>
               <td>
-                <span class="status-badge" [ngClass]="{'active': customer.status === 'A', 'inactive': customer.status !== 'A'}">
-                  {{customer.status === 'A' ? 'Active' : 'Inactive'}}
+                <span 
+                  class="status-badge" 
+                  [ngClass]="{
+                    'active': customer.status === 'A',
+                    'inactive': customer.status === 'I',
+                    'pending': customer.status === 'P'
+                  }"
+                >
+                  {{ customer.status === 'A' ? 'Active' : (customer.status === 'I' ? 'Inactive' : 'Pending') }}
                 </span>
               </td>
               <td class="actions">

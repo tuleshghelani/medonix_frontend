@@ -29,6 +29,9 @@ export class CustomerService {
   }
 
   updateCustomer(id: number, customer: any): Observable<any> {
+    if(customer.nextActionDate == "") {
+      customer.nextActionDate = null;
+    }
     return this.http.put(`${this.apiUrl}/${id}`, customer);
   }  
 
