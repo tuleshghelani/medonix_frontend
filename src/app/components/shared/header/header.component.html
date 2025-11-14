@@ -1,9 +1,13 @@
 <header class="header">
   <nav class="nav-container">
     <div class="nav-top">
-      <!-- <div class="logo">
-        <span>Inventory System</span>
-      </div> -->
+      <div class="logo">
+        <span>Several Polymers</span>
+      </div>
+      
+      <div class="user-info" *ngIf="isAuthenticated">
+        <span class="user-roles">{{ getUserRoles() }}</span>
+      </div>
       
       <button class="mobile-menu-toggle" (click)="toggleMobileMenu()" *ngIf="isAuthenticated">
         <i class="fas" [class.fa-bars]="!isMobileMenuOpen" [class.fa-times]="isMobileMenuOpen"></i>
@@ -12,50 +16,101 @@
 
     <div class="nav-content" [class.show]="isMobileMenuOpen" *ngIf="isAuthenticated">
       <ul class="nav-links">
-        <li class="dropdown">
+        <!-- Master Menu -->
+        <li class="dropdown" *ngIf="hasMasterMenuItems()">
           <a (click)="toggleMasterMenu($event)" [class.active]="isMasterActive()">
             <i class="fas fa-th-large"></i> Master
             <i class="fas fa-chevron-down"></i>
           </a>
           <ul class="dropdown-menu" [class.show]="showMasterMenu">
-            <li *ngIf="canViewMenu('category')">
-              <a routerLink="/category" routerLinkActive="active">Category</a>
+            <li *ngIf="permissions.canViewCategory">
+              <a routerLink="/category" routerLinkActive="active" (click)="closeAllMenus()">
+                <i class="fas fa-tags"></i> Category
+              </a>
             </li>
-            <li *ngIf="canViewMenu('product')">
-              <a routerLink="/product" routerLinkActive="active">Product</a>
+            <li *ngIf="permissions.canViewProduct">
+              <a routerLink="/product" routerLinkActive="active" (click)="closeAllMenus()">
+                <i class="fas fa-box"></i> Product
+              </a>
             </li>
-            <li *ngIf="isAdmin()">
-              <a routerLink="/customer" routerLinkActive="active">Customer</a>
+            <li *ngIf="permissions.canViewCustomer">
+              <a routerLink="/customer" routerLinkActive="active" (click)="closeAllMenus()">
+                <i class="fas fa-users"></i> Customer
+              </a>
+            </li>
+            <li *ngIf="permissions.canViewEmployee">
+              <a routerLink="/employee" routerLinkActive="active" (click)="closeAllMenus()">
+                <i class="fas fa-user-tie"></i> Employee
+              </a>
             </li>
             <li *ngIf="isAdmin()">
               <a routerLink="/employee" routerLinkActive="active">Employee</a>
             </li>
+            <li *ngIf="permissions.canViewTransport">
+              <a routerLink="/transport-master" routerLinkActive="active" (click)="closeAllMenus()">
+                <i class="fas fa-truck"></i> Transport
+              </a>
+            </li>
             <li *ngIf="isAdmin()">
               <a routerLink="/users" routerLinkActive="active">Users</a>
             </li>
-            <li *ngIf="isAdmin()">
-              <a routerLink="/chart" routerLinkActive="active">Chart</a>
+            <li *ngIf="permissions.canViewFollowup">
+              <a routerLink="/followup" routerLinkActive="active" (click)="closeAllMenus()">
+                <i class="fas fa-university"></i>Followup
+              </a>
             </li>
-            <li *ngIf="isAdmin()">
-              <a routerLink="/data-center" routerLinkActive="active">Data Center</a>
+            <li *ngIf="permissions.canViewPayment">
+              <a routerLink="/payment-history" routerLinkActive="active" (click)="closeAllMenus()">
+                <i class="fas fa-money-bill-wave"></i> Payment
+              </a>
             </li>
           </ul>
         </li>
         
-        <li class="dropdown" *ngIf="isAdmin()">
+        <!-- Transaction Menu -->
+        <li class="dropdown" *ngIf="hasTransactionMenuItems()">
           <a (click)="toggleTransactionMenu($event)" [class.active]="isTransactionActive()">
             <i class="fas fa-exchange-alt"></i> Transaction
             <i class="fas fa-chevron-down"></i>
           </a>
           <ul class="dropdown-menu" [class.show]="showTransactionMenu">
-            <li><a routerLink="/purchase" routerLinkActive="active">Purchase</a></li>
-            <li><a routerLink="/sale" routerLinkActive="active">Sale</a></li>
+            <li *ngIf="permissions.canViewPurchase">
+              <a routerLink="/purchase" routerLinkActive="active" (click)="closeAllMenus()">
+                <i class="fas fa-shopping-cart"></i> Purchase
+              </a>
+            </li>
+            <li *ngIf="permissions.canViewSale">
+              <a routerLink="/sale" routerLinkActive="active" (click)="closeAllMenus()">
+                <i class="fas fa-hand-holding-usd"></i> Sale
+              </a>
+            </li>            
           </ul>
         </li>
         
-        <li class="dropdown" *ngIf="canViewMenu('quotation')">
-          <a (click)="toggleQuotationMenu($event)" [class.active]="isQuotationActive()">
-            <i class="fas fa-file-alt"></i> Quotation
+        <!-- Dispatch Quotation Menu -->
+        <li class="dropdown" *ngIf="hasDispatchQuotationMenuItems()">
+          <a (click)="toggleDispatchQuotationMenu($event)" [class.active]="isDispatchQuotationActive()">
+            <i class="fas fa-exchange-alt"></i> Dispatch Quotation
+            <i class="fas fa-chevron-down"></i>
+          </a>
+          <ul class="dropdown-menu" [class.show]="showDispatchQuotationMenu">            
+            <li *ngIf="permissions.canViewQuotation">
+              <a routerLink="/quotation" routerLinkActive="active" (click)="closeAllMenus()">
+                <i class="fas fa-hand-holding-usd"></i> Quotation
+              </a>
+            </li> 
+            <li *ngIf="permissions.canViewDispatchQuotation">
+              <a routerLink="/quotation/dispatch-list" routerLinkActive="active" (click)="closeAllMenus()">
+                <i class="fas fa-shopping-cart"></i> Dispatch Quotation
+              </a>
+            </li>           
+          </ul>
+        </li>
+
+        <!-- Employee Menu -->
+        <li class="dropdown" *ngIf="hasEmployeeMenuItems()">
+          <a (click)="toggleEmployeeMenu($event)" [class.active]="isEmployeeActive()">
+            <i class="fas fa-users"></i> Employee
             <i class="fas fa-chevron-down"></i>
           </a>
           <ul class="dropdown-menu" [class.show]="showQuotationMenu">

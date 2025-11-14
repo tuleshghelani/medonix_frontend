@@ -18,7 +18,7 @@ export enum UserRole {
   ADMIN = 'ADMIN',
   DISPATCH = 'DISPATCH',
   SALES_AND_MARKETING = 'SALES_AND_MARKETING',
-  OPERATOR = 'OPERATOR',
+  DEALER = 'DEALER',
   HR = 'HR',
   REPORTER = 'REPORTER'
 }
@@ -149,5 +149,21 @@ export class AuthService {
 
   isProductManager(): boolean {
     return this.hasRole('STAFF_ADMIN');
+  }
+  
+  getDefaultRoute(): string {
+    const userRoles = this.getUserRoles();
+    
+    if (userRoles.includes(UserRole.ADMIN)) {
+      return '/category';
+    } else if (userRoles.includes(UserRole.SALES_AND_MARKETING)) {
+      return '/category';
+    } else if (userRoles.includes(UserRole.HR)) {
+      return '/employee';
+    } else if (userRoles.includes(UserRole.DISPATCH)) {
+      return '/category';
+    } else {
+      return '/login'; // For OPERATOR and REPORTER who have no access yet
+    }
   }
 }
