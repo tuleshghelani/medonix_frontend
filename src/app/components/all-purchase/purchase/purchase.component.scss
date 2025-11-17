@@ -235,6 +235,29 @@
     }
   }
   
+  .status-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    white-space: nowrap;
+
+    &.pass {
+      background-color: rgba(40, 167, 69, 0.15);
+      color: #28a745;
+    }
+
+    &.pending {
+      background-color: rgba(255, 193, 7, 0.15);
+      color: #ffc107;
+    }
+  }
+  
   ::ng-deep {
     .custom-snackbar {
       &.success {

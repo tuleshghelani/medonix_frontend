@@ -81,6 +81,7 @@
             <th>Customer Name</th>
             <th>Purchase Date</th>
             <th>Total Purchase Amount</th>
+            <th>QC Status</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -91,6 +92,15 @@
             <td>{{ purchase.customerName }}</td>
             <td>{{ purchase.purchaseDate |  date:'dd-MM-yyyy' }}</td>
             <td>{{ purchase.totalPurchaseAmount ?? 0 }}</td>
+            <td>
+              <span
+                class="status-chip"
+                [class.pass]="purchase.isQcPass"
+                [class.pending]="!purchase.isQcPass"
+              >
+                {{ purchase.isQcPass ? 'Pass' : 'Pending' }}
+              </span>
+            </td>
             <td class="actions">
               <button 
                 class="btn-icon edit" 
@@ -98,6 +108,13 @@
                 title="Edit Purchase"
               >
                 <i class="fas fa-eye"></i>
+              </button>
+              <button 
+                class="btn-icon qc" 
+                (click)="openQc(purchase.id!)"
+                title="Purchase QC"
+              >
+                <i class="fas fa-clipboard-check"></i>
               </button>
               <button 
                 class="btn-icon delete" 

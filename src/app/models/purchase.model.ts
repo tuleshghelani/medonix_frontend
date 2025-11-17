@@ -13,6 +13,7 @@ export interface Purchase {
   // totalAmount?: number;
   remarks?: string;
   batchNumber?: string;
+  isQcPass?: boolean;
 
   id?: number;
   customerId: number;

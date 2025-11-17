@@ -199,4 +199,9 @@ export class PurchaseComponent implements OnInit {
     this.router.navigate(['/purchase/create']);
   }
 
+  openQc(id: number): void {
+    const encryptedId = this.encryptionService.encrypt(id.toString());
+    this.router.navigate(['/purchase/qc', encryptedId]);
+  }
+
 }
