@@ -90,13 +90,13 @@
         <!-- Dispatch Quotation Menu -->
         <li class="dropdown" *ngIf="hasDispatchQuotationMenuItems()">
           <a (click)="toggleDispatchQuotationMenu($event)" [class.active]="isDispatchQuotationActive()">
-            <i class="fas fa-exchange-alt"></i> Dispatch Quotation
+            <i class="fas fa-exchange-alt"></i> Dispatch Order
             <i class="fas fa-chevron-down"></i>
           </a>
           <ul class="dropdown-menu" [class.show]="showDispatchQuotationMenu">            
             <li *ngIf="permissions.canViewQuotation">
               <a routerLink="/quotation" routerLinkActive="active" (click)="closeAllMenus()">
-                <i class="fas fa-hand-holding-usd"></i> Quotation
+                <i class="fas fa-hand-holding-usd"></i> Order
               </a>
             </li> 
             <li *ngIf="permissions.canViewDispatchQuotation">
@@ -108,7 +108,7 @@
         </li>
 
         <!-- Employee Menu -->
-        <li class="dropdown" *ngIf="hasEmployeeMenuItems()">
+        <!-- <li class="dropdown" *ngIf="hasEmployeeMenuItems()">
           <a (click)="toggleEmployeeMenu($event)" [class.active]="isEmployeeActive()">
             <i class="fas fa-users"></i> Employee
             <i class="fas fa-chevron-down"></i>
@@ -121,7 +121,7 @@
         </li>
         <li *ngIf="canViewMenu('attendance')">
           <a routerLink="/attendance" routerLinkActive="active">Attendance</a>
-        </li>
+        </li> -->
       </ul>
 
       <div class="nav-actions">
