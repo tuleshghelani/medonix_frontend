@@ -36,6 +36,7 @@ export class ProductService {
 
     return this.http.post<any>(`${this.apiUrl}/getProducts`, {
       search: params.search,
+      hsnCode: params.hsnCode,
       categoryId: params.categoryId,
       status: params.status
     }).pipe(

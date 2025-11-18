@@ -75,6 +75,7 @@ export class ProductComponent implements OnInit {
   private initializeForms(): void {
     this.productForm = this.fb.group({
       name: ['', [Validators.required]],
+      hsnCode: [''],
       categoryId: ['', [Validators.required]],
       minimumStock: [0, [Validators.required, Validators.min(0)]],
       purchaseAmount: [0, [Validators.required, Validators.min(0)]],
@@ -113,6 +114,7 @@ export class ProductComponent implements OnInit {
 
     this.searchForm = this.fb.group({
       search: [''],
+      hsnCode: [''],
       categoryId: [''],
       status: ['A']
     });
@@ -228,6 +230,7 @@ export class ProductComponent implements OnInit {
     
     this.productForm.patchValue({
       name: product.name,
+      hsnCode: product.hsnCode,
       categoryId: product.categoryId,
       description: product.description,
       minimumStock: product.minimumStock,

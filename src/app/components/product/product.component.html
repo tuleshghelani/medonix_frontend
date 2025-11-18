@@ -13,6 +13,14 @@
           >
         </div>
         <div class="form-group">
+          <input
+            type="text"
+            formControlName="hsnCode"
+            class="form-control"
+            placeholder="HSN Code"
+          >
+        </div>
+        <div class="form-group">
           <select formControlName="categoryId" class="form-control">
             <option value="">All Categories</option>
             <option *ngFor="let category of categories" [value]="category.id">
@@ -30,7 +38,7 @@
           <i class="fas fa-search"></i> Search
         </button>
 
-        <button class="btn btn-sm btn-primary mb-2" (click)="exportProducts()">
+        <button type="button" class="btn btn-sm btn-primary mb-2" (click)="exportProducts()">
           <i class="fas fa-file-pdf"></i> Export Product
         </button>
       </div>
@@ -49,6 +57,7 @@
         <thead>
           <tr>
             <th>Name</th>
+            <th>HSN Code</th>
             <th>Category</th>
             <th>Description</th>
             <th>Min Stock</th>
@@ -64,6 +73,7 @@
         <tbody>
           <tr *ngFor="let product of products">
             <td [innerHTML]="sanitizeHtml(product.name)"></td>
+            <td>{{ product.hsnCode }}</td>
             <td>{{ product.categoryName }}</td>
             <td>{{ product.description }}</td>
             <td>{{ product.minimumStock }}</td>
@@ -142,6 +152,19 @@
         <div class="invalid-feedback" *ngIf="productForm.get('name')?.invalid && productForm.get('name')?.touched">
           Product name is required
         </div>
+      </div>
+
+      <div class="form-group">
+        <label for="hsnCode">
+          <i class="fas fa-barcode"></i> HSN Code
+        </label>
+        <input 
+          type="text" 
+          id="hsnCode" 
+          formControlName="hsnCode" 
+          class="form-control"
+          placeholder="Enter HSN code"
+        >
       </div>
 
       <div class="form-group">

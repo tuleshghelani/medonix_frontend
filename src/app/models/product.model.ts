@@ -27,6 +27,7 @@ export const PolyCarbonateTypeDisplay = {
 export interface Product {
   id?: number;
   name: string;
+  hsnCode?: string;
   categoryId: number;
   categoryName?: string;
   description: string;
@@ -54,6 +55,7 @@ export interface Product {
 
 export interface ProductSearchRequest {
   search?: string;
+  hsnCode?: string;
   categoryId?: number;
   status?: string;
   size?: number;
