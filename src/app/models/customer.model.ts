@@ -4,6 +4,7 @@ export interface Customer {
   mobile: string;
   email: string;
   gst: string;
+  dlNumber?: string;
   address: string;
   remainingPaymentAmount: number;
   nextActionDate: string;

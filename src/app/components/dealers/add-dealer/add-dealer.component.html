@@ -6,7 +6,7 @@
         <p class="subtitle">Create your dealer account. Quick approval follows verification.</p>
       </div>
 
-      <form [formGroup]="form" (ngSubmit)="submit()" novalidate class="form-grid">
+      <form [formGroup]="form" (ngSubmit)="submit()" (keydown.enter)="$event.preventDefault()" novalidate class="form-grid">
         <div class="grid two">
           <div class="field">
             <label for="firstName">First name</label>
@@ -53,6 +53,12 @@
             <input id="mobile" type="tel" formControlName="mobile" placeholder="9876543210" autocomplete="tel" />
             <small class="error" *ngIf="f['mobile'].touched && f['mobile'].invalid">Enter a valid 10-digit mobile</small>
           </div>
+        </div>
+
+        <div class="field">
+          <label for="dlNumber">DL Number</label>
+          <input id="dlNumber" type="text" formControlName="dlNumber" placeholder="License number" />
+          <small class="error" *ngIf="f['dlNumber'].touched && f['dlNumber'].invalid">DL Number is too long</small>
         </div>
 
         <div class="field">

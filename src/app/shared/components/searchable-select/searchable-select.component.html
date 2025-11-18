@@ -25,12 +25,14 @@
     </div>
   </div>
   
-  <div class="select-dropdown" *ngIf="isOpen" [style.max-height]="maxHeight">
+  <div class="select-dropdown" *ngIf="isOpen" [style.max-height]="maxHeight"
+       (mousedown)="onDropdownPointerDown($event)"
+       (touchstart)="onDropdownPointerDown($event)">
     <div class="options-container" [class.virtual-scroll]="virtualScroll">
       <div 
         class="option" 
         *ngFor="let option of filteredOptions; let i = index"
-        (mousedown)="selectOption(option)"
+        (click)="selectOption(option, $event)"
         [class.selected]="isSelected(option)"
         [class.highlighted]="i === highlightedIndex"
       >

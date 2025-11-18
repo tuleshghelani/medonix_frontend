@@ -46,7 +46,8 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
   selectedValues: any[] = [];
   filteredOptions: any[] = [];
   highlightedIndex: number = -1;
-  
+  interactingWithDropdown = false;
+
   onChange: any = () => {};
   onTouch: any = () => {};
 
@@ -85,8 +86,12 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
     return this.multiple ? this.selectedValues.length > 0 : !!this.selectedValue;
   }
   
-  onDropdownPointerDown() {
+  onDropdownPointerDown(event?: Event) {
     // Prevent input blur from closing dropdown prematurely on mobile
+    if (event) {
+      event.stopPropagation();
+    }
+    this.interactingWithDropdown = true;
   }
 
   
@@ -208,6 +213,9 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
 
   onBlur() {
     setTimeout(() => {
+      if (this.interactingWithDropdown) {
+        return;
+      }
       if (!this.multiple) {
         this.isOpen = false;
         this.highlightedIndex = -1;
@@ -306,6 +314,7 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
     }
     this.onTouch();
     this.selectionChange.emit({ value: this.selectedValue });
+    this.interactingWithDropdown = false;
   }
 
   // Clear selection
@@ -419,6 +428,7 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
   onClickOutside(event: Event) {
     if (!this.elementRef.nativeElement.contains(event.target)) {
       this.isOpen = false;
+      this.interactingWithDropdown = false;
       if (!this.multiple) {
         const selected = this.options.find(opt => opt[this.valueKey] === this.selectedValue);
         this.searchText = selected ? selected[this.labelKey] : '';

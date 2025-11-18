@@ -10,6 +10,7 @@ export interface RegisterDealerRequest {
   lastName: string;
   customerName: string;
   gst: string;
+  dlNumber?: string;
   address: string;
   mobile: string;
   remarks?: string;
@@ -33,7 +34,7 @@ export class DealersService {
   constructor(private http: HttpClient) {}
 
   registerDealer(body: RegisterDealerRequest): Observable<RegisterDealerResponse> {
-    return this.http.post<RegisterDealerResponse>(`${this.baseUrl}/api/dealers/register`, body);
+    return this.http.post<RegisterDealerResponse>(`${this.baseUrl}/api/customers/register`, body);
   }
 }
 
