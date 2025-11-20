@@ -115,7 +115,7 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
     this.addItem(true);
   }
 
-  get isCustomerIdSelected(){
+  get isCustomerIdSelected() {
     return this.quotationForm?.get('customerId')?.value
   }
 
@@ -130,7 +130,7 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
             this.quotationForm.patchValue({ address: selectedCustomer.address });
             this.quotationForm.patchValue({ contactNumber: selectedCustomer.mobile });
             this.quotationForm.patchValue({ referenceName: selectedCustomer.referenceName });
-            
+
           }
         }
       });
@@ -167,7 +167,7 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
     this.setupItemCalculations(itemGroup, newIndex);
     this.subscribeToItemChanges(this.itemsFormArray.at(newIndex), newIndex);
     this.calculateItemPrice(newIndex, isInitializing);
-    
+
     this.loadProducts();
     this.loadCustomers();
     this.loadTransports();
@@ -660,11 +660,20 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Validate that the status is one of the allowed values
+    const validStatuses = ['O', 'IP', 'C', 'B'];
+    if (!validStatuses.includes(newStatus)) {
+      this.snackbar.error('Invalid status value');
+      group.patchValue({ quotationItemStatus: previousStatus }, { emitEvent: false });
+      this.cdr.detectChanges();
+      return;
+    }
+
     // Enforce forward-only transitions
     const isInvalidTransition =
-      (previousStatus === 'I' && newStatus === 'O') ||
-      (previousStatus === 'C' && (newStatus === 'O' || newStatus === 'I')) ||
-      (previousStatus === 'B' && (newStatus === 'O' || newStatus === 'I' || newStatus === 'C'));
+      (previousStatus === 'IP' && newStatus === 'O') ||
+      (previousStatus === 'C' && (newStatus === 'O' || newStatus === 'IP')) ||
+      (previousStatus === 'B' && (newStatus === 'O' || newStatus === 'IP' || newStatus === 'C'));
 
     if (isInvalidTransition) {
       this.snackbar.error('Invalid transition. Status can only move forward.');
@@ -674,7 +683,8 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.quotationService.updateQuotationItemStatus(id, newStatus)
+    // Type assertion after validation
+    this.quotationService.updateQuotationItemStatus(id, newStatus as 'O' | 'IP' | 'C' | 'B')
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (res) => {

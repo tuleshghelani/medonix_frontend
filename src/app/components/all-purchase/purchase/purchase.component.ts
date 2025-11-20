@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { PurchaseService } from '../../../services/purchase.service';
@@ -18,14 +18,16 @@ import { PaginationComponent } from '../../../shared/components/pagination/pagin
 import { CustomerService } from '../../../services/customer.service';
 import { RoundPipe } from '../../../round.pipe';
 import { EncryptionService } from '../../../shared/services/encryption.service';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 @Component({
   selector: 'app-purchase',
   standalone: true,
   imports: [
-    CommonModule, 
-    ReactiveFormsModule, 
-    FormsModule, 
+    CommonModule,
+    ReactiveFormsModule,
+    FormsModule,
     RouterModule,
     MatDialogModule,
     SaleModalComponent,
@@ -37,11 +39,11 @@ import { EncryptionService } from '../../../shared/services/encryption.service';
   templateUrl: './purchase.component.html',
   styleUrls: ['./purchase.component.scss']
 })
-export class PurchaseComponent implements OnInit {
+export class PurchaseComponent implements OnInit, OnDestroy {
   purchases: Purchase[] = [];
   searchForm!: FormGroup;
   isLoading = false;
-  
+
   // Pagination properties
   currentPage = 0;
   pageSize = 10;
@@ -55,6 +57,7 @@ export class PurchaseComponent implements OnInit {
   isLoadingProducts = false;
   customers: any[] = [];
   isLoadingCustomers = false;
+  private destroy$ = new Subject<void>();
 
   constructor(
     private purchaseService: PurchaseService,
@@ -96,20 +99,22 @@ export class PurchaseComponent implements OnInit {
       ...this.searchForm.value,
     };
 
-    this.purchaseService.searchPurchases(params).subscribe({
-      next: (response) => {
-        this.purchases = response.content;
-        this.totalPages = response.totalPages;
-        this.totalElements = response.totalElements;
-        this.startIndex = this.currentPage * this.pageSize;
-        this.endIndex = Math.min((this.currentPage + 1) * this.pageSize, this.totalElements);
-        this.isLoading = false;
-      },
-      error: (error) => {
-        this.snackbar.error(error.message || 'Failed to load purchases');
-        this.isLoading = false;
-      }
-    });
+    this.purchaseService.searchPurchases(params)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          this.purchases = response.content;
+          this.totalPages = response.totalPages;
+          this.totalElements = response.totalElements;
+          this.startIndex = this.currentPage * this.pageSize;
+          this.endIndex = Math.min((this.currentPage + 1) * this.pageSize, this.totalElements);
+          this.isLoading = false;
+        },
+        error: (error) => {
+          this.snackbar.error(error.message || 'Failed to load purchases');
+          this.isLoading = false;
+        }
+      });
   }
 
   onSearch(): void {
@@ -136,50 +141,56 @@ export class PurchaseComponent implements OnInit {
   deletePurchase(id: number): void {
     if (confirm('Are you sure you want to delete this purchase? This action cannot be undone.')) {
       this.isLoading = true;
-      this.purchaseService.deletePurchase(id).subscribe({
-        next: () => {
-          this.snackbar.success('Purchase deleted successfully');
-          this.loadPurchases();
-        },
-        error: (error) => {
-          this.snackbar.error(error?.error?.message || 'Failed to delete purchase');
-          this.isLoading = false;
-        }
-      });
+      this.purchaseService.deletePurchase(id)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: () => {
+            this.snackbar.success('Purchase deleted successfully');
+            this.loadPurchases();
+          },
+          error: (error) => {
+            this.snackbar.error(error?.error?.message || 'Failed to delete purchase');
+            this.isLoading = false;
+          }
+        });
     }
   }
 
   private loadCustomers(): void {
     this.isLoadingCustomers = true;
-    this.customerService.getCustomers({ status: 'A' }).subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.customers = response.data;
+    this.customerService.getCustomers({ status: 'A' })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.customers = response.data;
+          }
+          this.isLoadingCustomers = false;
+        },
+        error: (error) => {
+          this.snackbar.error('Failed to load customers');
+          this.isLoadingCustomers = false;
         }
-        this.isLoadingCustomers = false;
-      },
-      error: (error) => {
-        this.snackbar.error('Failed to load customers');
-        this.isLoadingCustomers = false;
-      }
-    });
+      });
   }
 
   refreshCustomers(): void {
     this.isLoadingCustomers = true;
-    this.customerService.refreshCustomers().subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.customers = response.data;
-          this.snackbar.success('Customers refreshed successfully');
+    this.customerService.refreshCustomers()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.customers = response.data;
+            this.snackbar.success('Customers refreshed successfully');
+          }
+          this.isLoadingCustomers = false;
+        },
+        error: (error) => {
+          this.snackbar.error('Failed to refresh customers');
+          this.isLoadingCustomers = false;
         }
-        this.isLoadingCustomers = false;
-      },
-      error: (error) => {
-        this.snackbar.error('Failed to refresh customers');
-        this.isLoadingCustomers = false;
-      }
-    });
+      });
   }
 
   resetForm(): void {
@@ -187,7 +198,7 @@ export class PurchaseComponent implements OnInit {
     this.currentPage = 0;
     this.loadPurchases();
   }
-  
+
 
   editPurchase(id: number): void {
     localStorage.setItem('purchaseId', this.encryptionService.encrypt(id.toString())); // Save the ID to local storage
@@ -204,4 +215,8 @@ export class PurchaseComponent implements OnInit {
     this.router.navigate(['/purchase/qc', encryptedId]);
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
 }

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ProductService } from '../../services/product.service';
 import { CategoryService } from '../../services/category.service';
@@ -12,6 +12,8 @@ import { SnackbarService } from '../../shared/services/snackbar.service';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
 import { RouterModule } from '@angular/router';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 @Component({
   selector: 'app-product',
@@ -38,7 +40,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
     ])
   ]
 })
-export class ProductComponent implements OnInit {
+export class ProductComponent implements OnInit, OnDestroy {
   products: Product[] = [];
   categories: Category[] = [];
   productForm!: FormGroup;
@@ -46,7 +48,7 @@ export class ProductComponent implements OnInit {
   isLoading = false;
   isEditing = false;
   editingId?: number;
-  
+
   // Pagination properties
   currentPage = 0;
   pageSize = 10;
@@ -56,6 +58,7 @@ export class ProductComponent implements OnInit {
   startIndex = 0;
   endIndex = 0;
   isDialogOpen = false;
+  private destroy$ = new Subject<void>();
 
   constructor(
     private productService: ProductService,
@@ -90,13 +93,17 @@ export class ProductComponent implements OnInit {
     });
 
     // Add value change subscriptions for automatic calculation
-    this.productForm.get('remainingQuantity')?.valueChanges.subscribe(() => {
-      this.calculateTotalRemainingQuantity();
-    });
+    this.productForm.get('remainingQuantity')?.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.calculateTotalRemainingQuantity();
+      });
 
-    this.productForm.get('blockedQuantity')?.valueChanges.subscribe(() => {
-      this.calculateTotalRemainingQuantity();
-    });
+    this.productForm.get('blockedQuantity')?.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.calculateTotalRemainingQuantity();
+      });
 
     // Update the name control listener
     const editableDiv = document.querySelector('.editable-content');
@@ -121,41 +128,45 @@ export class ProductComponent implements OnInit {
   }
 
   loadCategories(): void {
-    this.categoryService.getCategories({ status: 'A' }).subscribe({
-      next: (response) => {
-        this.categories = response.data;
-      },
-      error: () => {
-        this.snackbarService.error('Failed to load categories');
-      }
-    });
+    this.categoryService.getCategories({ status: 'A' })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          this.categories = response.data;
+        },
+        error: () => {
+          this.snackbarService.error('Failed to load categories');
+        }
+      });
   }
 
   loadProducts(): void {
     if (!this.isLoading) {
       this.isLoading = true;
     }
-    
+
     const searchParams = {
       ...this.searchForm.value,
       size: this.pageSize,
       page: this.currentPage
     };
 
-    this.productService.searchProducts(searchParams).subscribe({
-      next: (response) => {
-        this.products = response.data.content;
-        this.totalPages = response.data.totalPages;
-        this.totalElements = response.data.totalElements;
-        this.startIndex = this.currentPage * this.pageSize;
-        this.endIndex = Math.min((this.currentPage + 1) * this.pageSize, this.totalElements);
-        this.isLoading = false;
-      },
-      error: () => {
-        this.snackbarService.error('Failed to load products');
-        this.isLoading = false;
-      }
-    });
+    this.productService.searchProducts(searchParams)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          this.products = response.data.content;
+          this.totalPages = response.data.totalPages;
+          this.totalElements = response.data.totalElements;
+          this.startIndex = this.currentPage * this.pageSize;
+          this.endIndex = Math.min((this.currentPage + 1) * this.pageSize, this.totalElements);
+          this.isLoading = false;
+        },
+        error: () => {
+          this.snackbarService.error('Failed to load products');
+          this.isLoading = false;
+        }
+      });
   }
 
   onSubmit(): void {
@@ -188,20 +199,22 @@ export class ProductComponent implements OnInit {
       ? this.productService.updateProduct(this.editingId!, productData)
       : this.productService.createProduct(productData);
 
-    request.subscribe({
+    request.pipe(takeUntil(this.destroy$)).subscribe({
       next: (response) => {
         this.snackbarService.success(
-          this.isEditing 
-            ? 'Product updated successfully' 
+          this.isEditing
+            ? 'Product updated successfully'
             : 'Product created successfully'
         );
         // this.loadProducts();
-        this.productService.refreshProducts().subscribe({
-          next: (response) => {
-          },
-          error: (error) => {
-          }
-        });
+        this.productService.refreshProducts()
+          .pipe(takeUntil(this.destroy$))
+          .subscribe({
+            next: (response) => {
+            },
+            error: (error) => {
+            }
+          });
         this.closeDialog();
         this.isLoading = false;
       },
@@ -223,11 +236,11 @@ export class ProductComponent implements OnInit {
   editProduct(product: Product): void {
     this.isEditing = true;
     this.editingId = product.id;
-    
+
     // Create a temporary div to decode HTML content
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = product.name;
-    
+
     this.productForm.patchValue({
       name: product.name,
       hsnCode: product.hsnCode,
@@ -261,23 +274,27 @@ export class ProductComponent implements OnInit {
   deleteProduct(id: number): void {
     if (confirm('Are you sure you want to delete this product?')) {
       this.isLoading = true;
-      this.productService.deleteProduct(id).subscribe({
-        next: () => {
-          this.snackbarService.success('Product deleted successfully');
-          this.productService.refreshProducts().subscribe({
-            next: (response) => {
-            },
-            error: (error) => {
-            }
-          });
-          this.loadProducts();
-          // this.isLoading = false;
-        },
-        error: (error) => {
-          this.snackbarService.error(error?.error?.message || 'Failed to delete product');
-          this.isLoading = false;
-        }
-      });
+      this.productService.deleteProduct(id)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: () => {
+            this.snackbarService.success('Product deleted successfully');
+            this.productService.refreshProducts()
+              .pipe(takeUntil(this.destroy$))
+              .subscribe({
+                next: (response) => {
+                },
+                error: (error) => {
+                }
+              });
+            this.loadProducts();
+            // this.isLoading = false;
+          },
+          error: (error) => {
+            this.snackbarService.error(error?.error?.message || 'Failed to delete product');
+            this.isLoading = false;
+          }
+        });
     }
   }
 
@@ -325,10 +342,10 @@ export class ProductComponent implements OnInit {
       remainingQuantity: 0,
       blockedQuantity: 0
     });
-    
+
     // Calculate initial total remaining quantity
     this.calculateTotalRemainingQuantity();
-    
+
     this.isDialogOpen = true;
     setTimeout(() => {
       const editableDiv = document.querySelector('.editable-content') as HTMLElement;
@@ -393,20 +410,22 @@ export class ProductComponent implements OnInit {
     delete searchParams.pageSize;
     delete searchParams.currentPage;
 
-    this.productService.exportProducts(searchParams).subscribe({
-      next: (response: Blob) => {
-        const blob = new Blob([response], { type: 'application/pdf' });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'products.pdf';
-        link.click();
-        window.URL.revokeObjectURL(url);
-      },
-      error: (error) => {
-        this.snackbarService.error('Failed to export products');
-      }
-    });
+    this.productService.exportProducts(searchParams)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response: Blob) => {
+          const blob = new Blob([response], { type: 'application/pdf' });
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = 'products.pdf';
+          link.click();
+          window.URL.revokeObjectURL(url);
+        },
+        error: (error) => {
+          this.snackbarService.error('Failed to export products');
+        }
+      });
   }
 
   // Add new method for calculation
@@ -414,9 +433,14 @@ export class ProductComponent implements OnInit {
     const remainingQuantity = this.productForm.get('remainingQuantity')?.value ?? 0;
     const blockedQuantity = this.productForm.get('blockedQuantity')?.value ?? 0;
     const totalRemaining = remainingQuantity - blockedQuantity;
-    
+
     this.productForm.patchValue({
       totalRemainingQuantity: totalRemaining
     }, { emitEvent: false });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

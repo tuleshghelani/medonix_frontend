@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { SaleService } from '../../services/sale.service';
@@ -17,14 +17,16 @@ import { CustomerService } from '../../services/customer.service';
 import { ModalService } from '../../services/modal.service';
 import { CacheService } from '../../shared/services/cache.service';
 import { EncryptionService } from '../../shared/services/encryption.service';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 @Component({
   selector: 'app-sale',
   standalone: true,
   imports: [
-    CommonModule, 
-    ReactiveFormsModule, 
-    FormsModule, 
+    CommonModule,
+    ReactiveFormsModule,
+    FormsModule,
     RouterModule,
     MatDialogModule,
     SaleModalComponent,
@@ -36,24 +38,25 @@ import { EncryptionService } from '../../shared/services/encryption.service';
   templateUrl: './sale.component.html',
   styleUrl: './sale.component.scss'
 })
-export class SaleComponent implements OnInit {
+export class SaleComponent implements OnInit, OnDestroy {
   sales: Sale[] = [];
   searchForm!: FormGroup;
   isLoading = false;
-  
-   // Pagination properties
-   currentPage = 0;
-   pageSize = 10;
-   pageSizeOptions = [5, 10, 25, 50, 100];
-   totalPages = 0;
-   totalElements = 0;
-   startIndex = 0;
-   endIndex = 0;
-   selectedSales: Sale | null = null;
-   products: Sale[] = [];
-   isLoadingProducts = false;
-   customers: any[] = [];
-   isLoadingCustomers = false;
+
+  // Pagination properties
+  currentPage = 0;
+  pageSize = 10;
+  pageSizeOptions = [5, 10, 25, 50, 100];
+  totalPages = 0;
+  totalElements = 0;
+  startIndex = 0;
+  endIndex = 0;
+  selectedSales: Sale | null = null;
+  products: Sale[] = [];
+  isLoadingProducts = false;
+  customers: any[] = [];
+  isLoadingCustomers = false;
+  private destroy$ = new Subject<void>();
 
   constructor(
     private saleService: SaleService,
@@ -92,7 +95,7 @@ export class SaleComponent implements OnInit {
 
   private formatDateForApi(dateStr: string, isStartDate: boolean): string {
     if (!dateStr) return '';
-    
+
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) return '';
 
@@ -107,10 +110,10 @@ export class SaleComponent implements OnInit {
   loadSalesRecord(): void {
     this.isLoading = true;
     const formValues = this.searchForm.value;
-    
+
     const startDate = formValues.startDate ? this.formatDateForApi(formValues.startDate, true) : '';
     const endDate = formValues.endDate ? this.formatDateForApi(formValues.endDate, false) : '';
-    
+
     const params: SaleSearchRequest = {
       currentPage: this.currentPage,
       perPageRecord: this.pageSize,
@@ -125,20 +128,22 @@ export class SaleComponent implements OnInit {
       params.endDate = endDate;
     }
 
-    this.saleService.searchSales(params).subscribe({
-      next: (response) => {
-        this.sales = response.data.content;
-        this.totalPages = response.data.totalPages;
-        this.totalElements = response.data.totalElements;
-        this.startIndex = this.currentPage * this.pageSize;
-        this.endIndex = Math.min((this.currentPage + 1) * this.pageSize, this.totalElements);
-        this.isLoading = false;
-      },
-      error: () => {
-        this.snackbar.error('Failed to load sales');
-        this.isLoading = false;
-      }
-    });
+    this.saleService.searchSales(params)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          this.sales = response.data.content;
+          this.totalPages = response.data.totalPages;
+          this.totalElements = response.data.totalElements;
+          this.startIndex = this.currentPage * this.pageSize;
+          this.endIndex = Math.min((this.currentPage + 1) * this.pageSize, this.totalElements);
+          this.isLoading = false;
+        },
+        error: () => {
+          this.snackbar.error('Failed to load sales');
+          this.isLoading = false;
+        }
+      });
   }
 
   onPageChange(page: number): void {
@@ -155,21 +160,23 @@ export class SaleComponent implements OnInit {
   deleteSale(id: number): void {
     if (confirm('Are you sure you want to delete this sale? This action cannot be undone.')) {
       this.isLoading = true;
-      this.saleService.deleteSale(id).subscribe({
-        next: (response) => {
-          if (response.success) {
-            this.snackbar.success('Sale deleted successfully');
-            this.loadSales();
-          } else {
-            this.snackbar.error(response.message || 'Failed to delete sale');
+      this.saleService.deleteSale(id)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (response) => {
+            if (response.success) {
+              this.snackbar.success('Sale deleted successfully');
+              this.loadSales();
+            } else {
+              this.snackbar.error(response.message || 'Failed to delete sale');
+              this.isLoading = false;
+            }
+          },
+          error: (error) => {
+            this.snackbar.error(error?.error?.message || 'Failed to delete sale');
             this.isLoading = false;
           }
-        },
-        error: (error) => {
-          this.snackbar.error(error?.error?.message || 'Failed to delete sale');
-          this.isLoading = false;
-        }
-      });
+        });
     }
   }
 
@@ -185,35 +192,39 @@ export class SaleComponent implements OnInit {
 
   private loadCustomers(): void {
     this.isLoadingCustomers = true;
-    this.customerService.getCustomers({ status: 'A' }).subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.customers = response.data;
+    this.customerService.getCustomers({ status: 'A' })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.customers = response.data;
+          }
+          this.isLoadingCustomers = false;
+        },
+        error: (error) => {
+          this.snackbar.error('Failed to load customers');
+          this.isLoadingCustomers = false;
         }
-        this.isLoadingCustomers = false;
-      },
-      error: (error) => {
-        this.snackbar.error('Failed to load customers');
-        this.isLoadingCustomers = false;
-      }
-    });
+      });
   }
 
   refreshCustomers(): void {
     this.isLoadingCustomers = true;
-    this.customerService.refreshCustomers().subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.customers = response.data;
-          this.snackbar.success('Customers refreshed successfully');
+    this.customerService.refreshCustomers()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.customers = response.data;
+            this.snackbar.success('Customers refreshed successfully');
+          }
+          this.isLoadingCustomers = false;
+        },
+        error: (error) => {
+          this.snackbar.error('Failed to refresh customers');
+          this.isLoadingCustomers = false;
         }
-        this.isLoadingCustomers = false;
-      },
-      error: (error) => {
-        this.snackbar.error('Failed to refresh customers');
-        this.isLoadingCustomers = false;
-      }
-    });
+      });
   }
 
   editSales(id: number): void {
@@ -230,21 +241,23 @@ export class SaleComponent implements OnInit {
       endDate: this.searchForm.value.endDate ? this.dateUtils.formatDate(this.searchForm.value.endDate) : '',
       ...this.searchForm.value,
     };
-    
-    this.saleService.searchSales(params).subscribe({
-      next: (response: any) => {
-        this.sales = response.content;
-        this.totalPages = response.totalPages;
-        this.totalElements = response.totalElements;
-        this.startIndex = this.currentPage * this.pageSize;
-        this.endIndex = Math.min((this.currentPage + 1) * this.pageSize, this.totalElements);
-        this.isLoading = false;
-      },
-      error: (error) => {
-        this.snackbar.error(error.message || 'Failed to load sales');
-        this.isLoading = false;
-      }
-    });
+
+    this.saleService.searchSales(params)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response: any) => {
+          this.sales = response.content;
+          this.totalPages = response.totalPages;
+          this.totalElements = response.totalElements;
+          this.startIndex = this.currentPage * this.pageSize;
+          this.endIndex = Math.min((this.currentPage + 1) * this.pageSize, this.totalElements);
+          this.isLoading = false;
+        },
+        error: (error) => {
+          this.snackbar.error(error.message || 'Failed to load sales');
+          this.isLoading = false;
+        }
+      });
   }
 
   clearLocalStorage(): void {
@@ -252,4 +265,8 @@ export class SaleComponent implements OnInit {
     this.router.navigate(['/sale/create']);
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
 }

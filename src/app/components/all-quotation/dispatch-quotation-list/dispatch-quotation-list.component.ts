@@ -20,9 +20,9 @@ import { PaginationComponent } from '../../../shared/components/pagination/pagin
   selector: 'app-dispatch-quotation-list',
   standalone: true,
   imports: [
-    CommonModule, 
-    ReactiveFormsModule, 
-    FormsModule, 
+    CommonModule,
+    ReactiveFormsModule,
+    FormsModule,
     RouterModule,
     MatDialogModule,
     SaleModalComponent,
@@ -40,7 +40,7 @@ export class DispatchQuotationListComponent implements OnInit {
   statusOptions: any[] = [];
 
 
-// Pagination properties
+  // Pagination properties
   currentPage = 0;
   pageSize = 10;
   pageSizeOptions = [5, 10, 25, 50, 100];
@@ -48,7 +48,7 @@ export class DispatchQuotationListComponent implements OnInit {
   totalElements = 0;
   startIndex = 0;
   endIndex = 0;
-  selectedQuotation:any = null;
+  selectedQuotation: any = null;
   products: any[] = [];
   isLoadingProducts = false;
   customers: any[] = [];
@@ -65,7 +65,7 @@ export class DispatchQuotationListComponent implements OnInit {
     private encryptionService: EncryptionService,
     private router: Router,
     private authService: AuthService
-  ){
+  ) {
     this.initializeForm();
     this.statusOptions = Object.entries(QuotationStatus).map(([key, value]) => ({ label: value, value: key }));
     this.setupClickOutsideListener();
@@ -95,9 +95,9 @@ export class DispatchQuotationListComponent implements OnInit {
       endDate: this.searchForm.value.endDate ? this.dateUtils.formatDate(this.searchForm.value.endDate) : '',
       ...this.searchForm.value,
     };
-  
+
     this.quotationService.searchQuotations(params).subscribe({
-      next: (response:any) => {
+      next: (response: any) => {
         // Initialize showStatusDropdown for each quotation
         this.quotations = response.content.map((q: any) => ({
           ...q,
@@ -109,7 +109,7 @@ export class DispatchQuotationListComponent implements OnInit {
         this.endIndex = Math.min((this.currentPage + 1) * this.pageSize, this.totalElements);
         this.isLoading = false;
       },
-      error: (error:any) => {
+      error: (error: any) => {
         this.snackbar.error(error.message || 'Failed to load quotations');
         this.isLoading = false;
       }
@@ -214,7 +214,7 @@ export class DispatchQuotationListComponent implements OnInit {
     if (!quotation) return;
 
     quotation.isPrinting = true;
-    
+
     this.quotationService.generatePdf(id).subscribe({
       next: (response) => {
         const url = window.URL.createObjectURL(response.blob);
@@ -245,7 +245,7 @@ export class DispatchQuotationListComponent implements OnInit {
         link.click();
         window.URL.revokeObjectURL(url);
         quotation.isPrinting = false;
-      }, 
+      },
       error: () => {
         this.snackbar.error('Failed to generate PDF');
         quotation.isPrinting = false;
@@ -287,7 +287,7 @@ export class DispatchQuotationListComponent implements OnInit {
   }
 
   canChangeStatus(status: string): boolean {
-    return ['D','Q', 'A', 'P','PC', 'C'].includes(status);
+    return ['D', 'Q', 'A', 'P', 'PC', 'C'].includes(status);
   }
 
   updateStatus(quotation: any, newStatus: string): void {
@@ -295,22 +295,22 @@ export class DispatchQuotationListComponent implements OnInit {
 
     quotation.isUpdating = true;
     quotation.showStatusDropdown = false;
-    
+
     this.quotationService.updateQuotationStatus(quotation.id, newStatus).subscribe({
       next: () => {
         quotation.status = newStatus;
         this.snackbar.success('Status updated successfully');
         quotation.isUpdating = false;
       },
-      error: (error:any) => {
+      error: (error: any) => {
         this.snackbar.error(error?.error?.message || 'Failed to update status');
         quotation.isUpdating = false;
       }
     });
   }
-  
+
   getAvailableStatusOptions(currentStatus: string): StatusOption[] {
-    switch(currentStatus) {
+    switch (currentStatus) {
       case 'Q':
         return [
           { label: QuotationStatus.A, value: 'A', disabled: false },
@@ -322,9 +322,9 @@ export class DispatchQuotationListComponent implements OnInit {
           { label: QuotationStatus.D, value: 'D', disabled: false }
         ];
       case 'P':
-        return [{ label: QuotationStatus.PC, value: 'PC', disabled: false }];
-      case 'PC':
         return [{ label: QuotationStatus.C, value: 'C', disabled: false }];
+      // case 'PC':
+      //   return [{ label: QuotationStatus.C, value: 'C', disabled: false }];
       case 'D':
         return [{ label: QuotationStatus.A, value: 'A', disabled: false }];
       case 'C':
@@ -344,11 +344,11 @@ export class DispatchQuotationListComponent implements OnInit {
 
   // Role helpers for template
   canEditQuotation(): boolean {
-    return this.authService.isAdmin() || this.authService.isSalesAndMarketing();
+    return this.authService.isAdmin() || this.authService.isStaffAdmin();
   }
 
   canDispatchQuotation(): boolean {
-    return this.authService.isDispatch() || this.authService.isAdmin();
+    return this.authService.isStaffAdmin() || this.authService.isAdmin();
   }
 
   dispatchQuotation(id: number): void {
@@ -356,7 +356,7 @@ export class DispatchQuotationListComponent implements OnInit {
     localStorage.setItem('editQuotationId', this.encryptionService.encrypt(id.toString()));
     this.router.navigate(['/quotation/dispatch']);
   }
-  
+
   openWhatsApp(rawNumber: string | number | null | undefined): void {
     const digits = String(rawNumber ?? '').replace(/\D/g, '');
     if (!digits) {
@@ -372,7 +372,7 @@ export class DispatchQuotationListComponent implements OnInit {
     }
   }
 
-  
+
 
   printDispatchQuotation(id: number, quotation: any): void {
     if (!id) {
@@ -381,19 +381,19 @@ export class DispatchQuotationListComponent implements OnInit {
     }
 
     this.isLoading = true;
-    
+
     quotation.isPrinting = true;
-    
+
     this.quotationService.generateDispatchPdf(id, null).subscribe({
       next: (response) => {
         const blob = response.blob;
         const url = window.URL.createObjectURL(blob);
-        
+
         // Create an iframe for printing
         const printFrame = document.createElement('iframe');
         printFrame.style.display = 'none';
         printFrame.src = url;
-        
+
         document.body.appendChild(printFrame);
         printFrame.onload = () => {
           setTimeout(() => {

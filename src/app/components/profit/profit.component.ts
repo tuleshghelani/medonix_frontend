@@ -1,10 +1,12 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
 import { ProfitService } from '../../services/profit.service';
 import { LoaderComponent } from '../../shared/components/loader/loader.component';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 interface ProfitResponse {
   success: boolean;
@@ -42,7 +44,7 @@ interface Profit {
   templateUrl: './profit.component.html',
   styleUrls: ['./profit.component.scss']
 })
-export class ProfitComponent implements OnInit {
+export class ProfitComponent implements OnInit, OnDestroy {
   profits: any;
   currentPage = 0;
   pageSize = 10;
@@ -54,6 +56,7 @@ export class ProfitComponent implements OnInit {
   isLoading = false;
   startIndex = 0;
   endIndex = 0;
+  private destroy$ = new Subject<void>();
 
   constructor(
     private profitService: ProfitService,
@@ -72,7 +75,7 @@ export class ProfitComponent implements OnInit {
 
   private formatDateForApi(dateStr: string, isStartDate: boolean): string {
     if (!dateStr) return '';
-    
+
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) return '';
 
@@ -87,7 +90,7 @@ export class ProfitComponent implements OnInit {
   onSearch() {
     this.isLoading = true;
     const formValues = this.searchForm.value;
-    
+
     const params: any = {
       page: this.currentPage,
       size: this.pageSize,
@@ -100,22 +103,24 @@ export class ProfitComponent implements OnInit {
     if (formValues.startDate) {
       params.startDate = this.formatDateForApi(formValues.startDate, true);
     }
-    
+
     if (formValues.endDate) {
       params.endDate = this.formatDateForApi(formValues.endDate, false);
     }
 
-    this.profitService.searchProfits(params).subscribe({
-      next: (response) => {
-        this.profits = response.data;
-        this.totalElements = response.data.totalElements;
-        this.isLoading = false;
-      },
-      error: (error) => {
-        console.error('Error loading profits:', error);
-        this.isLoading = false;
-      }
-    });
+    this.profitService.searchProfits(params)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          this.profits = response.data;
+          this.totalElements = response.data.totalElements;
+          this.isLoading = false;
+        },
+        error: (error) => {
+          console.error('Error loading profits:', error);
+          this.isLoading = false;
+        }
+      });
   }
 
   onPageChange(page: number): void {
@@ -132,7 +137,7 @@ export class ProfitComponent implements OnInit {
   loadProfits() {
     this.isLoading = true;
     const formValues = this.searchForm.value;
-    
+
     const params: any = {
       page: this.currentPage,
       size: this.pageSize,
@@ -145,30 +150,37 @@ export class ProfitComponent implements OnInit {
     if (formValues.startDate) {
       params.startDate = this.formatDateForApi(formValues.startDate, true);
     }
-    
+
     if (formValues.endDate) {
       params.endDate = this.formatDateForApi(formValues.endDate, false);
     }
 
-    this.profitService.searchProfits(params).subscribe({
-      next: (response) => {
-        this.profits = response.data;
-        this.totalPages = response.data.totalPages;
-        this.totalElements = response.data.totalElements;
-        this.startIndex = this.currentPage * this.pageSize;
-        this.endIndex = Math.min(this.startIndex + this.pageSize, this.totalElements);
-        this.isLoading = false;
-      },
-      error: (error) => {
-        console.error('Error loading profits:', error);
-        this.isLoading = false;
-      }
-    });
+    this.profitService.searchProfits(params)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          this.profits = response.data;
+          this.totalPages = response.data.totalPages;
+          this.totalElements = response.data.totalElements;
+          this.startIndex = this.currentPage * this.pageSize;
+          this.endIndex = Math.min(this.startIndex + this.pageSize, this.totalElements);
+          this.isLoading = false;
+        },
+        error: (error) => {
+          console.error('Error loading profits:', error);
+          this.isLoading = false;
+        }
+      });
   }
 
   resetForm(): void {
     this.searchForm.reset();
     this.currentPage = 0;
     this.loadProfits();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

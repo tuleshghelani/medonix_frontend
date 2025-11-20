@@ -28,7 +28,7 @@ export class SaleModalComponent implements OnChanges {
   @Input() purchase!: Purchase;
   @Input() sales!: Sale;
   @Output() saleCreated = new EventEmitter<boolean>();
-  
+
   saleForm!: FormGroup;
   loading = false;
   display$ = this.modalService.modalState$.pipe(
@@ -84,7 +84,7 @@ export class SaleModalComponent implements OnChanges {
     };
 
     const totalPrice = values.quantity * values.unitPrice;
-    
+
     if (values.discountAmount > 0) {
       values.finalPrice = totalPrice - values.discountAmount;
       values.discountPercentage = (values.discountAmount / totalPrice) * 100;
@@ -116,9 +116,9 @@ export class SaleModalComponent implements OnChanges {
       invoiceNumber: '',
       otherExpenses: 0,
     });
-    
+
     console.log('Form values after patch:', this.saleForm.value);
-    
+
     this.saleForm.get('quantity')?.setValidators([
       Validators.required,
       Validators.min(1),
@@ -130,7 +130,7 @@ export class SaleModalComponent implements OnChanges {
     if (this.saleForm.valid) {
       this.loading = true;
       const formData = { ...this.saleForm.value };
-      
+
       // Add check for purchaseId
       if (!formData.purchaseId) {
         this.snackbar.error('Purchase ID is missing');
@@ -143,7 +143,7 @@ export class SaleModalComponent implements OnChanges {
         if (formData.saleDate) {
           // First ensure we have a valid date object
           const date = new Date(formData.saleDate);
-          
+
           // Check if date is valid
           if (isNaN(date.getTime())) {
             throw new Error('Invalid date format');

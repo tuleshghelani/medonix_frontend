@@ -16,6 +16,7 @@ interface TokenResponse {
 }
 export enum UserRole {
   ADMIN = 'ADMIN',
+  STAFF_ADMIN = 'STAFF_ADMIN',
   DISPATCH = 'DISPATCH',
   SALES_AND_MARKETING = 'SALES_AND_MARKETING',
   DEALER = 'DEALER',
@@ -35,7 +36,7 @@ export class AuthService {
     private http: HttpClient,
     private encryptionService: EncryptionService,
     private router: Router
-  ) {}
+  ) { }
 
   login(credentials: { email: string; password: string }): Observable<any> {
     return this.http.post(`${environment.apiUrl}/api/auth/login`, credentials).pipe(
@@ -49,11 +50,11 @@ export class AuthService {
         // Encrypt and store refresh token
         const encryptedRefreshToken = this.encryptionService.encrypt(response.refreshToken);
         localStorage.setItem('refreshToken', encryptedRefreshToken);
-        
+
         // Encrypt and store roles
         const encryptedRoles = this.encryptionService.encrypt(response.roles);
         localStorage.setItem('userRoles', encryptedRoles);
-        
+
         this.authStateSubject.next(true);
       })
     );
@@ -71,7 +72,7 @@ export class AuthService {
 
     this.refreshTokenInProgress = true;
     const encryptedRefreshToken = localStorage.getItem('refreshToken');
-    
+
     if (!encryptedRefreshToken) {
       this.handleAuthError();
       return throwError(() => new Error('No refresh token available'));
@@ -96,7 +97,7 @@ export class AuthService {
         this.refreshTokenInProgress = false;
         if (error.status === 400) {
           this.handleAuthError();
-        } 
+        }
         return throwError(() => error);
       })
     );
@@ -127,7 +128,7 @@ export class AuthService {
   getUserRoles(): string[] {
     const encryptedRoles = localStorage.getItem('userRoles');
     if (!encryptedRoles) return [];
-    
+
     const rolesString = this.encryptionService.decrypt(encryptedRoles);
     // Handle the string format "[ADMIN, STAFF_ADMIN]"
     console.log(rolesString);
@@ -150,10 +151,14 @@ export class AuthService {
   isProductManager(): boolean {
     return this.hasRole('STAFF_ADMIN');
   }
-  
+
+  isStaffAdmin(): boolean {
+    return this.hasRole(UserRole.STAFF_ADMIN);
+  }
+
   getDefaultRoute(): string {
     const userRoles = this.getUserRoles();
-    
+
     if (userRoles.includes(UserRole.ADMIN)) {
       return '/category';
     } else if (userRoles.includes(UserRole.SALES_AND_MARKETING)) {

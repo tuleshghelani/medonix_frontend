@@ -1,10 +1,12 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { LoaderComponent } from '../../../shared/components/loader/loader.component';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
 import { ProfitService } from '../../../services/profit.service';
 import { SnackbarService } from '../../../shared/services/snackbar.service';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 interface DailyProfit {
   date: string;
@@ -20,7 +22,7 @@ interface DailyProfit {
   imports: [CommonModule, ReactiveFormsModule, FormsModule, LoaderComponent],
   standalone: true
 })
-export class DailyProfitComponent implements OnInit {
+export class DailyProfitComponent implements OnInit, OnDestroy {
   profits: any;
   currentPage = 0;
   pageSize = 5;
@@ -30,6 +32,7 @@ export class DailyProfitComponent implements OnInit {
   startIndex = 0;
   endIndex = 0;
   isLoading = false;
+  private destroy$ = new Subject<void>();
 
   constructor(
     private profitService: ProfitService,
@@ -67,28 +70,30 @@ export class DailyProfitComponent implements OnInit {
   loadProfits(): void {
     this.isLoading = true;
     const formValues = this.searchForm.value;
-    
+
     const params = {
       startDate: this.formatDateForApi(formValues.startDate, true),
       endDate: this.formatDateForApi(formValues.endDate, false)
     };
 
-    this.profitService.getDailyProfits(params).subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.profits = response.data;
-          this.totalElements = response.data.totalElements;
-          this.updatePaginationIndexes();
-        } else {
-          this.snackbar.error(response?.message || 'Failed to load profits');
+    this.profitService.getDailyProfits(params)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.profits = response.data;
+            this.totalElements = response.data.totalElements;
+            this.updatePaginationIndexes();
+          } else {
+            this.snackbar.error(response?.message || 'Failed to load profits');
+          }
+          this.isLoading = false;
+        },
+        error: (error) => {
+          this.snackbar.error(error?.error?.message || 'Failed to load profits');
+          this.isLoading = false;
         }
-        this.isLoading = false;
-      },
-      error: (error) => {
-        this.snackbar.error(error?.error?.message || 'Failed to load profits');
-        this.isLoading = false;
-      }
-    });
+      });
   }
 
   onSearch(): void {
@@ -104,7 +109,7 @@ export class DailyProfitComponent implements OnInit {
       startDate: this.formatDateForInput(firstDay),
       endDate: this.formatDateForInput(lastDay)
     });
-    
+
     this.loadProfits();
   }
 
@@ -125,20 +130,20 @@ export class DailyProfitComponent implements OnInit {
     const totalPages = this.profits?.totalPages || 0;
     const currentPage = this.currentPage + 1;
     const maxPages = 5;
-    
+
     let startPage = Math.max(1, currentPage - Math.floor(maxPages / 2));
     let endPage = startPage + maxPages - 1;
-    
+
     if (endPage > totalPages) {
       endPage = totalPages;
       startPage = Math.max(1, endPage - maxPages + 1);
     }
-    
+
     const pages: number[] = [];
     for (let i = startPage; i <= endPage; i++) {
       pages.push(i);
     }
-    
+
     return pages;
   }
 
@@ -147,5 +152,10 @@ export class DailyProfitComponent implements OnInit {
       this.currentPage = page;
       this.loadProfits(); // Assuming you have this method to fetch profits
     }
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

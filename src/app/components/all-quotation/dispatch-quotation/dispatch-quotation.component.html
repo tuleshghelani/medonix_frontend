@@ -11,7 +11,8 @@
       </h2>
     </div>
 
-    <form [formGroup]="quotationForm" (ngSubmit)="onSubmit()" (keydown.enter)="$event.preventDefault()" class="quotation-form">
+    <form [formGroup]="quotationForm" (ngSubmit)="onSubmit()" (keydown.enter)="$event.preventDefault()"
+      class="quotation-form">
       <div class="create-quotation-section">
         <div class="create-quotation-header">
           <h3><i class="fa-solid fa-receipt"></i> Dispatch Quotation </h3>
@@ -21,8 +22,10 @@
             <div class="form-group">
               <label><i class="fas fa-user"></i> Select Customer</label>
               <div class="select-group">
-                <app-searchable-select formControlName="customerId" [options]="customers" labelKey="name" valueKey="id" [placeholder]="'Select Customer'" [searchPlaceholder]="'Search customers...'"></app-searchable-select>
-                <button type="button" class="btn btn-sm btn-primary refresh" style="margin-top: 3px;" (click)="refreshCustomers()" [disabled]="isLoadingCustomers" title="Refresh Customers">
+                <app-searchable-select formControlName="customerId" [options]="customers" labelKey="name" valueKey="id"
+                  [placeholder]="'Select Customer'" [searchPlaceholder]="'Search customers...'"></app-searchable-select>
+                <button type="button" class="btn btn-sm btn-primary refresh" style="margin-top: 3px;"
+                  (click)="refreshCustomers()" [disabled]="isLoadingCustomers" title="Refresh Customers">
                   <i class="fas" [ngClass]="isLoadingCustomers ? 'fa-spinner fa-spin' : 'fa-sync-alt'"></i>
                 </button>
               </div>
@@ -30,22 +33,27 @@
 
             <div class="form-group">
               <label><i class="fas fa-user-tag"></i> Customer Name <span class="required">*</span></label>
-              <input type="text" formControlName="customerName" class="form-control" [class.is-invalid]="quotationForm.get('customerName')?.invalid" placeholder="Enter customer name" [readonly]="isCustomerIdSelected">
+              <input type="text" formControlName="customerName" class="form-control"
+                [class.is-invalid]="quotationForm.get('customerName')?.invalid" placeholder="Enter customer name"
+                [readonly]="isCustomerIdSelected">
             </div>
 
             <div class="form-group">
               <label><i class="fas fa-id-card"></i> Reference Name</label>
-              <input type="text" formControlName="referenceName" class="form-control" placeholder="Optional reference name">
+              <input type="text" formControlName="referenceName" class="form-control"
+                placeholder="Optional reference name">
             </div>
 
             <div class="form-group">
               <label><i class="fa-solid fa-phone"></i> Contact Number <span class="required">*</span></label>
-              <input type="text" formControlName="contactNumber" class="form-control" [class.is-invalid]="quotationForm.get('contactNumber')?.invalid" placeholder="Enter contact number">
+              <input type="text" formControlName="contactNumber" class="form-control"
+                [class.is-invalid]="quotationForm.get('contactNumber')?.invalid" placeholder="Enter contact number">
             </div>
 
             <div class="form-group">
               <label><i class="fa-solid fa-location-dot"></i> Address</label>
-              <textarea formControlName="address" class="form-control" rows="3" placeholder="Write customer address details..."></textarea>
+              <textarea formControlName="address" class="form-control" rows="3"
+                placeholder="Write customer address details..."></textarea>
             </div>
 
             <div class="form-group">
@@ -61,8 +69,11 @@
             <div class="form-group">
               <label><i class="fas fa-truck"></i> Transport</label>
               <div class="select-group">
-                <app-searchable-select formControlName="transportMasterId" [options]="transports" labelKey="name" valueKey="id" [placeholder]="'Select Transport'" [searchPlaceholder]="'Search transports...'"></app-searchable-select>
-                <button type="button" class="btn btn-sm btn-primary refresh" style="margin-top: 3px;" (click)="refreshTransports()" [disabled]="isLoadingTransports" title="Refresh Transports">
+                <app-searchable-select formControlName="transportMasterId" [options]="transports" labelKey="name"
+                  valueKey="id" [placeholder]="'Select Transport'"
+                  [searchPlaceholder]="'Search transports...'"></app-searchable-select>
+                <button type="button" class="btn btn-sm btn-primary refresh" style="margin-top: 3px;"
+                  (click)="refreshTransports()" [disabled]="isLoadingTransports" title="Refresh Transports">
                   <i class="fas" [ngClass]="isLoadingTransports ? 'fa-spinner fa-spin' : 'fa-sync-alt'"></i>
                 </button>
               </div>
@@ -80,10 +91,12 @@
         <div class="products-header">
           <h3><i class="fas fa-boxes"></i> Products</h3>
           <div>
-            <button type="button" class="btn btn-info me-2" *ngIf="hasDispatchSelection()" (click)="createDispatchSlip()">
+            <button type="button" class="btn btn-info me-2" *ngIf="hasDispatchSelection()"
+              (click)="createDispatchSlip()">
               <i class="fa-solid fa-file-pdf"></i> Create Dispatch Slip
             </button>
-            <button type="button" class="btn btn-success me-2" *ngIf="canSeeSaleOption && hasSelection()" (click)="createSaleFromSelected()">
+            <button type="button" class="btn btn-success me-2" *ngIf="canSeeSaleOption && hasSelection()"
+              (click)="createSaleFromSelected()">
               <i class="fa-solid fa-cart-plus"></i> Create Sale
             </button>
             <!-- <button type="button" class="btn btn-sm btn-primary" (click)="addItem()">
@@ -111,27 +124,24 @@
               </tr>
             </thead>
             <tbody>
-                <tr *ngFor="let item of itemsFormArray.controls; let i=index" [formGroupName]="i" [class.dispatched-row]="itemsFormArray.at(i).get('isDispatch')?.value === true">
-                  <td>
-                    <div class="d-flex flex-column gap-2">
-                      <div *ngIf="canSeeSaleOption">
-                        <label class="small text-muted">Sale:</label>
-                        <ng-container *ngIf="itemsFormArray.at(i).get('quotationItemStatus')?.value != 'B'">
-                          <input type="checkbox"
-                                 [checked]="isSelected(i)"
-                                 (change)="toggleSelection(i, $event)"
-                                 title="Select for sale creation">
-                        </ng-container>
-                      </div>
-                      <div>
-                        <label class="small text-muted">Dispatch:</label>
-                        <input type="checkbox"
-                               [checked]="isDispatchSelected(i)"
-                               (change)="toggleDispatchSelection(i, $event)"
-                               title="Select for dispatch slip">
-                      </div>
+              <tr *ngFor="let item of itemsFormArray.controls; let i=index" [formGroupName]="i"
+                [class.dispatched-row]="itemsFormArray.at(i).get('isDispatch')?.value === true">
+                <td>
+                  <div class="d-flex flex-column gap-2">
+                    <div *ngIf="canSeeSaleOption">
+                      <label class="small text-muted">Sale:</label>
+                      <ng-container *ngIf="itemsFormArray.at(i).get('quotationItemStatus')?.value != 'B'">
+                        <input type="checkbox" [checked]="isSelected(i)" (change)="toggleSelection(i, $event)"
+                          title="Select for sale creation">
+                      </ng-container>
                     </div>
-                  </td>
+                    <div>
+                      <label class="small text-muted">Dispatch:</label>
+                      <input type="checkbox" [checked]="isDispatchSelected(i)"
+                        (change)="toggleDispatchSelection(i, $event)" title="Select for dispatch slip">
+                    </div>
+                  </div>
+                </td>
                 <td>
                   <div class="form-field-container">
                     {{itemsFormArray.at(i).get('productName')?.value}}
@@ -159,45 +169,40 @@
 
                 <td>
                   <div class="input-group">
-                    <input type="number"
-                           formControlName="numberOfRoll"
-                           class="form-control"
-                           min="0"
-                           step="1"
-                           (focus)="onNumberOfRollFocus(i)"
-                           (input)="onRollWeightChange(i)"
-                           [readonly]="itemsFormArray.at(i).get('quotationItemStatus')?.value == 'B' || itemsFormArray.at(i).get('isDispatch')?.value === true">
+                    <input type="number" formControlName="numberOfRoll" class="form-control" min="0" step="1"
+                      (focus)="onNumberOfRollFocus(i)" (input)="onRollWeightChange(i)"
+                      [readonly]="itemsFormArray.at(i).get('quotationItemStatus')?.value == 'B' || itemsFormArray.at(i).get('isDispatch')?.value === true">
                   </div>
                 </td>
                 <td>
                   <div class="input-group">
-                    <input type="number" formControlName="weightPerRoll" class="form-control" min="0" step="0.01" (input)="onRollWeightChange(i)" readonly>
+                    <input type="number" formControlName="weightPerRoll" class="form-control" min="0" step="0.01"
+                      (input)="onRollWeightChange(i)" readonly>
                   </div>
                 </td>
                 <td>
-                  <input type="number"
-                         formControlName="quantity"
-                         class="form-control"
-                         min="0"
-                         step="0.001"
-                         (focus)="onQuantityFocus(i)"
-                         (change)="onQuantityChange(i, $event)"
-                         (input)="onQuantityEdit(i)"
-                         [readonly]="itemsFormArray.at(i).get('quotationItemStatus')?.value == 'B' || itemsFormArray.at(i).get('isDispatch')?.value === true">
+                  <input type="number" formControlName="quantity" class="form-control" min="0" step="0.001"
+                    (focus)="onQuantityFocus(i)" (change)="onQuantityChange(i, $event)" (input)="onQuantityEdit(i)"
+                    [readonly]="itemsFormArray.at(i).get('quotationItemStatus')?.value == 'B' || itemsFormArray.at(i).get('isDispatch')?.value === true">
                 </td>
                 <td>
                   <input type="text" formControlName="remarks" class="form-control" placeholder="Remarks">
                 </td>
 
                 <td>
-                  <input type="checkbox" formControlName="isProduction" (click)="onProductionClick(i, $event)" (change)="onProductionToggle(i)" [disabled]="itemsFormArray.at(i).get('isDispatch')?.value === true" title="Allowed only when status is Open">
+                  <input type="checkbox" formControlName="isProduction" (click)="onProductionClick(i, $event)"
+                    (change)="onProductionToggle(i)" [disabled]="itemsFormArray.at(i).get('isDispatch')?.value === true"
+                    title="Allowed only when status is Open">
                 </td>
                 <td>
                   <input type="checkbox" formControlName="isDispatch" (change)="onDispatchToggle(i)">
                 </td>
                 <td class="status-col">
-                  <ng-container *ngIf="itemsFormArray.at(i).get('isProduction')?.value === true || itemsFormArray.at(i).get('quotationItemStatus')?.value === 'B'">
-                    <select class="form-control" formControlName="quotationItemStatus" (focus)="onStatusFocus(i)" (change)="onStatusChange(i, $event)" [disabled]="itemsFormArray.at(i).get('isDispatch')?.value === true">
+                  <ng-container
+                    *ngIf="itemsFormArray.at(i).get('isProduction')?.value === true || itemsFormArray.at(i).get('quotationItemStatus')?.value === 'B'">
+                    <select class="form-control" formControlName="quotationItemStatus" (focus)="onStatusFocus(i)"
+                      (change)="onStatusChange(i, $event)"
+                      [disabled]="itemsFormArray.at(i).get('isDispatch')?.value === true">
                       <option value="O">Open</option>
                       <option value="I">In progress</option>
                       <option value="C">Completed</option>
@@ -205,8 +210,9 @@
                     </select>
                   </ng-container>
                 </td>
-                <td >
-                  <input type="number" formControlName="createdRoll" class="form-control" min="0" step="1" (focus)="onCreatedRollFocus(i)" [readonly]="itemsFormArray.at(i).get('isDispatch')?.value === true">
+                <td>
+                  <input type="number" formControlName="createdRoll" class="form-control" min="0" step="1"
+                    (focus)="onCreatedRollFocus(i)" [readonly]="itemsFormArray.at(i).get('isDispatch')?.value === true">
                 </td>
 
                 <!-- <td>
@@ -228,7 +234,8 @@
 
         <div class="form-group w-50">
           <label><i class="fas fa-file-contract"></i> Terms & Conditions</label>
-          <textarea formControlName="termsConditions" class="form-control" rows="3" placeholder="Optional terms and conditions"></textarea>
+          <textarea formControlName="termsConditions" class="form-control" rows="3"
+            placeholder="Optional terms and conditions"></textarea>
         </div>
       </div>
 
@@ -253,5 +260,3 @@
 </div>
 
 <app-loader *ngIf="loading"></app-loader>
-
-

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { QuotationService } from '../../../services/quotation.service';
 import { CustomerService } from '../../../services/customer.service';
@@ -15,14 +15,16 @@ import { QuotationStatus, StatusOption } from '../../../models/quotation.model';
 import { EncryptionService } from '../../../shared/services/encryption.service';
 import { AuthService } from '../../../services/auth.service';
 import { PaginationComponent } from '../../../shared/components/pagination/pagination.component';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 @Component({
   selector: 'app-quotation',
   standalone: true,
   imports: [
-    CommonModule, 
-    ReactiveFormsModule, 
-    FormsModule, 
+    CommonModule,
+    ReactiveFormsModule,
+    FormsModule,
     RouterModule,
     MatDialogModule,
     SaleModalComponent,
@@ -33,14 +35,14 @@ import { PaginationComponent } from '../../../shared/components/pagination/pagin
   templateUrl: './quotation.component.html',
   styleUrl: './quotation.component.scss'
 })
-export class QuotationComponent implements OnInit {
+export class QuotationComponent implements OnInit, OnDestroy {
   quotations: any[] = [];
   searchForm!: FormGroup;
   isLoading = false;
   statusOptions: any[] = [];
 
 
-// Pagination properties
+  // Pagination properties
   currentPage = 0;
   pageSize = 10;
   pageSizeOptions = [5, 10, 25, 50, 100];
@@ -48,11 +50,13 @@ export class QuotationComponent implements OnInit {
   totalElements = 0;
   startIndex = 0;
   endIndex = 0;
-  selectedQuotation:any = null;
+  selectedQuotation: any = null;
   products: any[] = [];
   isLoadingProducts = false;
   customers: any[] = [];
   isLoadingCustomers = false;
+  private destroy$ = new Subject<void>();
+  private clickListener: any;
 
   constructor(
     private quotationService: QuotationService,
@@ -65,7 +69,7 @@ export class QuotationComponent implements OnInit {
     private encryptionService: EncryptionService,
     private router: Router,
     private authService: AuthService
-  ){
+  ) {
     this.initializeForm();
     this.statusOptions = Object.entries(QuotationStatus).map(([key, value]) => ({ label: value, value: key }));
     this.setupClickOutsideListener();
@@ -95,25 +99,27 @@ export class QuotationComponent implements OnInit {
       endDate: this.searchForm.value.endDate ? this.dateUtils.formatDate(this.searchForm.value.endDate) : '',
       ...this.searchForm.value,
     };
-  
-    this.quotationService.searchQuotations(params).subscribe({
-      next: (response:any) => {
-        // Initialize showStatusDropdown for each quotation
-        this.quotations = response.content.map((q: any) => ({
-          ...q,
-          showStatusDropdown: false
-        }));
-        this.totalPages = response.totalPages;
-        this.totalElements = response.totalElements;
-        this.startIndex = this.currentPage * this.pageSize;
-        this.endIndex = Math.min((this.currentPage + 1) * this.pageSize, this.totalElements);
-        this.isLoading = false;
-      },
-      error: (error:any) => {
-        this.snackbar.error(error.message || 'Failed to load quotations');
-        this.isLoading = false;
-      }
-    });
+
+    this.quotationService.searchQuotations(params)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response: any) => {
+          // Initialize showStatusDropdown for each quotation
+          this.quotations = response.content.map((q: any) => ({
+            ...q,
+            showStatusDropdown: false
+          }));
+          this.totalPages = response.totalPages;
+          this.totalElements = response.totalElements;
+          this.startIndex = this.currentPage * this.pageSize;
+          this.endIndex = Math.min((this.currentPage + 1) * this.pageSize, this.totalElements);
+          this.isLoading = false;
+        },
+        error: (error: any) => {
+          this.snackbar.error(error.message || 'Failed to load quotations');
+          this.isLoading = false;
+        }
+      });
   }
 
   onSearch(): void {
@@ -140,50 +146,56 @@ export class QuotationComponent implements OnInit {
   deleteQuotation(id: number): void {
     if (confirm('Are you sure you want to delete this quotation? This action cannot be undone.')) {
       this.isLoading = true;
-      this.quotationService.deleteQuotation(id).subscribe({
-        next: () => {
-          this.snackbar.success('Quotation deleted successfully');
-          this.loadQuotations();
-        },
-        error: (error) => {
-          this.snackbar.error(error?.error?.message || 'Failed to delete quotation');
-          this.isLoading = false;
-        }
-      });
+      this.quotationService.deleteQuotation(id)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: () => {
+            this.snackbar.success('Quotation deleted successfully');
+            this.loadQuotations();
+          },
+          error: (error) => {
+            this.snackbar.error(error?.error?.message || 'Failed to delete quotation');
+            this.isLoading = false;
+          }
+        });
     }
   }
 
   private loadCustomers(): void {
     this.isLoadingCustomers = true;
-    this.customerService.getCustomers({ status: 'A' }).subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.customers = response.data;
+    this.customerService.getCustomers({ status: 'A' })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.customers = response.data;
+          }
+          this.isLoadingCustomers = false;
+        },
+        error: (error) => {
+          this.snackbar.error('Failed to load customers');
+          this.isLoadingCustomers = false;
         }
-        this.isLoadingCustomers = false;
-      },
-      error: (error) => {
-        this.snackbar.error('Failed to load customers');
-        this.isLoadingCustomers = false;
-      }
-    });
+      });
   }
 
   refreshCustomers(): void {
     this.isLoadingCustomers = true;
-    this.customerService.refreshCustomers().subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.customers = response.data;
-          this.snackbar.success('Customers refreshed successfully');
+    this.customerService.refreshCustomers()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.customers = response.data;
+            this.snackbar.success('Customers refreshed successfully');
+          }
+          this.isLoadingCustomers = false;
+        },
+        error: (error) => {
+          this.snackbar.error('Failed to refresh customers');
+          this.isLoadingCustomers = false;
         }
-        this.isLoadingCustomers = false;
-      },
-      error: (error) => {
-        this.snackbar.error('Failed to refresh customers');
-        this.isLoadingCustomers = false;
-      }
-    });
+      });
   }
 
   resetForm(): void {
@@ -214,43 +226,47 @@ export class QuotationComponent implements OnInit {
     if (!quotation) return;
 
     quotation.isPrinting = true;
-    
-    this.quotationService.generatePdf(id).subscribe({
-      next: (response) => {
-        const url = window.URL.createObjectURL(response.blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'quotation-' + quotation.customerName + '.pdf';
-        link.click();
-        window.URL.revokeObjectURL(url);
-        quotation.isPrinting = false;
-      },
-      error: () => {
-        this.snackbar.error('Failed to generate PDF');
-        quotation.isPrinting = false;
-      }
-    });
+
+    this.quotationService.generatePdf(id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          const url = window.URL.createObjectURL(response.blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = 'quotation-' + quotation.customerName + '.pdf';
+          link.click();
+          window.URL.revokeObjectURL(url);
+          quotation.isPrinting = false;
+        },
+        error: () => {
+          this.snackbar.error('Failed to generate PDF');
+          quotation.isPrinting = false;
+        }
+      });
   }
 
   generateDispatchPdf(id: number, quotation: any): void {
     if (!quotation) return;
 
     quotation.isPrinting = true;
-    this.quotationService.generateDispatchPdf(id, null).subscribe({
-      next: (response) => {
-        const url = window.URL.createObjectURL(response.blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'dispatch-slip.pdf';
-        link.click();
-        window.URL.revokeObjectURL(url);
-        quotation.isPrinting = false;
-      }, 
-      error: () => {
-        this.snackbar.error('Failed to generate PDF');
-        quotation.isPrinting = false;
-      }
-    });
+    this.quotationService.generateDispatchPdf(id, null)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          const url = window.URL.createObjectURL(response.blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = 'dispatch-slip.pdf';
+          link.click();
+          window.URL.revokeObjectURL(url);
+          quotation.isPrinting = false;
+        },
+        error: () => {
+          this.snackbar.error('Failed to generate PDF');
+          quotation.isPrinting = false;
+        }
+      });
   }
 
   getStatusIcon(status: string): string {
@@ -268,14 +284,15 @@ export class QuotationComponent implements OnInit {
   }
 
   private setupClickOutsideListener(): void {
-    document.addEventListener('click', (event: any) => {
+    this.clickListener = (event: any) => {
       const dropdowns = document.querySelectorAll('.status-container');
       dropdowns.forEach(dropdown => {
         if (!dropdown.contains(event.target)) {
           this.quotations.forEach(q => q.showStatusDropdown = false);
         }
       });
-    });
+    };
+    document.addEventListener('click', this.clickListener);
   }
 
   toggleStatusDropdown(quotation: any): void {
@@ -287,7 +304,7 @@ export class QuotationComponent implements OnInit {
   }
 
   canChangeStatus(status: string): boolean {
-    return ['D','Q', 'A', 'P','PC', 'C'].includes(status);
+    return ['D', 'Q', 'A', 'P', 'PC', 'C'].includes(status);
   }
 
   updateStatus(quotation: any, newStatus: string): void {
@@ -295,22 +312,24 @@ export class QuotationComponent implements OnInit {
 
     quotation.isUpdating = true;
     quotation.showStatusDropdown = false;
-    
-    this.quotationService.updateQuotationStatus(quotation.id, newStatus).subscribe({
-      next: () => {
-        quotation.status = newStatus;
-        this.snackbar.success('Status updated successfully');
-        quotation.isUpdating = false;
-      },
-      error: (error:any) => {
-        this.snackbar.error(error?.error?.message || 'Failed to update status');
-        quotation.isUpdating = false;
-      }
-    });
+
+    this.quotationService.updateQuotationStatus(quotation.id, newStatus)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          quotation.status = newStatus;
+          this.snackbar.success('Status updated successfully');
+          quotation.isUpdating = false;
+        },
+        error: (error: any) => {
+          this.snackbar.error(error?.error?.message || 'Failed to update status');
+          quotation.isUpdating = false;
+        }
+      });
   }
-  
+
   getAvailableStatusOptions(currentStatus: string): StatusOption[] {
-    switch(currentStatus) {
+    switch (currentStatus) {
       case 'Q':
         return [
           { label: QuotationStatus.A, value: 'A', disabled: false },
@@ -360,7 +379,7 @@ export class QuotationComponent implements OnInit {
     localStorage.setItem('editQuotationId', this.encryptionService.encrypt(id.toString()));
     this.router.navigate(['/quotation/dispatch']);
   }
-  
+
   openWhatsApp(rawNumber: string | number | null | undefined): void {
     const digits = String(rawNumber ?? '').replace(/\D/g, '');
     if (!digits) {
@@ -375,5 +394,13 @@ export class QuotationComponent implements OnInit {
       // Swallow errors; native handlers may block exceptions
     }
   }
-}
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+
+    if (this.clickListener) {
+      document.removeEventListener('click', this.clickListener);
+    }
+  }
+}
