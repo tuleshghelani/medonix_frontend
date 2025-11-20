@@ -44,8 +44,7 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
   quotationId?: number;
   private itemSubscriptions: Subscription[] = [];
   private lastStatusByIndex: { [index: number]: string } = {};
-  private lastCreatedRollByIndex: { [index: number]: number } = {};
-  private lastNumberOfRollByIndex: { [index: number]: number } = {};
+  private lastCreatedRollByIndex: { [index: number]: number | null } = {};
   private lastQuantityByIndex: { [index: number]: number } = {};
   private selectedQuotationItemIds = new Set<number>();
   private selectedDispatchItemIds = new Set<number>();
@@ -143,8 +142,6 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
       productType: [''],
       quantity: [0, [Validators.required, Validators.min(0)]],
       unitPrice: [0, [Validators.required, Validators.min(0.01)]],
-      numberOfRoll: [0, [Validators.required, Validators.min(0)]],
-      weightPerRoll: [0, [Validators.required, Validators.min(0)]],
       isQuantityManual: [false],
       remarks: [''],
       isDispatch: [false],
@@ -152,7 +149,7 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
       isProduction: [false],
       id: [null],
       quotationItemStatus: ['O', Validators.required],
-      createdRoll: [0, [Validators.required, Validators.min(0)]],
+      createdRoll: [null, [Validators.min(0)]],
       // Price-related fields retained for backend compatibility but hidden in UI
       price: [0],
       taxPercentage: [0],
@@ -305,29 +302,7 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
       });
   }
 
-  onRollWeightChange(index: number) {
-    // this.updateQuantityFromRolls(index);
-  }
 
-  onNumberOfRollFocus(index: number) {
-    const group = this.itemsFormArray.at(index) as FormGroup;
-    const current = Number(group.get('numberOfRoll')?.value || 0);
-    this.lastNumberOfRollByIndex[index] = current;
-  }
-
-  private updateQuantityFromRolls(index: number) {
-    const group = this.itemsFormArray.at(index) as FormGroup;
-    if (!group) return;
-    const isManual = !!group.get('isQuantityManual')?.value;
-    if (isManual) {
-      return;
-    }
-    const rolls = Number(group.get('numberOfRoll')?.value || 0);
-    const weight = Number(group.get('weightPerRoll')?.value || 0);
-    const computedQty = Number((rolls * weight).toFixed(3));
-    group.patchValue({ quantity: computedQty }, { emitEvent: false });
-    this.calculateItemPrice(index);
-  }
 
   private calculateItemPrice(index: number, skipChangeDetection = false): void {
     const group = this.itemsFormArray.at(index) as FormGroup;
@@ -527,14 +502,12 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
           productType: [item.productType || ''],
           quantity: [item.quantity || 1, [Validators.required, Validators.min(1)]],
           unitPrice: [item.unitPrice || 0, [Validators.required, Validators.min(0.01)]],
-          numberOfRoll: [item.numberOfRoll ?? 0, [Validators.required, Validators.min(0)]],
-          weightPerRoll: [item.weightPerRoll ?? 0, [Validators.required, Validators.min(0)]],
           remarks: [item.remarks || ''],
           // dispatch extras
           isProduction: [item.isProduction ?? false],
           isDispatch: [item.isDispatch ?? false],
           quotationItemStatus: [item.quotationItemStatus ?? 'O', Validators.required],
-          createdRoll: [item.createdRoll ?? 0, [Validators.required, Validators.min(0)]],
+          createdRoll: [item.createdRoll ?? null, [Validators.min(0)]],
           // price fields for backend
           price: [item.price || 0],
           taxPercentage: [item.taxPercentage ?? 0],
@@ -589,8 +562,6 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
         productType: control.get('productType')?.value,
         quantity: control.get('quantity')?.value,
         unitPrice: control.get('unitPrice')?.value,
-        numberOfRoll: control.get('numberOfRoll')?.value,
-        weightPerRoll: control.get('weightPerRoll')?.value,
         remarks: control.get('remarks')?.value,
         // dispatch extras
         isProduction: control.get('isProduction')?.value,
@@ -713,8 +684,72 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
 
   onCreatedRollFocus(index: number) {
     const group = this.itemsFormArray.at(index) as FormGroup;
-    const current = Number(group.get('createdRoll')?.value || 0);
+    const val = group.get('createdRoll')?.value;
+    const current = (val === null || val === '') ? null : Number(val);
     this.lastCreatedRollByIndex[index] = current;
+  }
+
+  onCreatedRollChange(index: number, event: Event) {
+    const group = this.itemsFormArray.at(index) as FormGroup;
+
+    const getPrevValue = () => {
+      const stored = this.lastCreatedRollByIndex[index];
+      if (stored !== undefined) return stored;
+      const val = group.get('createdRoll')?.value;
+      return (val === null || val === '') ? null : Number(val);
+    };
+
+    const prevValue = getPrevValue();
+
+    if (group.get('isDispatch')?.value === true) {
+      group.patchValue({ createdRoll: prevValue }, { emitEvent: false });
+      this.cdr.detectChanges();
+      return;
+    }
+    const id = group.get('id')?.value;
+    if (!id) return;
+    const target = event.target as HTMLInputElement;
+    const inputValue = target.value;
+    const newValue = inputValue === '' ? null : Number(inputValue);
+
+    if (newValue !== null && (Number.isNaN(newValue) || newValue < 0)) {
+      this.snackbar.error('Invalid value for Created Roll');
+      group.patchValue({ createdRoll: prevValue }, { emitEvent: false });
+      this.cdr.detectChanges();
+      return;
+    }
+
+    const quantity = Number(group.get('quantity')?.value || 0);
+    if (newValue !== null && newValue > quantity) {
+      this.snackbar.error('Send quantity cannot be greater than Quantity');
+      group.patchValue({ createdRoll: prevValue }, { emitEvent: false });
+      this.cdr.detectChanges();
+      return;
+    }
+
+    if (newValue === prevValue) {
+      return;
+    }
+
+    this.quotationService.updateQuotationItemCreatedRoll(id, newValue as any)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res) => {
+          if (res?.status === 'success' || res?.success) {
+            this.snackbar.success('Created roll updated successfully');
+            this.lastCreatedRollByIndex[index] = newValue;
+          } else {
+            this.snackbar.error(res?.message || 'Failed to update created roll');
+            group.patchValue({ createdRoll: prevValue }, { emitEvent: false });
+            this.cdr.detectChanges();
+          }
+        },
+        error: (err) => {
+          this.snackbar.error(err?.error?.message || 'Failed to update created roll');
+          group.patchValue({ createdRoll: prevValue }, { emitEvent: false });
+          this.cdr.detectChanges();
+        }
+      });
   }
 
   onProductionClick(index: number, event: Event) {

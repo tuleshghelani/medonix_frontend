@@ -87,7 +87,7 @@ export class QuotationService {
   }
 
   deleteQuotation(id: number): Observable<any> {
-    return this.http.post(`${this.apiUrl}/delete`, { quotationId:id });
+    return this.http.post(`${this.apiUrl}/delete`, { quotationId: id });
   }
 
   generatePdf(id: number): Observable<{ blob: Blob; filename: string | undefined }> {
@@ -169,9 +169,14 @@ export class QuotationService {
 
   updateQuotationItemDispatch(quotationItemId: number, isDispatch: boolean): Observable<any> {
     return this.http.put<any>(`${this.quotationItemsApiUrl}/dispatch`, { id: quotationItemId, isDispatch });
-  }  
+  }
 
   updateQuotationItemProductionStatus(quotationItemId: number, isProduction: boolean): Observable<any> {
     return this.http.put<any>(`${this.quotationItemsApiUrl}/production`, { id: quotationItemId, isProduction });
   }
+
+  updateQuotationItemCreatedRoll(quotationItemId: number, createdRoll: number): Observable<any> {
+    return this.http.put<any>(`${this.quotationItemsApiUrl}/created-roll`, { id: quotationItemId, createdRoll });
+  }
+
 }

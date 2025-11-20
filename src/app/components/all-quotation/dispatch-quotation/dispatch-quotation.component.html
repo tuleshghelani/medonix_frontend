@@ -111,15 +111,12 @@
               <tr>
                 <th>Sale/dispatch</th>
                 <th>Product</th>
-                <th>Brand</th>
-                <th>No of Rolls</th>
-                <th>Weight Per Roll</th>
                 <th>Quantity</th>
                 <th>Remarks</th>
                 <th>Production</th>
                 <th>Dispatch</th>
                 <th class="status-col">Status</th>
-                <th class="created-roll-col">Created Roll</th>
+                <th class="created-roll-col">Send quantity</th>
                 <!-- <th>Actions</th> -->
               </tr>
             </thead>
@@ -149,37 +146,6 @@
                   </div>
                 </td>
 
-                <td>
-                  <div class="form-field-container">
-                    <div class="select-group">
-                      {{itemsFormArray.at(i).get('brandName')?.value}}
-                      <!-- <input type="text" formControlName="brandName" class="form-control" placeholder="Brand" readonly> -->
-                      <!-- <button 
-                        type="button" 
-                        class="btn btn-sm btn-primary refresh" 
-                        (click)="refreshBrands()"
-                        [disabled]="isLoadingBrands" 
-                        title="Refresh Brands"
-                      >
-                        <i class="fas" [ngClass]="isLoadingBrands ? 'fa-spinner fa-spin' : 'fa-sync-alt'"></i>
-                      </button> -->
-                    </div>
-                  </div>
-                </td>
-
-                <td>
-                  <div class="input-group">
-                    <input type="number" formControlName="numberOfRoll" class="form-control" min="0" step="1"
-                      (focus)="onNumberOfRollFocus(i)" (input)="onRollWeightChange(i)"
-                      [readonly]="itemsFormArray.at(i).get('quotationItemStatus')?.value == 'B' || itemsFormArray.at(i).get('isDispatch')?.value === true">
-                  </div>
-                </td>
-                <td>
-                  <div class="input-group">
-                    <input type="number" formControlName="weightPerRoll" class="form-control" min="0" step="0.01"
-                      (input)="onRollWeightChange(i)" readonly>
-                  </div>
-                </td>
                 <td>
                   <input type="number" formControlName="quantity" class="form-control" min="0" step="0.001"
                     (focus)="onQuantityFocus(i)" (change)="onQuantityChange(i, $event)" (input)="onQuantityEdit(i)"
@@ -212,7 +178,8 @@
                 </td>
                 <td>
                   <input type="number" formControlName="createdRoll" class="form-control" min="0" step="1"
-                    (focus)="onCreatedRollFocus(i)" [readonly]="itemsFormArray.at(i).get('isDispatch')?.value === true">
+                    (focus)="onCreatedRollFocus(i)" (change)="onCreatedRollChange(i, $event)"
+                    [readonly]="itemsFormArray.at(i).get('isDispatch')?.value === true">
                 </td>
 
                 <!-- <td>
