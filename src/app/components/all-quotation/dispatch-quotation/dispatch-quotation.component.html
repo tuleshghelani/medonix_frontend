@@ -113,7 +113,7 @@
                 <th>Product</th>
                 <th>Quantity</th>
                 <th>Remarks</th>
-                <th>Production</th>
+                <!-- <th>Production</th> -->
                 <th>Dispatch</th>
                 <th class="status-col">Status</th>
                 <th class="created-roll-col">Send quantity</th>
@@ -155,11 +155,11 @@
                   <input type="text" formControlName="remarks" class="form-control" placeholder="Remarks">
                 </td>
 
-                <td>
+                <!-- <td>
                   <input type="checkbox" formControlName="isProduction" (click)="onProductionClick(i, $event)"
                     (change)="onProductionToggle(i)" [disabled]="itemsFormArray.at(i).get('isDispatch')?.value === true"
                     title="Allowed only when status is Open">
-                </td>
+                </td> -->
                 <td>
                   <input type="checkbox" formControlName="isDispatch" (change)="onDispatchToggle(i)">
                 </td>
