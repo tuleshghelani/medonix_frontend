@@ -110,6 +110,13 @@
                 <i class="fas fa-eye"></i>
               </button>
               <button 
+                class="btn-icon add-return" 
+                (click)="openReturn(purchase.id!)"
+                title="Add Return"
+              >
+                <i class="fas fa-undo"></i>
+              </button>
+              <button 
                 class="btn-icon qc" 
                 (click)="openQc(purchase.id!)"
                 title="Purchase QC"

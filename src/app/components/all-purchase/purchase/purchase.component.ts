@@ -210,6 +210,11 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     this.router.navigate(['/purchase/create']);
   }
 
+  openReturn(id: number): void {
+    const encryptedId = this.encryptionService.encrypt(id.toString());
+    this.router.navigate(['/purchase/return', encryptedId]);
+  }
+
   openQc(id: number): void {
     const encryptedId = this.encryptionService.encrypt(id.toString());
     this.router.navigate(['/purchase/qc', encryptedId]);

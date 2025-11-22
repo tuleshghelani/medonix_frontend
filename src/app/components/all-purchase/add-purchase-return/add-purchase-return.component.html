@@ -1,0 +1,173 @@
+<div class="add-purchase-container">
+  <button class="btn btn-sm btn-secondary back-btn" routerLink="/purchase">
+    <i class="fas fa-arrow-left"></i> Back to Purchases
+  </button>
+
+  <div class="form-card">
+    <div class="card-header">
+      <div class="header-main">
+        <h2 class="form-title">
+          <i class="fas fa-undo-alt"></i> Purchase Return
+        </h2>
+
+        <div class="purchase-meta" *ngIf="purchaseDetails">
+          <div class="meta-item">
+            <span>Invoice</span>
+            <strong>{{ purchaseDetails.invoiceNumber }}</strong>
+          </div>
+          <div class="meta-item">
+            <span>Purchase Date</span>
+            <strong>{{ purchaseDetails.purchaseDate | date:'dd-MM-yyyy' }}</strong>
+          </div>
+          <div class="meta-item">
+            <span>Customer</span>
+            <strong>{{ purchaseDetails.customerName }}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <ng-container *ngIf="!isLoading; else loadingTpl">
+      <div class="qc-content" *ngIf="purchaseDetails; else emptyPurchaseTpl">
+        <form [formGroup]="returnForm" (ngSubmit)="onSubmit()" class="purchase-form" novalidate>
+          <div class="header-section">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="purchaseReturnDate">
+                  <i class="fas fa-calendar"></i> Purchase Return Date
+                </label>
+                <input
+                  type="date"
+                  id="purchaseReturnDate"
+                  formControlName="purchaseReturnDate"
+                  class="form-control"
+                >
+              </div>
+
+              <div class="form-group">
+                <label for="invoiceNumber">
+                  <i class="fas fa-file-invoice"></i> Return Invoice Number
+                </label>
+                <input
+                  type="text"
+                  id="invoiceNumber"
+                  formControlName="invoiceNumber"
+                  class="form-control"
+                  placeholder="Enter return invoice number"
+                >
+              </div>
+            </div>
+          </div>
+
+          <div class="products-section" formArrayName="items" *ngIf="itemsFormArray.length > 0; else noItemsTpl">
+            <div class="table-responsive">
+              <table class="table products-table">
+                <thead>
+                  <tr>
+                    <th>No</th>
+                    <th>Product Name</th>
+                    <th>Quantity</th>
+                    <th>Batch Number</th>
+                    <th>QC Pass</th>
+                    <th>Purchase Return Quantity</th>
+                    <th>Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let group of itemsFormArray.controls; let i = index" [formGroupName]="i">
+                    <td>{{ i + 1 }}</td>
+                    <td>
+                      <div class="product-cell">
+                        <div class="product-name">
+                          {{ group.get('productName')?.value || 'N/A' }}
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="quantity">{{ group.get('quantity')?.value }}</span>
+                    </td>
+                    <td>
+                      <span class="batch">{{ group.get('batchNumber')?.value || '-' }}</span>
+                    </td>
+                    <td>
+                      <span class="quantity">{{ group.get('qcPass')?.value ?? 0 }}</span>
+                    </td>
+                    <td>
+                      <div class="form-field-container">
+                        <input
+                          type="number"
+                          class="form-control"
+                          formControlName="returnQuantity"
+                          min="0"
+                          [max]="group.get('qcPass')?.value || 0"
+                          step="0.01"
+                          inputmode="decimal"
+                          [disabled]="(group.get('qcPass')?.value || 0) <= 0"
+                        >
+                        <div class="invalid-feedback" *ngIf="isReturnQuantityInvalid(i)">
+                          Return quantity must be between 0 and {{ group.get('qcPass')?.value || 0 }}
+                        </div>
+                        <div class="invalid-feedback" *ngIf="(group.get('qcPass')?.value || 0) <= 0">
+                          Return not allowed: QC Pass is 0
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="form-field-container">
+                        <input
+                          type="text"
+                          class="form-control"
+                          formControlName="remarks"
+                          placeholder="Remarks"
+                        >
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <ng-template #noItemsTpl>
+            <div class="empty-state">
+              <i class="fas fa-box-open"></i>
+              <p>No items found for this purchase.</p>
+            </div>
+          </ng-template>
+
+          <div class="purchase-summary">
+            <div class="summary-item">
+              <span>Total Return Quantity</span>
+              <strong>{{ getTotalReturnQuantity() | number:'1.2-2' }}</strong>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button
+              type="submit"
+              class="btn btn-sm btn-primary"
+              [disabled]="returnForm.invalid || isSaving"
+            >
+              <i class="fas" [ngClass]="isSaving ? 'fa-spinner fa-spin' : 'fa-save'"></i>
+              {{ isSaving ? 'Saving...' : 'Save Purchase Return' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </ng-container>
+  </div>
+</div>
+
+<ng-template #loadingTpl>
+  <div class="loading-state">
+    <i class="fas fa-spinner fa-spin"></i>
+    <span>Loading purchase details...</span>
+  </div>
+</ng-template>
+
+<ng-template #emptyPurchaseTpl>
+  <div class="empty-state">
+    <i class="fas fa-file-invoice"></i>
+    <p>Purchase details not available.</p>
+  </div>
+</ng-template>

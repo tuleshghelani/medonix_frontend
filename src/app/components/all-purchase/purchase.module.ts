@@ -6,11 +6,12 @@ import { PurchaseComponent } from './purchase/purchase.component';
 import { AddPurchaseComponent } from './add-purchase/add-purchase.component';
 import { PurchaseRoutingModule } from './purchase-routing.module';
 import { QcPurchaseComponent } from './qc-purchase/qc-purchase.component';
+import { AddPurchaseReturnComponent } from './add-purchase-return/add-purchase-return.component';
 
 @NgModule({
   declarations: [
-  
-    QcPurchaseComponent
+    QcPurchaseComponent,
+    AddPurchaseReturnComponent
   ],
   imports: [
     CommonModule,

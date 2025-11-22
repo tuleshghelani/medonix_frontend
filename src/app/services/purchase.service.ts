@@ -9,6 +9,7 @@ import { Purchase, PurchaseResponse, PurchaseSearchRequest } from '../models/pur
 })
 export class PurchaseService {
   private apiUrl = `${environment.apiUrl}/api/purchases`;
+  private purchaseReturnApiUrl = `${environment.apiUrl}/api/purchase-returns`;
 
   constructor(private http: HttpClient) {}
 
@@ -34,5 +35,13 @@ export class PurchaseService {
 
   updateQcPass(payload: { purchaseItemId: number; qcPass: number }): Observable<any> {
     return this.http.post(`${this.apiUrl}/update-qc-pass`, payload);
+  }
+
+  createPurchaseReturn(payload: any): Observable<any> {
+    return this.http.post(`${this.purchaseReturnApiUrl}/create`, payload);
+  }
+
+  getPurchaseReturnDetail(id: number): Observable<any> {
+    return this.http.post(`${this.purchaseReturnApiUrl}/detail`, { id });
   }
 }
