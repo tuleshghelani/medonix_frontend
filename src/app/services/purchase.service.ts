@@ -29,8 +29,8 @@ export class PurchaseService {
     return this.http.delete(`${this.apiUrl}/${id}`);
   }
 
-  getPurchaseDetails(id: number): Observable<any> {
-    return this.http.post(`${this.apiUrl}/detail`, { id });
+  getPurchaseDetails(id: number, isPurchaseReturn: Boolean = false): Observable<any> {
+    return this.http.post(`${this.apiUrl}/detail`, { id, isPurchaseReturn });
   }
 
   updateQcPass(payload: { purchaseItemId: number; qcPass: number }): Observable<any> {

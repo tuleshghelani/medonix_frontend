@@ -81,15 +81,23 @@ export class AddPurchaseReturnComponent {
     });
   }
 
+  getMaxReturnQuantity(group: AbstractControl): number {
+    const quantity = Number(group.get('quantity')?.value || 0);
+    const qcPass = Number(group.get('qcPass')?.value || 0);
+    const max = quantity - qcPass;
+    return isNaN(max) || max < 0 ? 0 : max;
+  }
+
   private loadPurchaseDetails(id: number): void {
     this.isLoading = true;
-    this.purchaseService.getPurchaseDetails(id).pipe(takeUntil(this.destroy$)).subscribe({
+    this.purchaseService.getPurchaseDetails(id, true).pipe(takeUntil(this.destroy$)).subscribe({
       next: (response: any) => {
         this.purchaseDetails = response;
         this.returnForm.patchValue({
           purchaseId: response.id,
           customerId: response.customerId,
-          invoiceNumber: response.invoiceNumber ? `PR-${response.invoiceNumber}` : ''
+          invoiceNumber: response.invoiceNumber ? `PR-${response.invoiceNumber}` : '',
+          isPurchaseReturn: true
         });
 
         const items = response.items || [];
@@ -111,19 +119,21 @@ export class AddPurchaseReturnComponent {
     this.itemsFormArray.clear();
 
     items.forEach(item => {
+      const quantity = Number(item.quantity || 0);
       const qcPass = Number(item.qcPass || 0);
+      const maxReturn = Math.max(0, quantity - qcPass);
 
       const group = this.fb.group({
         purchaseItemId: [item.id],
         productId: [item.productId],
         productName: [null],
-        quantity: [item.quantity],
+        quantity: [quantity],
         batchNumber: [item.batchNumber],
         qcPass: [qcPass],
         unitPrice: [item.unitPrice],
-        returnQuantity: [{ value: null, disabled: qcPass <= 0 }, [
+        returnQuantity: [{ value: null, disabled: maxReturn <= 0 }, [
           Validators.min(0),
-          Validators.max(qcPass)
+          Validators.max(maxReturn)
         ]],
         remarks: [null]
       });
@@ -205,7 +215,7 @@ export class AddPurchaseReturnComponent {
     if (!control || control.disabled) {
       return false;
     }
-    return !!(control.invalid && (control.dirty || control.touched));
+    return !!control.invalid;
   }
 
   getTotalReturnQuantity(): number {

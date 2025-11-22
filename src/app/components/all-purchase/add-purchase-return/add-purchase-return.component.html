@@ -99,16 +99,16 @@
                           class="form-control"
                           formControlName="returnQuantity"
                           min="0"
-                          [max]="group.get('qcPass')?.value || 0"
+                          [max]="getMaxReturnQuantity(group)"
                           step="0.01"
                           inputmode="decimal"
-                          [disabled]="(group.get('qcPass')?.value || 0) <= 0"
+                          [disabled]="getMaxReturnQuantity(group) <= 0"
                         >
                         <div class="invalid-feedback" *ngIf="isReturnQuantityInvalid(i)">
-                          Return quantity must be between 0 and {{ group.get('qcPass')?.value || 0 }}
+                          Return quantity must be between 0 and {{ getMaxReturnQuantity(group) }}
                         </div>
-                        <div class="invalid-feedback" *ngIf="(group.get('qcPass')?.value || 0) <= 0">
-                          Return not allowed: QC Pass is 0
+                        <div class="invalid-feedback" *ngIf="getMaxReturnQuantity(group) <= 0">
+                          Return not allowed: available return quantity is 0
                         </div>
                       </div>
                     </td>
