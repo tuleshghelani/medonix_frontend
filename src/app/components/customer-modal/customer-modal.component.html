@@ -1,5 +1,5 @@
 <div class="modal-overlay" *ngIf="display$ | async" (click)="close()">
-    
+
   <div class="modal-container" (click)="$event.stopPropagation()">
     <div class="modal-header">
       <h4><i class="fas fa-user"></i> {{ isEditing ? 'Update' : 'Add New' }} Customer/ Dealer</h4>
@@ -14,13 +14,8 @@
           <label for="name">
             <i class="fas fa-user"></i> Name <span class="required">*</span>
           </label>
-          <input 
-            type="text" 
-            id="name" 
-            formControlName="name" 
-            class="form-control"
-            [class.is-invalid]="customerForm.get('name')?.invalid && customerForm.get('name')?.touched"
-          >
+          <input type="text" id="name" formControlName="name" class="form-control"
+            [class.is-invalid]="customerForm.get('name')?.invalid && customerForm.get('name')?.touched">
           <div class="invalid-feedback" *ngIf="customerForm.get('name')?.errors?.['required']">
             Name is required
           </div>
@@ -30,13 +25,8 @@
           <label for="mobile">
             <i class="fas fa-phone"></i> Mobile
           </label>
-          <input 
-            type="text" 
-            id="mobile" 
-            formControlName="mobile" 
-            class="form-control"
-            [class.is-invalid]="customerForm.get('mobile')?.invalid && customerForm.get('mobile')?.touched"
-          >
+          <input type="text" id="mobile" formControlName="mobile" class="form-control"
+            [class.is-invalid]="customerForm.get('mobile')?.invalid && customerForm.get('mobile')?.touched">
           <div class="invalid-feedback" *ngIf="customerForm.get('mobile')?.errors?.['required']">
             Mobile number is required
           </div>
@@ -49,13 +39,8 @@
           <label for="email">
             <i class="fas fa-envelope"></i> Email
           </label>
-          <input 
-            type="email" 
-            id="email" 
-            formControlName="email" 
-            class="form-control"
-            [class.is-invalid]="customerForm.get('email')?.invalid && customerForm.get('email')?.touched"
-          >
+          <input type="email" id="email" formControlName="email" class="form-control"
+            [class.is-invalid]="customerForm.get('email')?.invalid && customerForm.get('email')?.touched">
           <div class="invalid-feedback" *ngIf="customerForm.get('email')?.errors?.['required']">
             Email is required
             <span *ngIf="customerForm.get('email')?.errors?.['email']">Please enter a valid email address</span>
@@ -66,13 +51,8 @@
           <label for="gst">
             <i class="fas fa-receipt"></i> GST Number
           </label>
-          <input 
-            type="text" 
-            id="gst" 
-            formControlName="gst" 
-            class="form-control"
-            [class.is-invalid]="customerForm.get('gst')?.invalid && customerForm.get('gst')?.touched"
-          >
+          <input type="text" id="gst" formControlName="gst" class="form-control"
+            [class.is-invalid]="customerForm.get('gst')?.invalid && customerForm.get('gst')?.touched">
           <div class="invalid-feedback" *ngIf="customerForm.get('gst')?.errors?.['pattern']">
             Please enter a valid GST number
           </div>
@@ -82,12 +62,7 @@
           <label for="dlNumber">
             <i class="fas fa-id-card"></i> DL Number
           </label>
-          <input 
-            type="text" 
-            id="dlNumber" 
-            formControlName="dlNumber" 
-            class="form-control"
-          >
+          <input type="text" id="dlNumber" formControlName="dlNumber" class="form-control">
         </div>
 
         <!-- <div class="form-group">
@@ -111,19 +86,9 @@
         <div class="form-group">
           <label for="nextActionDate">Next Action Date</label>
           <div class="input-group">
-            <input 
-              type="datetime-local" 
-              id="nextActionDate" 
-              formControlName="nextActionDate" 
-              class="form-control"
-            >
-            <button 
-              type="button" 
-              class="btn btn-outline-secondary"
-              title="Clear date"
-              (click)="clearNextActionDate($event)"
-              (touchstart)="$event.preventDefault(); clearNextActionDate($event)"
-            >
+            <input type="datetime-local" id="nextActionDate" formControlName="nextActionDate" class="form-control">
+            <button type="button" class="btn btn-outline-secondary" title="Clear date"
+              (click)="clearNextActionDate($event)" (touchstart)="$event.preventDefault(); clearNextActionDate($event)">
               <i class="fa-solid fa-xmark"></i>
             </button>
           </div>
@@ -131,34 +96,18 @@
 
         <div class="form-group">
           <label for="remainingPaymentAmount">Remaining Payment Amount</label>
-          <input 
-            type="number" 
-            id="remainingPaymentAmount" 
-            formControlName="remainingPaymentAmount" 
-            class="form-control"
-            min="0"
-            step="0.01"
-          >
+          <input type="number" id="remainingPaymentAmount" formControlName="remainingPaymentAmount" class="form-control"
+            step="0.01">
         </div>
 
         <div class="form-group">
           <label for="address">Address</label>
-          <textarea 
-            id="address" 
-            formControlName="address" 
-            class="form-control"
-            rows="3"
-          ></textarea>
+          <textarea id="address" formControlName="address" class="form-control" rows="3"></textarea>
         </div>
 
         <div class="form-group">
           <label for="remarks">Remarks</label>
-          <textarea 
-            id="remarks" 
-            formControlName="remarks" 
-            class="form-control"
-            rows="3"
-          ></textarea>
+          <textarea id="remarks" formControlName="remarks" class="form-control" rows="3"></textarea>
         </div>
 
         <div class="form-group">
@@ -173,22 +122,14 @@
       </div>
 
       <div class="modal-actions">
-        <button 
-          type="button" 
-          class="btn btn-sm btn-secondary" 
-          (click)="close()"
-        >
+        <button type="button" class="btn btn-sm btn-secondary" (click)="close()">
           Cancel
         </button>
-        <button 
-          type="submit" 
-          class="btn btn-sm btn-primary"
-          [disabled]="customerForm.invalid || loading"
-        >
+        <button type="submit" class="btn btn-sm btn-primary" [disabled]="customerForm.invalid || loading">
           <i class="fas" [ngClass]="loading ? 'fa-spinner fa-spin' : (isEditing ? 'fa-save' : 'fa-plus')"></i>
           {{ loading ? (isEditing ? 'Updating...' : 'Creating...') : (isEditing ? 'Update' : 'Create') }} Customer
         </button>
       </div>
     </form>
   </div>
-</div> 
+</div>

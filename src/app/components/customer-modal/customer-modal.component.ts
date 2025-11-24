@@ -17,7 +17,7 @@ import { Subject } from 'rxjs';
 })
 export class CustomerModalComponent implements OnInit, OnDestroy {
   @Output() customerSaved = new EventEmitter<boolean>();
-  
+
   customerForm!: FormGroup;
   loading = false;
   isSubmitted = false;
@@ -59,12 +59,12 @@ export class CustomerModalComponent implements OnInit, OnDestroy {
     // Complete the destroy subject to unsubscribe all observables
     this.destroy$.next();
     this.destroy$.complete();
-    
+
     // Unsubscribe from modal state subscription
     if (this.modalStateSubscription) {
       this.modalStateSubscription.unsubscribe();
     }
-    
+
     // Clean up references
     this.currentCustomer = null;
   }
@@ -95,7 +95,7 @@ export class CustomerModalComponent implements OnInit, OnDestroy {
 
     try {
       let nextActionDate = '';
-      
+
       if (customer.nextActionDate) {
         try {
           const utcDate = new Date(customer.nextActionDate);
@@ -130,7 +130,7 @@ export class CustomerModalComponent implements OnInit, OnDestroy {
     if (this.customerForm.valid) {
       this.loading = true;
       const formData = this.customerForm.value;
-      
+
       if (formData.nextActionDate) {
         const date = new Date(formData.nextActionDate);
         formData.nextActionDate = date.toLocaleString('en-GB', {
@@ -150,14 +150,14 @@ export class CustomerModalComponent implements OnInit, OnDestroy {
       request.pipe(takeUntil(this.destroy$)).subscribe({
         next: (response) => {
           if (response.success) {
-            this.toastr.success(response.message || 
+            this.toastr.success(response.message ||
               `Customer ${this.isEditing ? 'updated' : 'created'} successfully`);
             this.customerSaved.emit(true);
             this.close();
           }
         },
         error: (error) => {
-          this.toastr.error(error.message || 
+          this.toastr.error(error.message ||
             `Failed to ${this.isEditing ? 'update' : 'create'} customer`);
         },
         complete: () => {
