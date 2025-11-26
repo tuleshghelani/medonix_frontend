@@ -167,8 +167,10 @@ export class AuthService {
       return '/employee';
     } else if (userRoles.includes(UserRole.DISPATCH)) {
       return '/category';
+    } else if (userRoles.includes(UserRole.DEALER)) {
+      return '/purchase';
     } else {
-      return '/login'; // For OPERATOR and REPORTER who have no access yet
+      return '/login'; // For roles without a landing page yet
     }
   }
 }

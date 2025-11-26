@@ -45,13 +45,13 @@ const routes: Routes = [
     path: 'purchase', 
     loadChildren: () => import('./components/all-purchase/purchase.module').then(m => m.PurchaseModule),
     canActivate: [AuthGuard, RoleGuard],
-    data: { preload: true, roles: ['ADMIN'] }
+    data: { preload: true, roles: ['ADMIN', 'DEALER'] }
   },
   {
     path: 'sale',
     component: SaleComponent,
     canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN'] }
+    data: { roles: ['ADMIN', 'DEALER'] }
   },
   {
     path: 'sale/create',
@@ -155,7 +155,7 @@ const routes: Routes = [
     path: 'quotation', 
     loadChildren: () => import('./components/all-quotation/quotation.module').then(m => m.QuotationModule),
     canActivate: [AuthGuard, RoleGuard],
-    data: { preload: true, roles: ['ADMIN', 'STAFF_ADMIN'] }
+    data: { preload: true, roles: ['ADMIN', 'STAFF_ADMIN', 'DEALER'] }
   },  
   {
     path: 'data-center',

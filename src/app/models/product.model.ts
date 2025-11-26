@@ -28,6 +28,8 @@ export interface Product {
   id?: number;
   name: string;
   hsnCode?: string;
+  productCode?: string;
+  materialName?: string;
   categoryId: number;
   categoryName?: string;
   description: string;
@@ -44,7 +46,7 @@ export interface Product {
   weight: number;
   type: ProductMainType;
   calculationType?: ProductCalculationType;
-  polyCarbonateType?: PolyCarbonateType; 
+  polyCarbonateType?: PolyCarbonateType;
   // New field for sqFeetMultiplier - only for REGULAR product type
   sqFeetMultiplier?: number;
   // New normalized map from API: keys like "6","8",... with numeric rates
@@ -56,6 +58,8 @@ export interface Product {
 export interface ProductSearchRequest {
   search?: string;
   hsnCode?: string;
+  productCode?: string;
+  materialName?: string;
   categoryId?: number;
   status?: string;
   size?: number;

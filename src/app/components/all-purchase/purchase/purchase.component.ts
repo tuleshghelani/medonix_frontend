@@ -18,6 +18,7 @@ import { PaginationComponent } from '../../../shared/components/pagination/pagin
 import { CustomerService } from '../../../services/customer.service';
 import { RoundPipe } from '../../../round.pipe';
 import { EncryptionService } from '../../../shared/services/encryption.service';
+import { AuthService, UserRole } from '../../../services/auth.service';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
@@ -57,6 +58,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
   isLoadingProducts = false;
   customers: any[] = [];
   isLoadingCustomers = false;
+  canManagePurchases = false;
   private destroy$ = new Subject<void>();
 
   constructor(
@@ -69,14 +71,18 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     private dateUtils: DateUtils,
     private cacheService: CacheService,
     private encryptionService: EncryptionService,
-    private router: Router
+    private router: Router,
+    private authService: AuthService
   ) {
     this.initializeForm();
   }
 
   ngOnInit(): void {
+    this.canManagePurchases = this.authService.isAdmin() || this.authService.isStaffAdmin();
     this.loadPurchases();
-    this.loadCustomers();
+    if (this.canManagePurchases) {
+      this.loadCustomers();
+    }
   }
 
   private initializeForm(): void {
@@ -157,6 +163,9 @@ export class PurchaseComponent implements OnInit, OnDestroy {
   }
 
   private loadCustomers(): void {
+    if (!this.canManagePurchases) {
+      return;
+    }
     this.isLoadingCustomers = true;
     this.customerService.getCustomers({ status: 'A' })
       .pipe(takeUntil(this.destroy$))
@@ -175,6 +184,9 @@ export class PurchaseComponent implements OnInit, OnDestroy {
   }
 
   refreshCustomers(): void {
+    if (!this.canManagePurchases) {
+      return;
+    }
     this.isLoadingCustomers = true;
     this.customerService.refreshCustomers()
       .pipe(takeUntil(this.destroy$))

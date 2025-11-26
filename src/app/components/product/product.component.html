@@ -1,62 +1,112 @@
 <div class="product-container">
   <app-loader [show]="isLoading" message="Processing..."></app-loader>
-  <div class="search-section card">
-    <h3>Search Products</h3>
-    <form [formGroup]="searchForm" (ngSubmit)="onSearch()">
-      <div class="search-controls">
-        <div class="form-group">
+  <div class="search-section card elevated">
+    <div class="search-header">
+      <div>
+        <h3>Search Products</h3>
+        <p class="support-text">Filter by keyword, product code, material, or status.</p>
+      </div>
+      <div class="search-header-actions">
+        <button type="button" class="btn btn-outline btn-icon-only" (click)="exportProducts()">
+          <i class="fas fa-file-pdf"></i>
+          <span>Export</span>
+        </button>
+        <button class="btn btn-sm btn-primary" (click)="openCreateDialog()">
+          <i class="fas fa-plus"></i>
+          <span>Create Product</span>
+        </button>
+      </div>
+    </div>
+    <form [formGroup]="searchForm" (ngSubmit)="onSearch($event)" class="search-form">
+      <div class="search-grid">
+        <div class="form-group floating-label">
+          <label>Search</label>
           <input 
             type="text" 
             formControlName="search" 
             class="form-control" 
-            placeholder="Search products..."
+            placeholder="Name / description"
+            autocomplete="off"
           >
         </div>
-        <div class="form-group">
+        <div class="form-group floating-label">
+          <label>HSN Code</label>
           <input
             type="text"
             formControlName="hsnCode"
             class="form-control"
-            placeholder="HSN Code"
+            placeholder="e.g. 3926"
+            autocomplete="off"
           >
         </div>
-        <div class="form-group">
-          <select formControlName="categoryId" class="form-control">
+        <div class="form-group floating-label">
+          <label>Product Code</label>
+          <input
+            type="text"
+            formControlName="productCode"
+            class="form-control"
+            placeholder="Internal code"
+            autocomplete="off"
+          >
+        </div>
+        <div class="form-group floating-label">
+          <label>Material Name</label>
+          <input
+            type="text"
+            formControlName="materialName"
+            class="form-control"
+            placeholder="Material"
+            autocomplete="off"
+          >
+        </div>
+        <div class="form-group select-wrapper">
+          <label>Category</label>
+          <select formControlName="categoryId" class="form-control touch-friendly">
             <option value="">All Categories</option>
             <option *ngFor="let category of categories" [value]="category.id">
               {{ category.name }}
             </option>
           </select>
         </div>
-        <div class="form-group">
-          <select formControlName="status" class="form-control">
+        <div class="form-group select-wrapper">
+          <label>Status</label>
+          <select formControlName="status" class="form-control touch-friendly">
             <option value="A">Active</option>
             <option value="I">Inactive</option>
           </select>
         </div>
-        <button type="submit" class="search-btn btn btn-primary">
-          <i class="fas fa-search"></i> Search
+      </div>
+      <div class="search-actions">
+        <button type="button" class="btn btn-secondary ghost" (click)="resetFilters()">
+          <i class="fas fa-undo"></i> Reset
         </button>
-
-        <button type="button" class="btn btn-sm btn-primary mb-2" (click)="exportProducts()">
-          <i class="fas fa-file-pdf"></i> Export Product
+        <button type="submit" class="search-btn btn btn-primary">
+          <i class="fas fa-search"></i> Apply Filters
         </button>
       </div>
     </form>
   </div>
 
-  <button class="btn btn-sm btn-primary mb-2" (click)="openCreateDialog()">
-    <i class="fas fa-plus"></i> Create Product
-  </button>
-
   <div class="products-list card">
-    <h2>Products</h2>
+    <div class="list-header">
+      <div>
+        <h2>Products</h2>
+        <p class="support-text">Showing {{ totalElements }} result(s)</p>
+      </div>
+      <div class="list-controls">
+        <button type="button" class="btn btn-link" (click)="exportProducts()">
+          <i class="fas fa-file-export"></i> Export PDF
+        </button>
+      </div>
+    </div>
 
     <div class="table-responsive">
       <table class="table">
         <thead>
           <tr>
             <th>Name</th>
+            <th>Product Code</th>
+            <th>Material</th>
             <th>HSN Code</th>
             <th>Category</th>
             <th>Description</th>
@@ -72,10 +122,12 @@
         </thead>
         <tbody>
           <tr *ngFor="let product of products">
-            <td [innerHTML]="sanitizeHtml(product.name)"></td>
-            <td>{{ product.hsnCode }}</td>
-            <td>{{ product.categoryName }}</td>
-            <td>{{ product.description }}</td>
+            <td data-label="Name" [innerHTML]="sanitizeHtml(product.name)"></td>
+            <td data-label="Product Code">{{ product.productCode || '—' }}</td>
+            <td data-label="Material">{{ product.materialName || '—' }}</td>
+            <td data-label="HSN Code">{{ product.hsnCode || '—' }}</td>
+            <td data-label="Category">{{ product.categoryName }}</td>
+            <td data-label="Description">{{ product.description }}</td>
             <td>{{ product.minimumStock }}</td>
             <td>
               <span [class.badge-active]="product.status === 'A'"
@@ -164,6 +216,32 @@
           formControlName="hsnCode" 
           class="form-control"
           placeholder="Enter HSN code"
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="productCode">
+          <i class="fas fa-fingerprint"></i> Product Code
+        </label>
+        <input 
+          type="text" 
+          id="productCode" 
+          formControlName="productCode" 
+          class="form-control"
+          placeholder="Enter product code"
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="materialName">
+          <i class="fas fa-layer-group"></i> Material Name
+        </label>
+        <input 
+          type="text" 
+          id="materialName" 
+          formControlName="materialName" 
+          class="form-control"
+          placeholder="Enter material name"
         >
       </div>
 

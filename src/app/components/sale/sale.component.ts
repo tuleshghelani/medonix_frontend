@@ -17,6 +17,7 @@ import { CustomerService } from '../../services/customer.service';
 import { ModalService } from '../../services/modal.service';
 import { CacheService } from '../../shared/services/cache.service';
 import { EncryptionService } from '../../shared/services/encryption.service';
+import { AuthService, UserRole } from '../../services/auth.service';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
@@ -56,6 +57,7 @@ export class SaleComponent implements OnInit, OnDestroy {
   isLoadingProducts = false;
   customers: any[] = [];
   isLoadingCustomers = false;
+  canManageSales = false;
   private destroy$ = new Subject<void>();
 
   constructor(
@@ -68,14 +70,18 @@ export class SaleComponent implements OnInit, OnDestroy {
     private dateUtils: DateUtils,
     private cacheService: CacheService,
     private encryptionService: EncryptionService,
-    private router: Router
+    private router: Router,
+    private authService: AuthService
   ) {
     this.initializeForm();
   }
 
   ngOnInit(): void {
+    this.canManageSales = this.authService.isAdmin() || this.authService.isStaffAdmin();
     this.loadSales();
-    this.loadCustomers();
+    if (this.canManageSales) {
+      this.loadCustomers();
+    }
   }
 
   private initializeForm(): void {
@@ -191,6 +197,9 @@ export class SaleComponent implements OnInit, OnDestroy {
   }
 
   private loadCustomers(): void {
+    if (!this.canManageSales) {
+      return;
+    }
     this.isLoadingCustomers = true;
     this.customerService.getCustomers({ status: 'A' })
       .pipe(takeUntil(this.destroy$))
@@ -209,6 +218,9 @@ export class SaleComponent implements OnInit, OnDestroy {
   }
 
   refreshCustomers(): void {
+    if (!this.canManageSales) {
+      return;
+    }
     this.isLoadingCustomers = true;
     this.customerService.refreshCustomers()
       .pipe(takeUntil(this.destroy$))

@@ -13,7 +13,7 @@
               placeholder="Search by invoice number..."
             >
           </div>
-          <div class="form-group">
+          <div class="form-group" *ngIf="!isDealerUser">
             <div class="product-select-group">
               <app-searchable-select
                 formControlName="customerId"
@@ -76,7 +76,7 @@
         </div>
       </form>
     </div>
-      <button class="btn btn-sm btn-primary mb-2" (click)="addQuotation()">Add Quotation</button>
+      <button class="btn btn-sm btn-primary mb-2" (click)="addQuotation()" *ngIf="canEditQuotation()">Add Quotation</button>
     <div class="quotations-list card">
       <h2>Quotations</h2>
   
@@ -142,7 +142,7 @@
                 >
                   <i class="fas" [ngClass]="quotation.isPrinting ? 'fa-spinner fa-spin' : ' fa-file-pdf'"></i>
                 </button>
-                <button 
+                <button *ngIf="canEditQuotation()"
                   class="btn-icon edit" 
                   (click)="editQuotation(quotation.id!)"
                   title="Edit quotation"

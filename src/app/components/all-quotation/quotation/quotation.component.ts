@@ -13,7 +13,7 @@ import { LoaderComponent } from '../../../shared/components/loader/loader.compon
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select.component';
 import { QuotationStatus, StatusOption } from '../../../models/quotation.model';
 import { EncryptionService } from '../../../shared/services/encryption.service';
-import { AuthService } from '../../../services/auth.service';
+import { AuthService, UserRole } from '../../../services/auth.service';
 import { PaginationComponent } from '../../../shared/components/pagination/pagination.component';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
@@ -57,6 +57,7 @@ export class QuotationComponent implements OnInit, OnDestroy {
   isLoadingCustomers = false;
   private destroy$ = new Subject<void>();
   private clickListener: any;
+  isDealerUser = false;
 
   constructor(
     private quotationService: QuotationService,
@@ -76,8 +77,11 @@ export class QuotationComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.isDealerUser = this.authService.hasRole(UserRole.DEALER);
     this.loadQuotations();
-    this.loadCustomers();
+    if (!this.isDealerUser) {
+      this.loadCustomers();
+    }
   }
 
   private initializeForm(): void {
@@ -162,6 +166,9 @@ export class QuotationComponent implements OnInit, OnDestroy {
   }
 
   private loadCustomers(): void {
+    if (this.isDealerUser) {
+      return;
+    }
     this.isLoadingCustomers = true;
     this.customerService.getCustomers({ status: 'A' })
       .pipe(takeUntil(this.destroy$))
@@ -180,6 +187,9 @@ export class QuotationComponent implements OnInit, OnDestroy {
   }
 
   refreshCustomers(): void {
+    if (this.isDealerUser) {
+      return;
+    }
     this.isLoadingCustomers = true;
     this.customerService.refreshCustomers()
       .pipe(takeUntil(this.destroy$))
@@ -366,12 +376,11 @@ export class QuotationComponent implements OnInit, OnDestroy {
 
   // Role helpers for template
   canEditQuotation(): boolean {
-    return this.authService.isAdmin();
-    // ||  this.authService.isSalesAndMarketing();
+    return this.authService.isAdmin() || this.authService.isStaffAdmin();
   }
 
   canDispatchQuotation(): boolean {
-    return this.authService.isAdmin();
+    return this.authService.isAdmin() || this.authService.isStaffAdmin();
   }
 
   dispatchQuotation(id: number): void {

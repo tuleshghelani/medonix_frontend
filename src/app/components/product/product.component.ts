@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ProductService } from '../../services/product.service';
 import { CategoryService } from '../../services/category.service';
@@ -59,6 +59,8 @@ export class ProductComponent implements OnInit, OnDestroy {
   endIndex = 0;
   isDialogOpen = false;
   private destroy$ = new Subject<void>();
+  private readonly isBrowser = typeof window !== 'undefined';
+  private dropdownPinned = false;
 
   constructor(
     private productService: ProductService,
@@ -79,6 +81,8 @@ export class ProductComponent implements OnInit, OnDestroy {
     this.productForm = this.fb.group({
       name: ['', [Validators.required]],
       hsnCode: [''],
+      productCode: ['', [Validators.maxLength(100)]],
+      materialName: ['', [Validators.maxLength(150)]],
       categoryId: ['', [Validators.required]],
       minimumStock: [0, [Validators.required, Validators.min(0)]],
       purchaseAmount: [0, [Validators.required, Validators.min(0)]],
@@ -122,6 +126,8 @@ export class ProductComponent implements OnInit, OnDestroy {
     this.searchForm = this.fb.group({
       search: [''],
       hsnCode: [''],
+      productCode: [''],
+      materialName: [''],
       categoryId: [''],
       status: ['A']
     });
@@ -169,7 +175,14 @@ export class ProductComponent implements OnInit, OnDestroy {
       });
   }
 
-  onSubmit(): void {
+  onSubmit(event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+
+    if (this.isLoading) {
+      return;
+    }
+
     const editableDiv = document.querySelector('.editable-content') as HTMLElement;
     const productName = editableDiv?.innerHTML || '';
 
@@ -191,7 +204,7 @@ export class ProductComponent implements OnInit, OnDestroy {
 
     this.isLoading = true;
     const productData: any = {
-      ...this.productForm.value,
+      ...this.productForm.getRawValue(),
       name: productName
     };
 
@@ -244,6 +257,8 @@ export class ProductComponent implements OnInit, OnDestroy {
     this.productForm.patchValue({
       name: product.name,
       hsnCode: product.hsnCode,
+      productCode: product.productCode,
+      materialName: product.materialName,
       categoryId: product.categoryId,
       description: product.description,
       minimumStock: product.minimumStock,
@@ -303,6 +318,8 @@ export class ProductComponent implements OnInit, OnDestroy {
     this.editingId = undefined;
     this.productForm.reset({
       status: 'A',
+      productCode: '',
+      materialName: '',
       purchaseAmount: 0,
       saleAmount: 0,
       measurement: 'kg',
@@ -312,10 +329,29 @@ export class ProductComponent implements OnInit, OnDestroy {
     });
   }
 
-  onSearch(): void {
+  onSearch(event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+
+    if (this.isLoading) {
+      return;
+    }
+
     this.currentPage = 0;
     this.isLoading = true;
     this.loadProducts();
+  }
+
+  resetFilters(): void {
+    this.searchForm.reset({
+      search: '',
+      hsnCode: '',
+      productCode: '',
+      materialName: '',
+      categoryId: '',
+      status: 'A'
+    });
+    this.onSearch();
   }
 
   onPageChange(page: number): void {
@@ -334,6 +370,8 @@ export class ProductComponent implements OnInit, OnDestroy {
     this.editingId = undefined;
     this.productForm.reset({
       status: 'A',
+      productCode: '',
+      materialName: '',
       minimumStock: 0,
       purchaseAmount: 0,
       saleAmount: 0,
@@ -442,5 +480,29 @@ export class ProductComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+    if (this.dropdownPinned && this.isBrowser) {
+      document.body.classList.remove('dropdown-open');
+    }
+  }
+
+  @HostListener('touchstart', ['$event'])
+  handleTouchStart(event: Event): void {
+    if (!this.isBrowser) {
+      return;
+    }
+    const target = event.target as HTMLElement;
+    if (target?.closest('select')) {
+      this.dropdownPinned = true;
+      document.body.classList.add('dropdown-open');
+    }
+  }
+
+  @HostListener('touchend')
+  handleTouchEnd(): void {
+    if (!this.isBrowser || !this.dropdownPinned) {
+      return;
+    }
+    this.dropdownPinned = false;
+    document.body.classList.remove('dropdown-open');
   }
 }
