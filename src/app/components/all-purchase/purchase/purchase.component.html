@@ -112,6 +112,14 @@
               </button>
               <button 
                 *ngIf="canManagePurchases"
+                class="btn-icon pdf" 
+                (click)="generatePdf(purchase.id!, purchase.invoiceNumber)"
+                title="Export PDF"
+              >
+                <i class="fas fa-file-pdf"></i>
+              </button>
+              <button 
+                *ngIf="canManagePurchases"
                 class="btn-icon add-return" 
                 (click)="openReturn(purchase.id!)"
                 title="Add Return"

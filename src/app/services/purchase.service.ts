@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { Purchase, PurchaseResponse, PurchaseSearchRequest } from '../models/purchase.model';
 
@@ -51,5 +52,19 @@ export class PurchaseService {
 
   deletePurchaseReturn(id: number): Observable<any> {
     return this.http.post<any>(`${this.purchaseReturnApiUrl}/delete`, { id });
+  }
+
+  generatePdf(id: number): Observable<{ blob: Blob; filename: string }> {
+    return this.http.post(`${this.apiUrl}/generate-pdf`, { id }, {
+      responseType: 'blob',
+      observe: 'response'
+    }).pipe(
+      map(response => {
+        const contentDisposition = response.headers.get('Content-Disposition');
+        const filename = contentDisposition?.split('filename=')[1]?.replace(/"/g, '') || 'purchase.pdf';
+        const blob = new Blob([response.body!], { type: 'application/pdf' });
+        return { blob, filename };
+      })
+    );
   }
 }
