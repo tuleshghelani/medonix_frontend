@@ -28,8 +28,12 @@ export class SaleService {
     return this.http.delete(`${this.apiUrl}/${id}`);
   }
 
-  getSaleDetails(id: number): Observable<any> {
-    return this.http.post(`${this.apiUrl}/detail`, { id });
+  getSaleDetails(id: number, isSalesReturn: boolean = false): Observable<any> {
+    return this.http.post(`${this.apiUrl}/detail`, { id, isSalesReturn });
+  }
+
+  createSaleReturn(payload: any): Observable<any> {
+    return this.http.post(`${environment.apiUrl}/api/sale-returns/create`, payload);
   }
 
   createFromQuotationItems(quotationItemIds: number[]): Observable<any> {

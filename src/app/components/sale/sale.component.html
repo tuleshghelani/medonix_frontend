@@ -102,6 +102,14 @@
               </button>
               <button 
                 *ngIf="canManageSales"
+                class="btn-icon return" 
+                (click)="addSaleReturn(sale.id!)"
+                title="Sale Return"
+              >
+                <i class="fas fa-undo-alt"></i>
+              </button>
+              <button 
+                *ngIf="canManageSales"
                 class="btn-icon delete" 
                 (click)="deleteSale(sale.id!)"
                 title="Delete Sale"

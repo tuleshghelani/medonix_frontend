@@ -185,6 +185,40 @@
     align-items: center;
     justify-content: center;
 
+    &.edit {
+      color: var(--primary);
+      background-color: rgba(20, 88, 129, 0.1);
+      
+      &:hover:not(:disabled) {
+        background-color: var(--primary);
+        color: white;
+        transform: translateY(-1px);
+      }
+
+      &:disabled {
+        color: var(--text-secondary);
+        background-color: rgba(0, 0, 0, 0.05);
+        cursor: not-allowed;
+      }
+    }
+
+    &.return {
+      color: #ff9800;
+      background-color: rgba(255, 152, 0, 0.1);
+      
+      &:hover:not(:disabled) {
+        background-color: #ff9800;
+        color: white;
+        transform: translateY(-1px);
+      }
+
+      &:disabled {
+        color: var(--text-secondary);
+        background-color: rgba(0, 0, 0, 0.05);
+        cursor: not-allowed;
+      }
+    }
+
     &.sale {
       color: var(--primary);
       background-color: rgba(253, 120, 35, 0.1);

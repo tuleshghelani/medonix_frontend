@@ -15,13 +15,15 @@ import { LoaderComponent } from './shared/components/loader/loader.component';
 import { RoundPipe } from './round.pipe';
 import { DataCenterComponent } from './components/data-center/data-center.component';
 import { AddDealerComponent } from './components/dealers/add-dealer/add-dealer.component';
+import { AddSaleReturnComponent } from './components/add-sale-return/add-sale-return.component';
 
 @NgModule({
   declarations: [
     AppComponent,
     LoginComponent,
     HeaderComponent,
-    AddDealerComponent
+    AddDealerComponent,
+    AddSaleReturnComponent
   ],
   imports: [
     BrowserModule,

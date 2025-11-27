@@ -244,6 +244,11 @@ export class SaleComponent implements OnInit, OnDestroy {
     this.router.navigate(['/sale/create']);
   }
 
+  addSaleReturn(id: number): void {
+    const encryptedId = this.encryptionService.encrypt(id.toString());
+    this.router.navigate(['/sale/return', encryptedId]);
+  }
+
   loadSales(): void {
     this.isLoading = true;
     const params = {
