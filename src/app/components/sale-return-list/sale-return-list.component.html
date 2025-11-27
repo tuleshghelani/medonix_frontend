@@ -1,9 +1,9 @@
-<div class="sale-return-container">
+<div class="sales-container">
   <app-loader [show]="isLoading"></app-loader>
   
   <div class="search-section card">
     <h2>Search Sale Returns</h2>
-    <form [formGroup]="searchForm" (ngSubmit)="onSearch($event)" (touchstart)="$event.stopPropagation()">
+    <form [formGroup]="searchForm" (ngSubmit)="onSearch($event)">
       <div class="search-controls">
         <div class="form-group">
           <input 
@@ -11,12 +11,11 @@
             formControlName="search" 
             class="form-control" 
             placeholder="Search by invoice number..."
-            (touchstart)="$event.stopPropagation()"
           >
         </div>
         
         <div class="form-group">
-          <div class="select-group">
+          <div class="product-select-group">
             <app-searchable-select
               formControlName="customerId"
               [options]="customers"
@@ -29,10 +28,10 @@
             <button 
               type="button" 
               class="btn btn-sm btn-primary refresh"
+              style="margin-top: 3px;"
               (click)="refreshCustomers()" 
               [disabled]="isLoadingCustomers"
               title="Refresh Customers"
-              (touchstart)="$event.stopPropagation()"
             >
               <i class="fas" [ngClass]="isLoadingCustomers ? 'fa-spinner fa-spin' : 'fa-sync-alt'"></i>
             </button>
@@ -57,7 +56,6 @@
             formControlName="startDate" 
             class="form-control" 
             placeholder="Start Date"
-            (touchstart)="$event.stopPropagation()"
           >
         </div>
         
@@ -67,15 +65,14 @@
             formControlName="endDate" 
             class="form-control" 
             placeholder="End Date"
-            (touchstart)="$event.stopPropagation()"
           >
         </div>
         
         <div class="button-group">
-          <button type="submit" class="search-btn btn btn-sm btn-primary" (touchstart)="$event.stopPropagation()">
+          <button type="submit" class="search-btn btn btn-sm btn-primary">
             <i class="fas fa-search"></i> Search
           </button>
-          <button type="button" class="search-btn btn btn-sm btn-secondary" (click)="resetForm()" (touchstart)="$event.stopPropagation()">
+          <button type="button" class="search-btn btn btn-sm btn-secondary" (click)="resetForm()">
             <i class="fas fa-undo"></i> Reset
           </button>
         </div>
@@ -83,10 +80,10 @@
     </form>
   </div>
 
-  <div class="sale-returns-list card">
+  <div class="sales-list card">
     <h2>Sale Returns</h2>
 
-    <div class="table-responsive" *ngIf="saleReturns.length > 0">
+    <div class="table-responsive">
       <table class="table">
         <thead>
           <tr>
@@ -107,7 +104,7 @@
             <td>{{ formatCurrency(saleReturn.totalSaleAmount) }}</td>
             <td class="actions">
               <button 
-                class="btn-icon view" 
+                class="btn-icon edit" 
                 (click)="viewDetails(saleReturn?.saleId)"
                 [disabled]="!saleReturn?.saleId"
                 title="View Details"
@@ -125,11 +122,6 @@
           </tr>
         </tbody>
       </table>
-    </div>
-
-    <div class="empty-state" *ngIf="!isLoading && saleReturns.length === 0">
-      <i class="fas fa-inbox"></i>
-      <p>No sale returns found</p>
     </div>
     
     <app-pagination

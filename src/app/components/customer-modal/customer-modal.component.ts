@@ -86,7 +86,8 @@ export class CustomerModalComponent implements OnInit, OnDestroy {
       remainingPaymentAmount: [0],
       nextActionDate: [localISOString],
       remarks: [''],
-      status: ['A']
+      status: ['A'],
+      validityDays: [null]
     });
   }
 
@@ -117,7 +118,8 @@ export class CustomerModalComponent implements OnInit, OnDestroy {
         remainingPaymentAmount: customer.remainingPaymentAmount || 0,
         nextActionDate: nextActionDate,
         remarks: customer.remarks || '',
-        status: customer.status || 'A'
+        status: customer.status || 'A',
+        validityDays: customer.validityDays || null
       });
     } catch (error) {
       console.error('Error in patchForm:', error);
@@ -141,6 +143,13 @@ export class CustomerModalComponent implements OnInit, OnDestroy {
           minute: '2-digit',
           second: '2-digit'
         }).replace(/\//g, '-').replace(',', '');
+      }
+
+      // Handle validityDays: convert empty string to null
+      if (formData.validityDays === '' || formData.validityDays === null || formData.validityDays === undefined) {
+        formData.validityDays = null;
+      } else {
+        formData.validityDays = Number(formData.validityDays);
       }
 
       const request = this.isEditing && this.currentCustomer

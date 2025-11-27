@@ -11,6 +11,7 @@ export interface Customer {
   remarks: string;
   status: string;
   coatingUnitPrice?: number;
+  validityDays?: number;
   createdAt: string;
   updatedAt: string;
 }

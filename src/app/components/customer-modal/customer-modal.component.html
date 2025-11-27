@@ -111,6 +111,26 @@
         </div>
 
         <div class="form-group">
+          <label for="validityDays">
+            <i class="fas fa-calendar-day"></i> Validity Days
+          </label>
+          <input 
+            type="number" 
+            id="validityDays" 
+            formControlName="validityDays" 
+            class="form-control"
+            [class.is-invalid]="customerForm.get('validityDays')?.invalid && customerForm.get('validityDays')?.touched"
+            min="0"
+            step="1"
+            placeholder="Enter validity days"
+            (touchstart)="$event.stopPropagation()"
+          >
+          <div class="invalid-feedback" *ngIf="customerForm.get('validityDays')?.errors?.['min']">
+            Validity days must be greater than or equal to 0
+          </div>
+        </div>
+
+        <div class="form-group">
           <label for="status">Status</label>
           <select id="status" formControlName="status" class="form-control" title="Select status">
             <option value="A">Active</option>
