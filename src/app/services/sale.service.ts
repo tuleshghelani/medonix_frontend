@@ -36,6 +36,14 @@ export class SaleService {
     return this.http.post(`${environment.apiUrl}/api/sale-returns/create`, payload);
   }
 
+  searchSaleReturn(params: any): Observable<any> {
+    return this.http.post<any>(`${environment.apiUrl}/api/sale-returns/searchSaleReturn`, params);
+  }
+
+  deleteSaleReturn(id: number): Observable<any> {
+    return this.http.post<any>(`${environment.apiUrl}/api/sale-returns/delete`, { id });
+  }
+
   createFromQuotationItems(quotationItemIds: number[]): Observable<any> {
     return this.http.post(`${this.apiUrl}/createFromQuotationItems`, { quotationItemIds });
   }

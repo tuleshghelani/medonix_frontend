@@ -16,6 +16,9 @@ import { RoundPipe } from './round.pipe';
 import { DataCenterComponent } from './components/data-center/data-center.component';
 import { AddDealerComponent } from './components/dealers/add-dealer/add-dealer.component';
 import { AddSaleReturnComponent } from './components/add-sale-return/add-sale-return.component';
+import { SaleReturnListComponent } from './components/sale-return-list/sale-return-list.component';
+import { PaginationComponent } from "./shared/components/pagination/pagination.component";
+import { SearchableSelectComponent } from "./shared/components/searchable-select/searchable-select.component";
 
 @NgModule({
   declarations: [
@@ -23,7 +26,8 @@ import { AddSaleReturnComponent } from './components/add-sale-return/add-sale-re
     LoginComponent,
     HeaderComponent,
     AddDealerComponent,
-    AddSaleReturnComponent
+    AddSaleReturnComponent,
+    SaleReturnListComponent
   ],
   imports: [
     BrowserModule,
@@ -34,9 +38,10 @@ import { AddSaleReturnComponent } from './components/add-sale-return/add-sale-re
     RouterModule,
     AppRoutingModule,
     ToastrModule.forRoot(),
-    // LoaderComponent,
-    // DataCenterComponent
-  ],
+    PaginationComponent,
+    LoaderComponent,
+    SearchableSelectComponent
+],
   providers: [
     { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
     { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true }

@@ -88,7 +88,12 @@
               <a routerLink="/sale" routerLinkActive="active" (click)="closeAllMenus()">
                 <i class="fas fa-hand-holding-usd"></i> Sale
               </a>
-            </li>            
+            </li>         
+            <li *ngIf="permissions.canViewSaleReturn">
+              <a routerLink="/sale/return" routerLinkActive="active" (click)="closeAllMenus()">
+                <i class="fas fa-undo"></i> Sale Return
+              </a>
+            </li>
           </ul>
         </li>
         

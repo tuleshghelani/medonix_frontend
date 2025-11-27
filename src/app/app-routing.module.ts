@@ -19,6 +19,7 @@ import { AttendanceListComponent } from './components/attendance/attendance-list
 import { AttendanceDetailComponent } from './components/attendance/attendance-detail/attendance-detail.component';
 import { AddSaleComponent } from './components/add-sale/add-sale.component';
 import { AddSaleReturnComponent } from './components/add-sale-return/add-sale-return.component';
+import { SaleReturnListComponent } from './components/sale-return-list/sale-return-list.component';
 import { DataCenterComponent } from './components/data-center/data-center.component';
 import { RoleGuard } from './guards/role.guard';
 import { UserListComponent } from './components/users/user-list/user-list.component';
@@ -65,6 +66,12 @@ const routes: Routes = [
     component: AddSaleReturnComponent,
     canActivate: [AuthGuard, RoleGuard],
     data: { roles: ['ADMIN', 'STAFF_ADMIN'] }
+  },
+  {
+    path: 'sale/return',
+    component: SaleReturnListComponent,
+    canActivate: [AuthGuard, RoleGuard],
+    data: { roles: ['ADMIN', 'STAFF_ADMIN','DEALER'] }
   },
   {
     path: 'profit',

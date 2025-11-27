@@ -1,0 +1,145 @@
+<div class="sale-return-container">
+  <app-loader [show]="isLoading"></app-loader>
+  
+  <div class="search-section card">
+    <h2>Search Sale Returns</h2>
+    <form [formGroup]="searchForm" (ngSubmit)="onSearch($event)" (touchstart)="$event.stopPropagation()">
+      <div class="search-controls">
+        <div class="form-group">
+          <input 
+            type="text" 
+            formControlName="search" 
+            class="form-control" 
+            placeholder="Search by invoice number..."
+            (touchstart)="$event.stopPropagation()"
+          >
+        </div>
+        
+        <div class="form-group">
+          <div class="select-group">
+            <app-searchable-select
+              formControlName="customerId"
+              [options]="customers"
+              labelKey="name"
+              valueKey="id"
+              [defaultOption]="{ label: 'All Customers', value: '' }"
+              [searchPlaceholder]="'Search customers...'"
+              (valueChange)="onCustomerChange($event)"
+            ></app-searchable-select>
+            <button 
+              type="button" 
+              class="btn btn-sm btn-primary refresh"
+              (click)="refreshCustomers()" 
+              [disabled]="isLoadingCustomers"
+              title="Refresh Customers"
+              (touchstart)="$event.stopPropagation()"
+            >
+              <i class="fas" [ngClass]="isLoadingCustomers ? 'fa-spinner fa-spin' : 'fa-sync-alt'"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <app-searchable-select
+            formControlName="saleId"
+            [options]="sales"
+            labelKey="invoiceNumber"
+            valueKey="id"
+            [defaultOption]="{ label: 'All Sales', value: '' }"
+            [searchPlaceholder]="'Search sales...'"
+            [disabled]="!searchForm.get('customerId')?.value || isLoadingSales"
+          ></app-searchable-select>
+        </div>
+
+        <div class="form-group">
+          <input 
+            type="date" 
+            formControlName="startDate" 
+            class="form-control" 
+            placeholder="Start Date"
+            (touchstart)="$event.stopPropagation()"
+          >
+        </div>
+        
+        <div class="form-group">
+          <input 
+            type="date" 
+            formControlName="endDate" 
+            class="form-control" 
+            placeholder="End Date"
+            (touchstart)="$event.stopPropagation()"
+          >
+        </div>
+        
+        <div class="button-group">
+          <button type="submit" class="search-btn btn btn-sm btn-primary" (touchstart)="$event.stopPropagation()">
+            <i class="fas fa-search"></i> Search
+          </button>
+          <button type="button" class="search-btn btn btn-sm btn-secondary" (click)="resetForm()" (touchstart)="$event.stopPropagation()">
+            <i class="fas fa-undo"></i> Reset
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="sale-returns-list card">
+    <h2>Sale Returns</h2>
+
+    <div class="table-responsive" *ngIf="saleReturns.length > 0">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>Invoice No.</th>
+            <th>Customer Name</th>
+            <th>Sale Return Date</th>
+            <th>Total Amount</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let saleReturn of saleReturns; let index = index">
+            <td>{{ startIndex + index + 1 }}</td>
+            <td>{{ saleReturn.invoiceNumber }}</td>
+            <td>{{ saleReturn.customerName }}</td>
+            <td>{{ formatDate(saleReturn.saleReturnDate) }}</td>
+            <td>{{ formatCurrency(saleReturn.totalSaleAmount) }}</td>
+            <td class="actions">
+              <button 
+                class="btn-icon view" 
+                (click)="viewDetails(saleReturn?.saleId)"
+                [disabled]="!saleReturn?.saleId"
+                title="View Details"
+              >
+                <i class="fas fa-eye"></i>
+              </button>
+              <button 
+                class="btn-icon delete" 
+                (click)="deleteSaleReturn(saleReturn.id)"
+                title="Delete Sale Return"
+              >
+                <i class="fas fa-trash"></i>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="empty-state" *ngIf="!isLoading && saleReturns.length === 0">
+      <i class="fas fa-inbox"></i>
+      <p>No sale returns found</p>
+    </div>
+    
+    <app-pagination
+      *ngIf="totalPages > 0"
+      [currentPage]="currentPage"
+      [pageSize]="pageSize"
+      [totalElements]="totalElements"
+      [pageSizeOptions]="pageSizeOptions"
+      (pageChange)="onPageChange($event)"
+      (pageSizeChange)="onPageSizeChange($event)"
+    ></app-pagination>
+  </div>
+</div>
