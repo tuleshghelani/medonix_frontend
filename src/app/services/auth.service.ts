@@ -159,7 +159,7 @@ export class AuthService {
   getDefaultRoute(): string {
     const userRoles = this.getUserRoles();
 
-    if (userRoles.includes(UserRole.ADMIN)) {
+    if (userRoles.includes(UserRole.ADMIN) || userRoles.includes(UserRole.STAFF_ADMIN)) {
       return '/category';
     } else if (userRoles.includes(UserRole.SALES_AND_MARKETING)) {
       return '/category';

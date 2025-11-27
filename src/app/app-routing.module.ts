@@ -45,19 +45,19 @@ const routes: Routes = [
     path: 'purchase', 
     loadChildren: () => import('./components/all-purchase/purchase.module').then(m => m.PurchaseModule),
     canActivate: [AuthGuard, RoleGuard],
-    data: { preload: true, roles: ['ADMIN', 'DEALER'] }
+    data: { preload: true, roles: ['ADMIN', 'STAFF_ADMIN', 'DEALER'] }
   },
   {
     path: 'sale',
     component: SaleComponent,
     canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN', 'DEALER'] }
+    data: { roles: ['ADMIN', 'STAFF_ADMIN', 'DEALER'] }
   },
   {
     path: 'sale/create',
     component: AddSaleComponent,
     canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN'] }
+    data: { roles: ['ADMIN', 'STAFF_ADMIN'] }
   },
   {
     path: 'profit',
@@ -78,55 +78,55 @@ const routes: Routes = [
     path: 'transport-master',
     component: TransportMasterListComponent,
     canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN', 'SALES_AND_MARKETING', 'DISPATCH'] }
+    data: { roles: ['ADMIN', 'STAFF_ADMIN', 'SALES_AND_MARKETING', 'DISPATCH'] }
   },
   {
     path: 'transport-master/create',
     component: AddTransportComponent,
     canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN', 'SALES_AND_MARKETING', 'DISPATCH'] }
+    data: { roles: ['ADMIN', 'STAFF_ADMIN', 'SALES_AND_MARKETING', 'DISPATCH'] }
   },
   {
     path: 'transport-master/edit',
     component: AddTransportComponent,
     canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN', 'SALES_AND_MARKETING', 'DISPATCH'] }
+    data: { roles: ['ADMIN', 'STAFF_ADMIN', 'SALES_AND_MARKETING', 'DISPATCH'] }
   },
   {
     path: 'employee',
     component: EmployeeListComponent,
     canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN'] }
+    data: { roles: ['ADMIN', 'STAFF_ADMIN'] }
   },
   {
     path: 'employee/create',
     component: EmployeeFormComponent,
     canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN'] }
+    data: { roles: ['ADMIN', 'STAFF_ADMIN'] }
   },  
   {
     path: 'employee/edit/:id',
     component: EmployeeFormComponent,
     canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN'] }
+    data: { roles: ['ADMIN', 'STAFF_ADMIN'] }
   },
   {
     path: 'employee-order',
     component: EmployeeOrderListComponent,
     canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN'] }
+    data: { roles: ['ADMIN', 'STAFF_ADMIN'] }
   },
   {
     path: 'employee-order/create',
     component: EmployeeOrderFormComponent,
     canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN'] }
+    data: { roles: ['ADMIN', 'STAFF_ADMIN'] }
   },  
   {
     path: 'employee-order/edit/:id',
     component: EmployeeOrderFormComponent,
     canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN'] }
+    data: { roles: ['ADMIN', 'STAFF_ADMIN'] }
   },
   {
     path: 'attendance',
@@ -161,19 +161,19 @@ const routes: Routes = [
     path: 'data-center',
     component: DataCenterComponent,
     canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN'] }
+    data: { roles: ['ADMIN', 'STAFF_ADMIN'] }
   },
   {
     path: 'users',
     component: UserListComponent,
     canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN'] }
+    data: { roles: ['ADMIN', 'STAFF_ADMIN'] }
   },
   {
     path: 'users/edit/:id',
     component: AddUserComponent,
     canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN'] }
+    data: { roles: ['ADMIN', 'STAFF_ADMIN'] }
   },
   {
     path: 'dealers/register',
@@ -185,7 +185,7 @@ const routes: Routes = [
     path: 'chart',
     loadChildren: () => import('./components/chart/chart.module').then(m => m.ChartModule),
     canActivate: [AuthGuard, RoleGuard],
-    data: { preload: true, roles: ['ADMIN'] }
+    data: { preload: true, roles: ['ADMIN', 'STAFF_ADMIN'] }
   },
   {
     path: '**',

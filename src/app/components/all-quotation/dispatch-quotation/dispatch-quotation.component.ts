@@ -71,7 +71,7 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
     const today = new Date();
     this.minValidUntilDate = formatDate(today, 'yyyy-MM-dd', 'en');
     this.initForm();
-    this.canSeeSaleOption = this.authService.hasAnyRole([UserRole.ADMIN, UserRole.SALES_AND_MARKETING]);
+    this.canSeeSaleOption = this.authService.hasAnyRole([UserRole.ADMIN, UserRole.STAFF_ADMIN, UserRole.SALES_AND_MARKETING]);
   }
 
   ngOnInit() {

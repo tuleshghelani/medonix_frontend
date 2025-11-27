@@ -1,0 +1,144 @@
+<div class="purchase-return-container">
+  <app-loader [show]="isLoading"></app-loader>
+  
+  <div class="search-section card">
+    <h2>Search Purchase Returns</h2>
+    <form [formGroup]="searchForm" (ngSubmit)="onSearch($event)" (touchstart)="$event.stopPropagation()">
+      <div class="search-controls">
+        <div class="form-group">
+          <input 
+            type="text" 
+            formControlName="search" 
+            class="form-control" 
+            placeholder="Search by invoice number..."
+            (touchstart)="$event.stopPropagation()"
+          >
+        </div>
+        
+        <div class="form-group">
+          <div class="select-group">
+            <app-searchable-select
+              formControlName="customerId"
+              [options]="customers"
+              labelKey="name"
+              valueKey="id"
+              [defaultOption]="{ label: 'All Customers', value: '' }"
+              [searchPlaceholder]="'Search customers...'"
+              (valueChange)="onCustomerChange($event)"
+            ></app-searchable-select>
+            <button 
+              type="button" 
+              class="btn btn-sm btn-primary refresh"
+              (click)="refreshCustomers()" 
+              [disabled]="isLoadingCustomers"
+              title="Refresh Customers"
+              (touchstart)="$event.stopPropagation()"
+            >
+              <i class="fas" [ngClass]="isLoadingCustomers ? 'fa-spinner fa-spin' : 'fa-sync-alt'"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <app-searchable-select
+            formControlName="purchaseId"
+            [options]="purchases"
+            labelKey="invoiceNumber"
+            valueKey="id"
+            [defaultOption]="{ label: 'All Purchases', value: '' }"
+            [searchPlaceholder]="'Search purchases...'"
+            [disabled]="!searchForm.get('customerId')?.value || isLoadingPurchases"
+          ></app-searchable-select>
+        </div>
+
+        <div class="form-group">
+          <input 
+            type="date" 
+            formControlName="startDate" 
+            class="form-control" 
+            placeholder="Start Date"
+            (touchstart)="$event.stopPropagation()"
+          >
+        </div>
+        
+        <div class="form-group">
+          <input 
+            type="date" 
+            formControlName="endDate" 
+            class="form-control" 
+            placeholder="End Date"
+            (touchstart)="$event.stopPropagation()"
+          >
+        </div>
+        
+        <div class="button-group">
+          <button type="submit" class="search-btn btn btn-sm btn-primary" (touchstart)="$event.stopPropagation()">
+            <i class="fas fa-search"></i> Search
+          </button>
+          <button type="button" class="search-btn btn btn-sm btn-secondary" (click)="resetForm()" (touchstart)="$event.stopPropagation()">
+            <i class="fas fa-undo"></i> Reset
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="purchase-returns-list card">
+    <h2>Purchase Returns</h2>
+
+    <div class="table-responsive" *ngIf="purchaseReturns.length > 0">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>Invoice No.</th>
+            <th>Customer Name</th>
+            <th>Purchase Return Date</th>
+            <th>Total Amount</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let purchaseReturn of purchaseReturns; let index = index">
+            <td>{{ startIndex + index + 1 }}</td>
+            <td>{{ purchaseReturn.invoiceNumber }}</td>
+            <td>{{ purchaseReturn.customerName }}</td>
+            <td>{{ formatDate(purchaseReturn.purchaseReturnDate) }}</td>
+            <td>{{ formatCurrency(purchaseReturn.totalPurchaseAmount) }}</td>
+            <td class="actions">
+              <button 
+                class="btn-icon view" 
+                (click)="viewDetails(purchaseReturn.purchaseId)"
+                title="View Details"
+              >
+                <i class="fas fa-eye"></i>
+              </button>
+              <button 
+                class="btn-icon delete" 
+                (click)="deletePurchaseReturn(purchaseReturn.id)"
+                title="Delete Purchase Return"
+              >
+                <i class="fas fa-trash"></i>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="empty-state" *ngIf="!isLoading && purchaseReturns.length === 0">
+      <i class="fas fa-inbox"></i>
+      <p>No purchase returns found</p>
+    </div>
+    
+    <app-pagination
+      *ngIf="totalPages > 0"
+      [currentPage]="currentPage"
+      [pageSize]="pageSize"
+      [totalElements]="totalElements"
+      [pageSizeOptions]="pageSizeOptions"
+      (pageChange)="onPageChange($event)"
+      (pageSizeChange)="onPageSizeChange($event)"
+    ></app-pagination>
+  </div>
+</div>

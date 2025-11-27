@@ -44,4 +44,12 @@ export class PurchaseService {
   getPurchaseReturnDetail(id: number): Observable<any> {
     return this.http.post(`${this.purchaseReturnApiUrl}/detail`, { id });
   }
+
+  searchPurchaseReturn(params: any): Observable<any> {
+    return this.http.post<any>(`${this.purchaseReturnApiUrl}/searchPurchaseReturn`, params);
+  }
+
+  deletePurchaseReturn(id: number): Observable<any> {
+    return this.http.post<any>(`${this.purchaseReturnApiUrl}/delete`, { id });
+  }
 }

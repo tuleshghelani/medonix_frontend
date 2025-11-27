@@ -1,0 +1,337 @@
+@import '../../../styles/_mixins.scss';
+
+.purchase-return-container {
+  padding: 2rem;
+  position: relative;
+  min-height: 200px;
+  background-color: var(--background);
+
+  .card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+    padding: 20px;
+
+    h2 {
+      margin-bottom: 20px;
+      color: var(--text-primary);
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+  }
+
+  .search-section {
+    .search-controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      align-items: flex-start;
+
+      @media (max-width: 768px) {
+        grid-template-columns: 1fr;
+      }
+
+      .form-group {
+        margin: 0;
+
+        .form-control {
+          height: 40px;
+          width: 100%;
+          padding: 10px;
+          border: 1px solid var(--supporting);
+          border-radius: 4px;
+          font-size: 14px;
+          transition: all 0.3s ease;
+
+          &:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(20, 88, 129, 0.1);
+          }
+
+          &::placeholder {
+            color: var(--text-secondary);
+          }
+        }
+
+        .select-group {
+          display: flex;
+          gap: 0.5rem;
+          align-items: flex-start;
+
+          app-searchable-select {
+            flex: 1;
+          }
+
+          .btn-icon.refresh,
+          .refresh {
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            border-radius: 4px;
+            background-color: var(--primary);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 0;
+
+            &:hover:not(:disabled) {
+              background-color: darken(#145881, 10%);
+              transform: translateY(-1px);
+            }
+
+            &:disabled {
+              opacity: 0.6;
+              cursor: not-allowed;
+            }
+
+            i {
+              font-size: 14px;
+            }
+          }
+        }
+      }
+
+      .button-group {
+        display: flex;
+        gap: 0.5rem;
+        align-items: flex-start;
+
+        @media (max-width: 768px) {
+          grid-column: 1 / -1;
+        }
+
+        button {
+          flex: 1;
+          height: 40px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          border: none;
+          border-radius: 4px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          touch-action: manipulation;
+          -webkit-tap-highlight-color: transparent;
+
+          i {
+            font-size: 14px;
+          }
+
+          &:active {
+            transform: scale(0.98);
+          }
+        }
+      }
+    }
+  }
+
+  .purchase-returns-list {
+    @include tableStyles;
+
+    .table-responsive {
+      margin-bottom: 20px;
+
+      table {
+        th {
+          white-space: nowrap;
+          font-weight: 600;
+          text-transform: uppercase;
+          font-size: 12px;
+          letter-spacing: 0.5px;
+        }
+
+        td {
+          vertical-align: middle;
+          color: var(--text-primary);
+        }
+      }
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-secondary);
+
+      i {
+        font-size: 48px;
+        margin-bottom: 16px;
+        opacity: 0.5;
+      }
+
+      p {
+        font-size: 16px;
+        margin: 0;
+      }
+    }
+
+    .actions {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: flex-start !important;
+
+      .btn-icon {
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+
+        &.view {
+          color: var(--primary);
+          background-color: rgba(20, 88, 129, 0.1);
+
+          &:hover {
+            background-color: var(--primary);
+            color: white;
+            transform: translateY(-1px);
+          }
+        }
+
+        &.delete {
+          color: #dc3545;
+          background-color: rgba(220, 53, 69, 0.1);
+
+          &:hover {
+            background-color: #dc3545;
+            color: white;
+            transform: translateY(-1px);
+          }
+        }
+
+        &:active {
+          transform: translateY(0) scale(0.95);
+        }
+
+        i {
+          font-size: 14px;
+        }
+      }
+    }
+
+    @include paginationStyles;
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .purchase-return-container {
+    padding: 1rem;
+
+    .card {
+      padding: 16px;
+    }
+
+    .search-section {
+      .search-controls {
+        .form-group {
+          .select-group {
+            flex-direction: column;
+
+            .refresh {
+              width: 100%;
+              margin-top: 0.5rem;
+            }
+          }
+        }
+      }
+    }
+
+    .purchase-returns-list {
+      .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+
+        table {
+          min-width: 800px;
+        }
+      }
+
+      .actions {
+        .btn-icon {
+          width: 32px;
+          height: 32px;
+
+          i {
+            font-size: 12px;
+          }
+        }
+      }
+    }
+  }
+}
+
+@media (max-width: 576px) {
+  .purchase-return-container {
+    padding: 0.75rem;
+
+    .card {
+      padding: 12px;
+      margin-bottom: 16px;
+
+      h2 {
+        font-size: 1.25rem;
+        margin-bottom: 16px;
+      }
+    }
+
+    .search-section {
+      .search-controls {
+        gap: 0.75rem;
+
+        .button-group {
+          flex-direction: column;
+
+          button {
+            width: 100%;
+          }
+        }
+      }
+    }
+  }
+}
+
+// Touch device optimizations
+@media (hover: none) and (pointer: coarse) {
+  .purchase-return-container {
+    .search-section {
+      .search-controls {
+        .form-group {
+          .form-control {
+            font-size: 16px; // Prevents zoom on iOS
+          }
+        }
+
+        .button-group {
+          button {
+            min-height: 44px; // Better touch target
+          }
+        }
+      }
+    }
+
+    .purchase-returns-list {
+      .actions {
+        .btn-icon {
+          min-width: 44px;
+          min-height: 44px;
+        }
+      }
+    }
+  }
+}
+

@@ -31,6 +31,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
     canViewFollowup: false,
     canViewPayment: false,
     canViewPurchase: false,
+    canViewPurchaseReturn: false,
     canViewSale: false,
     canViewQuotation: false,
     canViewDispatchQuotation: false,
@@ -227,12 +228,16 @@ export class HeaderComponent implements OnInit, OnDestroy {
     return this.authService.isAdmin();
   }
 
+  isStaffAdmin(): boolean {
+    return this.authService.isStaffAdmin();
+  }
+
   isProductManager(): boolean {
     return this.authService.isProductManager();
   }
 
   canViewMenu(menuType: string): boolean {
-    if (this.isAdmin()) return true;
+    if (this.isAdmin() || this.isStaffAdmin()) return true;
     
     if (this.isProductManager()) {
       switch (menuType) {
