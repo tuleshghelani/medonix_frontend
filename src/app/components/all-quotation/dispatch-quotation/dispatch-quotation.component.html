@@ -227,3 +227,10 @@
 </div>
 
 <app-loader *ngIf="loading"></app-loader>
+
+<app-packaging-charges-modal
+  [show]="showPackagingChargesModal"
+  [defaultCharges]="0"
+  (confirm)="onPackagingChargesConfirm($event)"
+  (cancel)="onPackagingChargesCancel()"
+></app-packaging-charges-modal>

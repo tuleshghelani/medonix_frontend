@@ -133,10 +133,20 @@ body {
     padding: 0 !important;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
     background: white !important;
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    margin: 0 !important;
   }
 
   .mat-mdc-dialog-container {
     padding: 0 !important;
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    margin: 0 !important;
   }
 
   .mdc-dialog__surface {

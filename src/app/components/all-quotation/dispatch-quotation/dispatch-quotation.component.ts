@@ -16,6 +16,7 @@ import { SearchableSelectComponent } from "../../../shared/components/searchable
 import { MatDialogModule } from '@angular/material/dialog';
 import { LoaderComponent } from '../../../shared/components/loader/loader.component';
 import { TransportMaster, TransportMasterService } from '../../../services/transport-master.service';
+import { PackagingChargesModalComponent } from './packaging-charges-modal.component';
 
 @Component({
   standalone: true,
@@ -26,7 +27,7 @@ import { TransportMaster, TransportMasterService } from '../../../services/trans
     CommonModule,
     ReactiveFormsModule,
     FormsModule,
-    RouterModule, MatDialogModule, LoaderComponent]
+    RouterModule, MatDialogModule, LoaderComponent, PackagingChargesModalComponent]
 })
 export class DispatchQuotationComponent implements OnInit, OnDestroy {
   quotationForm!: FormGroup;
@@ -49,6 +50,7 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
   private selectedQuotationItemIds = new Set<number>();
   private selectedDispatchItemIds = new Set<number>();
   canSeeSaleOption = false;
+  showPackagingChargesModal = false;
 
   get itemsFormArray() {
     return this.quotationForm.get('items') as FormArray;
@@ -907,8 +909,20 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
       this.snackbar.error('Please select at least one item');
       return;
     }
+    
+    // Show modal to get packaging and forwarding charges for sale
+    // Note: This is separate from quotation's packagingAndForwadingCharges
+    this.showPackagingChargesModal = true;
+  }
+
+  onPackagingChargesConfirm(charges: number): void {
+    this.showPackagingChargesModal = false;
+    const ids = Array.from(this.selectedQuotationItemIds);
+    
+    // Create sale with the packaging charges entered in modal
+    // This is separate from the quotation's packagingAndForwadingCharges
     this.isLoading = true;
-    this.saleService.createFromQuotationItems(ids)
+    this.saleService.createFromQuotationItems(ids, charges)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (res: any) => {
@@ -928,6 +942,10 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
           this.cdr.detectChanges();
         }
       });
+  }
+
+  onPackagingChargesCancel(): void {
+    this.showPackagingChargesModal = false;
   }
 }
 

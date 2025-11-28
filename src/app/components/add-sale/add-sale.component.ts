@@ -69,6 +69,13 @@ export class AddSaleComponent implements OnInit, OnDestroy {
     this.loadProducts();
     this.loadCustomers();
     
+    // Listen to packaging charges changes to update display
+    this.saleForm.get('packagingAndForwadingCharges')?.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        // Trigger change detection for grand total
+      });
+    
     const encryptedId = localStorage.getItem('saleId');
     console.log('encryptedId : ' + encryptedId);
     
@@ -96,7 +103,8 @@ export class AddSaleComponent implements OnInit, OnDestroy {
       saleDate: [formatDate(new Date(), 'yyyy-MM-dd', 'en'), Validators.required],
       invoiceNumber: ['', Validators.required],
       products: this.fb.array([]),
-      isBlack: [false, Validators.required]
+      isBlack: [false, Validators.required],
+      packagingAndForwadingCharges: [0, [Validators.required, Validators.min(0)]]
     });
 
     // Add initial product form group
@@ -199,6 +207,22 @@ export class AddSaleComponent implements OnInit, OnDestroy {
   getTotalTaxAmount(): number {
     return this.productsFormArray.controls
       .reduce((total, group: any) => total + (group.get('taxAmount').value || 0), 0);
+  }
+
+  getTotalFinalPrice(): number {
+    // Sum of all items' finalPrice (price + taxAmount for each item)
+    return this.productsFormArray.controls
+      .reduce((total, group: any) => {
+        const price = Number(group.get('price')?.value || 0);
+        const taxAmount = Number(group.get('taxAmount')?.value || 0);
+        return total + (price + taxAmount);
+      }, 0);
+  }
+
+  getGrandTotal(): number {
+    // totalAmount = sum of all items' finalPrice + packagingAndForwadingCharges
+    const packagingCharges = Number(this.saleForm.get('packagingAndForwadingCharges')?.value || 0);
+    return this.getTotalFinalPrice() + packagingCharges;
   }
 
   private loadProducts(): void {
@@ -340,17 +364,24 @@ export class AddSaleComponent implements OnInit, OnDestroy {
       invoiceNumber: formValue.invoiceNumber,
       price: this.getTotalAmount(),
       taxAmount: this.getTotalTaxAmount(),
+      packagingAndForwadingCharges: Number(formValue.packagingAndForwadingCharges || 0),
+      totalAmount: this.getGrandTotal(),
       isBlack: Boolean(formValue.isBlack),
-      products: formValue.products.map((product: ProductForm, index: number) => ({
-        productId: product.productId,
-        quantity: product.quantity,
-        batchNumber: product.batchNumber,
-        unitPrice: product.unitPrice,
-        price: this.productsFormArray.at(index).get('price')?.value,
-        taxPercentage: this.productsFormArray.at(index).get('taxPercentage')?.value,
-        taxAmount: this.productsFormArray.at(index).get('taxAmount')?.value,
-        remarks: product.remarks
-      }))
+      products: formValue.products.map((product: ProductForm, index: number) => {
+        const price = this.productsFormArray.at(index).get('price')?.value || 0;
+        const taxAmount = this.productsFormArray.at(index).get('taxAmount')?.value || 0;
+        return {
+          productId: product.productId,
+          quantity: product.quantity,
+          batchNumber: product.batchNumber,
+          unitPrice: product.unitPrice,
+          price: price,
+          taxPercentage: this.productsFormArray.at(index).get('taxPercentage')?.value,
+          taxAmount: taxAmount,
+          finalPrice: price + taxAmount,
+          remarks: product.remarks
+        };
+      })
     };
     
     // Include id only when updating
@@ -381,8 +412,7 @@ export class AddSaleComponent implements OnInit, OnDestroy {
       
     this.saleForm.patchValue({ 
       price: totalPrice,
-      taxAmount: totalTaxAmount,
-      totalAmount: totalPrice + totalTaxAmount 
+      taxAmount: totalTaxAmount
     }, { emitEvent: false });
   }
 
@@ -425,7 +455,8 @@ export class AddSaleComponent implements OnInit, OnDestroy {
       id: data.id,
       saleDate: formatDate(new Date(data.saleDate), 'yyyy-MM-dd', 'en'),
       invoiceNumber: data.invoiceNumber,
-      isBlack: data.isBlack
+      isBlack: data.isBlack,
+      packagingAndForwadingCharges: data.packagingAndForwadingCharges || 0
     });
 
     // Clear existing products
@@ -439,11 +470,11 @@ export class AddSaleComponent implements OnInit, OnDestroy {
         productId: item.productId,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
-        price: item.price,
-        taxPercentage: item.taxPercentage,
-        taxAmount: item.taxAmount,
-        batchNumber: item.batchNumber,
-        remarks: item.remarks
+        price: item.price || 0,
+        taxPercentage: item.taxPercentage || 0,
+        taxAmount: item.taxAmount || 0,
+        batchNumber: item.batchNumber || '',
+        remarks: item.remarks || ''
       });
       this.productsFormArray.push(productGroup);
     });
