@@ -1,4 +1,4 @@
-<div class="sales-container">
+<div class="purchase-container">
   <app-loader [show]="isLoading"></app-loader>
   
   <div class="search-section card">
@@ -12,9 +12,14 @@
             class="form-control" 
             placeholder="Search by invoice number..."
           >
+          <input 
+            type="text" 
+            formControlName="batchNumber" 
+            class="form-control" 
+            placeholder="Search by Batch Number..."
+          >
         </div>
-        
-        <div class="form-group">
+        <div class="form-group" *ngIf="canManagePurchases">
           <div class="product-select-group">
             <app-searchable-select
               formControlName="customerId"
@@ -23,7 +28,6 @@
               valueKey="id"
               [defaultOption]="{ label: 'All Customers', value: '' }"
               [searchPlaceholder]="'Search customers...'"
-              (valueChange)="onCustomerChange($event)"
             ></app-searchable-select>
             <button 
               type="button" 
@@ -36,18 +40,6 @@
               <i class="fas" [ngClass]="isLoadingCustomers ? 'fa-spinner fa-spin' : 'fa-sync-alt'"></i>
             </button>
           </div>
-        </div>
-
-        <div class="form-group">
-          <app-searchable-select
-            formControlName="purchaseId"
-            [options]="purchases"
-            labelKey="invoiceNumber"
-            valueKey="id"
-            [defaultOption]="{ label: 'All Purchases', value: '' }"
-            [searchPlaceholder]="'Search purchases...'"
-            [disabled]="!searchForm.get('customerId')?.value || isLoadingPurchases"
-          ></app-searchable-select>
         </div>
 
         <div class="form-group">
@@ -80,7 +72,7 @@
     </form>
   </div>
 
-  <div class="sales-list card">
+  <div class="purchases-list card">
     <h2>Purchase Returns</h2>
 
     <div class="table-responsive">
@@ -100,8 +92,8 @@
             <td>{{ startIndex + index + 1 }}</td>
             <td>{{ purchaseReturn.invoiceNumber }}</td>
             <td>{{ purchaseReturn.customerName }}</td>
-            <td>{{ formatDate(purchaseReturn.purchaseReturnDate) }}</td>
-            <td>{{ formatCurrency(purchaseReturn.totalPurchaseAmount) }}</td>
+            <td>{{ purchaseReturn.purchaseReturnDate | date:'dd-MM-yyyy' }}</td>
+            <td>{{ purchaseReturn.totalPurchaseAmount ?? 0 }}</td>
             <td class="actions">
               <button 
                 class="btn-icon edit" 

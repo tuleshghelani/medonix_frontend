@@ -13,7 +13,7 @@ import { SearchableSelectComponent } from '../../shared/components/searchable-se
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
 import { DateUtils } from '../../shared/utils/date-utils';
 import { EncryptionService } from '../../shared/services/encryption.service';
-import { AuthService } from '../../services/auth.service';
+import { AuthService, UserRole } from '../../services/auth.service';
 
 interface SaleReturn {
   id: number;
@@ -81,9 +81,8 @@ export class SaleReturnListComponent implements OnInit, OnDestroy {
 
   // Dropdown data
   customers: any[] = [];
-  sales: any[] = [];
   isLoadingCustomers = false;
-  isLoadingSales = false;
+  canManagePurchases = false;
 
   private destroy$ = new Subject<void>();
 
@@ -101,8 +100,11 @@ export class SaleReturnListComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.canManagePurchases = this.authService.isAdmin() || this.authService.isStaffAdmin();
     this.loadSaleReturns();
-    this.loadCustomers();
+    if (this.canManagePurchases) {
+      this.loadCustomers();
+    }
   }
 
   ngOnDestroy(): void {
@@ -113,8 +115,8 @@ export class SaleReturnListComponent implements OnInit, OnDestroy {
   private initializeForm(): void {
     this.searchForm = this.fb.group({
       search: [''],
+      batchNumber: [''],
       customerId: [''],
-      saleId: [''],
       startDate: [''],
       endDate: ['']
     });
@@ -128,8 +130,7 @@ export class SaleReturnListComponent implements OnInit, OnDestroy {
       currentPage: this.currentPage,
       perPageRecord: this.pageSize,
       search: formValues.search?.trim() || undefined,
-      customerId: formValues.customerId ? Number(formValues.customerId) : undefined,
-      saleId: formValues.saleId ? Number(formValues.saleId) : undefined,
+      customerId: this.canManagePurchases && formValues.customerId ? Number(formValues.customerId) : undefined,
       startDate: formValues.startDate ? this.formatDateForApi(formValues.startDate) : undefined,
       endDate: formValues.endDate ? this.formatDateForApi(formValues.endDate) : undefined
     };
@@ -185,7 +186,6 @@ export class SaleReturnListComponent implements OnInit, OnDestroy {
   resetForm(): void {
     this.searchForm.reset();
     this.currentPage = 0;
-    this.sales = [];
     this.loadSaleReturns();
   }
 
@@ -201,6 +201,9 @@ export class SaleReturnListComponent implements OnInit, OnDestroy {
   }
 
   private loadCustomers(): void {
+    if (!this.canManagePurchases) {
+      return;
+    }
     this.isLoadingCustomers = true;
     this.customerService.getCustomers({ status: 'A' })
       .pipe(takeUntil(this.destroy$))
@@ -219,6 +222,9 @@ export class SaleReturnListComponent implements OnInit, OnDestroy {
   }
 
   refreshCustomers(): void {
+    if (!this.canManagePurchases) {
+      return;
+    }
     this.isLoadingCustomers = true;
     this.customerService.refreshCustomers()
       .pipe(takeUntil(this.destroy$))
@@ -237,44 +243,6 @@ export class SaleReturnListComponent implements OnInit, OnDestroy {
       });
   }
 
-  loadSalesForCustomer(customerId: number): void {
-    if (!customerId) {
-      this.sales = [];
-      return;
-    }
-
-    this.isLoadingSales = true;
-    const params = {
-      currentPage: 0,
-      perPageRecord: 1000,
-      customerId: customerId
-    };
-
-    this.saleService.searchSales(params)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (response: any) => {
-          if (response?.data?.content) {
-            this.sales = response.data.content;
-          } 
-          this.isLoadingSales = false;
-        },
-        error: () => {
-          this.snackbar.error('Failed to load sales');
-          this.sales = [];
-          this.isLoadingSales = false;
-        }
-      });
-  }
-
-  onCustomerChange(customerId: any): void {
-    if (customerId) {
-      this.loadSalesForCustomer(Number(customerId));
-    } else {
-      this.sales = [];
-      this.searchForm.patchValue({ saleId: '' });
-    }
-  }
 
   viewDetails(id: number | undefined): void {
     if (!id) {
@@ -285,27 +253,6 @@ export class SaleReturnListComponent implements OnInit, OnDestroy {
     this.router.navigate(['/sale/return', encryptedId]);
   }
 
-  formatDate(dateString: string): string {
-    if (!dateString) return '';
-    try {
-      const date = new Date(dateString);
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = date.getFullYear();
-      return `${day}-${month}-${year}`;
-    } catch {
-      return dateString;
-    }
-  }
-
-  formatCurrency(amount: number): string {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(amount || 0);
-  }
 
   deleteSaleReturn(id: number): void {
     if (confirm('Are you sure you want to delete this sale return? This action cannot be undone.')) {

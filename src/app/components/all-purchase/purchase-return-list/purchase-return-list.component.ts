@@ -82,9 +82,8 @@ export class PurchaseReturnListComponent implements OnInit, OnDestroy {
 
   // Dropdown data
   customers: any[] = [];
-  purchases: any[] = [];
   isLoadingCustomers = false;
-  isLoadingPurchases = false;
+  canManagePurchases = false;
 
   // Client ID - can be made configurable
   clientId = 1;
@@ -105,8 +104,11 @@ export class PurchaseReturnListComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.canManagePurchases = this.authService.isAdmin() || this.authService.isStaffAdmin();
     this.loadPurchaseReturns();
-    this.loadCustomers();
+    if (this.canManagePurchases) {
+      this.loadCustomers();
+    }
   }
 
   ngOnDestroy(): void {
@@ -117,8 +119,8 @@ export class PurchaseReturnListComponent implements OnInit, OnDestroy {
   private initializeForm(): void {
     this.searchForm = this.fb.group({
       search: [''],
+      batchNumber: [''],
       customerId: [''],
-      purchaseId: [''],
       startDate: [''],
       endDate: ['']
     });
@@ -133,8 +135,7 @@ export class PurchaseReturnListComponent implements OnInit, OnDestroy {
       perPageRecord: this.pageSize,
       clientId: this.clientId,
       search: formValues.search?.trim() || undefined,
-      customerId: formValues.customerId ? Number(formValues.customerId) : undefined,
-      purchaseId: formValues.purchaseId ? Number(formValues.purchaseId) : undefined,
+      customerId: this.canManagePurchases && formValues.customerId ? Number(formValues.customerId) : undefined,
       startDate: formValues.startDate ? this.dateUtils.formatDate(formValues.startDate) : undefined,
       endDate: formValues.endDate ? this.dateUtils.formatDate(formValues.endDate) : undefined
     };
@@ -195,6 +196,9 @@ export class PurchaseReturnListComponent implements OnInit, OnDestroy {
   }
 
   private loadCustomers(): void {
+    if (!this.canManagePurchases) {
+      return;
+    }
     this.isLoadingCustomers = true;
     this.customerService.getCustomers({ status: 'A' })
       .pipe(takeUntil(this.destroy$))
@@ -213,6 +217,9 @@ export class PurchaseReturnListComponent implements OnInit, OnDestroy {
   }
 
   refreshCustomers(): void {
+    if (!this.canManagePurchases) {
+      return;
+    }
     this.isLoadingCustomers = true;
     this.customerService.refreshCustomers()
       .pipe(takeUntil(this.destroy$))
@@ -231,61 +238,11 @@ export class PurchaseReturnListComponent implements OnInit, OnDestroy {
       });
   }
 
-  loadPurchasesForCustomer(customerId: number): void {
-    if (!customerId) {
-      this.purchases = [];
-      return;
-    }
-
-    this.isLoadingPurchases = true;
-    const params = {
-      currentPage: 0,
-      perPageRecord: 1000,
-      customerId: customerId
-    };
-
-    this.purchaseService.searchPurchases(params)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (response) => {
-          this.purchases = response.content || [];
-          this.isLoadingPurchases = false;
-        },
-        error: () => {
-          this.snackbar.error('Failed to load purchases');
-          this.purchases = [];
-          this.isLoadingPurchases = false;
-        }
-      });
-  }
-
-  onCustomerChange(customerId: any): void {
-    if (customerId) {
-      this.loadPurchasesForCustomer(Number(customerId));
-    } else {
-      this.purchases = [];
-      this.searchForm.patchValue({ purchaseId: '' });
-    }
-  }
-
   viewDetails(id: number): void {
     const encryptedId = this.encryptionService.encrypt(id.toString());
     this.router.navigate(['/purchase/return', encryptedId]);
   }
 
-  formatDate(dateString: string): string {
-    if (!dateString) return '';
-    return this.dateUtils.formatDate(dateString);
-  }
-
-  formatCurrency(amount: number): string {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(amount || 0);
-  }
 
   deletePurchaseReturn(id: number): void {
     if (confirm('Are you sure you want to delete this purchase return? This action cannot be undone.')) {

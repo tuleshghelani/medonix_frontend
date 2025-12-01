@@ -1,4 +1,4 @@
-.sales-container {
+.purchase-container {
   padding: 2rem;
   position: relative;
   min-height: 200px;
@@ -90,7 +90,7 @@
     }
   }
 
-  .slaes-list {
+  .purchases-list {
     .table-responsive {
       overflow-x: auto;
     }
@@ -133,7 +133,7 @@
 }
 
 @media (max-width: 768px) {
-  .sales-container {
+  .purchase-container {
     padding: 1rem;
 
     .search-controls {
