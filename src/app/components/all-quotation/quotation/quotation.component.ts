@@ -410,6 +410,14 @@ export class QuotationComponent implements OnInit, OnDestroy {
 
     if (this.clickListener) {
       document.removeEventListener('click', this.clickListener);
+      this.clickListener = null;
     }
+
+    // Clear arrays to help with garbage collection
+    this.quotations = [];
+    this.products = [];
+    this.customers = [];
+    this.statusOptions = [];
+    this.selectedQuotation = null;
   }
 }

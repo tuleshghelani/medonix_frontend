@@ -89,6 +89,19 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
     this.itemSubscriptions.forEach(sub => sub?.unsubscribe());
+    this.itemSubscriptions = [];
+
+    // Clear Maps and Sets to help with garbage collection
+    this.lastStatusByIndex = {};
+    this.lastCreatedRollByIndex = {};
+    this.lastQuantityByIndex = {};
+    this.selectedQuotationItemIds.clear();
+    this.selectedDispatchItemIds.clear();
+
+    // Clear arrays
+    this.products = [];
+    this.customers = [];
+    this.transports = [];
   }
 
   private initForm() {
@@ -325,7 +338,9 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
 
   private loadProducts(): void {
     this.isLoadingProducts = true;
-    this.productService.getProducts({ status: 'A' }).subscribe({
+    this.productService.getProducts({ status: 'A' })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
       next: (response) => {
         if (response.success) {
           this.products = response.data;
@@ -341,7 +356,9 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
 
   refreshProducts(): void {
     this.isLoadingProducts = true;
-    this.productService.refreshProducts().subscribe({
+    this.productService.refreshProducts()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
       next: (response) => {
         if (response.success) {
           this.products = response.data;
@@ -358,7 +375,9 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
 
   private loadTransports(): void {
     this.isLoadingTransports = true;
-    this.transportService.getTransports({ status: 'A' }).subscribe({
+    this.transportService.getTransports({ status: 'A' })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
       next: (response) => {
         if (response?.success !== false) {
           this.transports = response.data || response.transports || [];
@@ -374,7 +393,9 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
 
   refreshTransports(): void {
     this.isLoadingTransports = true;
-    this.transportService.refreshTransports().subscribe({
+    this.transportService.refreshTransports()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
       next: (response) => {
         if (response?.success !== false) {
           this.transports = response.data || response.transports || [];
@@ -391,7 +412,9 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
 
   private loadCustomers(): void {
     this.isLoadingCustomers = true;
-    this.customerService.getCustomers({ status: 'A' }).subscribe({
+    this.customerService.getCustomers({ status: 'A' })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
       next: (response) => {
         if (response.success) {
           this.customers = response.data;
@@ -407,7 +430,9 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
 
   refreshCustomers(): void {
     this.isLoadingCustomers = true;
-    this.customerService.refreshCustomers().subscribe({
+    this.customerService.refreshCustomers()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
       next: (response) => {
         if (response.success) {
           this.customers = response.data;
@@ -453,7 +478,9 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
         return;
       }
       this.isLoading = true;
-      this.quotationService.getQuotationDetail(parseInt(quotationId)).subscribe({
+      this.quotationService.getQuotationDetail(parseInt(quotationId))
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
         next: (response) => {
           if (response) {
             this.quotationId = parseInt(quotationId);
@@ -537,7 +564,9 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
       const request$ = this.isEdit
         ? this.quotationService.updateQuotation(this.quotationId!, formData)
         : this.quotationService.createQuotation(formData);
-      request$.subscribe({
+      request$
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
         next: (response: any) => {
           if (response.success) {
             this.snackbar.success(`Quotation ${this.isEdit ? 'updated' : 'created'} successfully`);

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { QuotationService } from '../../../services/quotation.service';
 import { CustomerService } from '../../../services/customer.service';
@@ -15,6 +15,8 @@ import { QuotationStatus, StatusOption } from '../../../models/quotation.model';
 import { EncryptionService } from '../../../shared/services/encryption.service';
 import { AuthService } from '../../../services/auth.service';
 import { PaginationComponent } from '../../../shared/components/pagination/pagination.component';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 @Component({
   selector: 'app-dispatch-quotation-list',
@@ -33,7 +35,7 @@ import { PaginationComponent } from '../../../shared/components/pagination/pagin
   templateUrl: './dispatch-quotation-list.component.html',
   styleUrl: './dispatch-quotation-list.component.scss'
 })
-export class DispatchQuotationListComponent implements OnInit {
+export class DispatchQuotationListComponent implements OnInit, OnDestroy {
   quotations: any[] = [];
   searchForm!: FormGroup;
   isLoading = false;
@@ -53,6 +55,8 @@ export class DispatchQuotationListComponent implements OnInit {
   isLoadingProducts = false;
   customers: any[] = [];
   isLoadingCustomers = false;
+  private destroy$ = new Subject<void>();
+  private clickListener: any;
 
   constructor(
     private quotationService: QuotationService,
@@ -96,7 +100,9 @@ export class DispatchQuotationListComponent implements OnInit {
       ...this.searchForm.value,
     };
 
-    this.quotationService.searchQuotations(params).subscribe({
+    this.quotationService.searchQuotations(params)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
       next: (response: any) => {
         // Initialize showStatusDropdown for each quotation
         this.quotations = response.content.map((q: any) => ({
@@ -140,7 +146,9 @@ export class DispatchQuotationListComponent implements OnInit {
   deleteQuotation(id: number): void {
     if (confirm('Are you sure you want to delete this quotation? This action cannot be undone.')) {
       this.isLoading = true;
-      this.quotationService.deleteQuotation(id).subscribe({
+      this.quotationService.deleteQuotation(id)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
         next: () => {
           this.snackbar.success('Quotation deleted successfully');
           this.loadQuotations();
@@ -155,7 +163,9 @@ export class DispatchQuotationListComponent implements OnInit {
 
   private loadCustomers(): void {
     this.isLoadingCustomers = true;
-    this.customerService.getCustomers({ status: 'A' }).subscribe({
+    this.customerService.getCustomers({ status: 'A' })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
       next: (response) => {
         if (response.success) {
           this.customers = response.data;
@@ -171,7 +181,9 @@ export class DispatchQuotationListComponent implements OnInit {
 
   refreshCustomers(): void {
     this.isLoadingCustomers = true;
-    this.customerService.refreshCustomers().subscribe({
+    this.customerService.refreshCustomers()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
       next: (response) => {
         if (response.success) {
           this.customers = response.data;
@@ -215,7 +227,9 @@ export class DispatchQuotationListComponent implements OnInit {
 
     quotation.isPrinting = true;
 
-    this.quotationService.generatePdf(id).subscribe({
+    this.quotationService.generatePdf(id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
       next: (response) => {
         const url = window.URL.createObjectURL(response.blob);
         const link = document.createElement('a');
@@ -236,7 +250,9 @@ export class DispatchQuotationListComponent implements OnInit {
     if (!quotation) return;
 
     quotation.isPrinting = true;
-    this.quotationService.generateDispatchPdf(id, null).subscribe({
+    this.quotationService.generateDispatchPdf(id, null)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
       next: (response) => {
         const url = window.URL.createObjectURL(response.blob);
         const link = document.createElement('a');
@@ -268,14 +284,15 @@ export class DispatchQuotationListComponent implements OnInit {
   }
 
   private setupClickOutsideListener(): void {
-    document.addEventListener('click', (event: any) => {
+    this.clickListener = (event: any) => {
       const dropdowns = document.querySelectorAll('.status-container');
       dropdowns.forEach(dropdown => {
         if (!dropdown.contains(event.target)) {
           this.quotations.forEach(q => q.showStatusDropdown = false);
         }
       });
-    });
+    };
+    document.addEventListener('click', this.clickListener);
   }
 
   toggleStatusDropdown(quotation: any): void {
@@ -296,7 +313,9 @@ export class DispatchQuotationListComponent implements OnInit {
     quotation.isUpdating = true;
     quotation.showStatusDropdown = false;
 
-    this.quotationService.updateQuotationStatus(quotation.id, newStatus).subscribe({
+    this.quotationService.updateQuotationStatus(quotation.id, newStatus)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
       next: () => {
         quotation.status = newStatus;
         this.snackbar.success('Status updated successfully');
@@ -384,43 +403,63 @@ export class DispatchQuotationListComponent implements OnInit {
 
     quotation.isPrinting = true;
 
-    this.quotationService.generateDispatchPdf(id, null).subscribe({
-      next: (response) => {
-        const blob = response.blob;
-        const url = window.URL.createObjectURL(blob);
+    this.quotationService.generateDispatchPdf(id, null)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          const blob = response.blob;
+          const url = window.URL.createObjectURL(blob);
 
-        // Create an iframe for printing
-        const printFrame = document.createElement('iframe');
-        printFrame.style.display = 'none';
-        printFrame.src = url;
+          // Create an iframe for printing
+          const printFrame = document.createElement('iframe');
+          printFrame.style.display = 'none';
+          printFrame.src = url;
 
-        document.body.appendChild(printFrame);
-        printFrame.onload = () => {
-          setTimeout(() => {
-            try {
-              printFrame.contentWindow?.print();
-              // Only set loading to false after print dialog is shown
-              this.isLoading = false;
-              quotation.isPrinting = false;
-            } catch (error) {
-              this.snackbar.error('Failed to open print dialog');
-              this.isLoading = false;
-            }
-          }, 1000);
+          document.body.appendChild(printFrame);
+          printFrame.onload = () => {
+            setTimeout(() => {
+              try {
+                printFrame.contentWindow?.print();
+                // Only set loading to false after print dialog is shown
+                this.isLoading = false;
+                quotation.isPrinting = false;
+              } catch (error) {
+                this.snackbar.error('Failed to open print dialog');
+                this.isLoading = false;
+              }
+            }, 1000);
 
-          // Cleanup after longer delay
-          // setTimeout(() => {
-          //   document.body.removeChild(printFrame);
-          //   window.URL.revokeObjectURL(url);
-          // }, 5000);
-        };
-      },
-      error: (error) => {
-        this.snackbar.error('Failed to generate dispatch quotation');
-        quotation.isPrinting = false;
-        this.isLoading = false;
-      }
-    });
+            // Cleanup after longer delay
+            setTimeout(() => {
+              if (document.body.contains(printFrame)) {
+                document.body.removeChild(printFrame);
+              }
+              window.URL.revokeObjectURL(url);
+            }, 5000);
+          };
+        },
+        error: (error) => {
+          this.snackbar.error('Failed to generate dispatch quotation');
+          quotation.isPrinting = false;
+          this.isLoading = false;
+        }
+      });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+
+    if (this.clickListener) {
+      document.removeEventListener('click', this.clickListener);
+      this.clickListener = null;
+    }
+
+    // Clear arrays to help with garbage collection
+    this.quotations = [];
+    this.customers = [];
+    this.products = [];
+    this.statusOptions = [];
   }
 }
 

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
@@ -10,6 +10,8 @@ import { SnackbarService } from '../../../shared/services/snackbar.service';
 import { QuotationStatus } from '../../../models/quotation.model';
 import { EncryptionService } from '../../../shared/services/encryption.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 @Component({
   selector: 'app-order',
@@ -24,7 +26,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
   templateUrl: './order.component.html',
   styleUrls: ['./order.component.scss']
 })
-export class OrderComponent implements OnInit {
+export class OrderComponent implements OnInit, OnDestroy {
   searchForm: FormGroup;
   quotationItems: QuotationItemDetail[] = [];
   currentPage = 0;
@@ -36,6 +38,7 @@ export class OrderComponent implements OnInit {
   isLoadingCustomers = false;
   products: any[] = [];
   isLoadingProducts = false;
+  private destroy$ = new Subject<void>();
 
   quotationItemStatusOptions = [
     { value: 'O', label: 'Open' },
@@ -94,7 +97,9 @@ export class OrderComponent implements OnInit {
       endDate: formValue.endDate || undefined
     };
 
-    this.quotationService.searchQuotationItemsWithDetails(request).subscribe({
+    this.quotationService.searchQuotationItemsWithDetails(request)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
       next: (response) => {
         this.quotationItems = response.content;
         this.totalPages = response.totalPages;
@@ -112,6 +117,7 @@ export class OrderComponent implements OnInit {
   private loadCustomers(): void {
     this.isLoadingCustomers = true;
     this.customerService.getCustomers({ status: 'A' })
+      .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {
           if (response.success) {
@@ -129,6 +135,7 @@ export class OrderComponent implements OnInit {
   private loadProducts(): void {
     this.isLoadingProducts = true;
     this.productService.getProducts({ status: 'A' })
+      .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {
           if (response.success) {
@@ -146,6 +153,7 @@ export class OrderComponent implements OnInit {
   refreshCustomers(): void {
     this.isLoadingCustomers = true;
     this.customerService.refreshCustomers()
+      .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {
           if (response.success) {
@@ -164,6 +172,7 @@ export class OrderComponent implements OnInit {
   refreshProducts(): void {
     this.isLoadingProducts = true;
     this.productService.refreshProducts()
+      .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {
           if (response.success) {
@@ -271,7 +280,9 @@ export class OrderComponent implements OnInit {
     const itemId = item.id;
     
     if (itemId) {
-      this.quotationService.updateQuotationItemStatus(itemId, status).subscribe({
+      this.quotationService.updateQuotationItemStatus(itemId, status)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
         next: (response: any) => {
           if (response.success) {
             // Update the local item status
@@ -320,5 +331,16 @@ export class OrderComponent implements OnInit {
 
   sanitizeHtml(html: string): SafeHtml {
     return this.sanitizer.bypassSecurityTrustHtml(html);
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+
+    // Clear arrays to help with garbage collection
+    this.quotationItems = [];
+    this.customers = [];
+    this.products = [];
+    this.quotationStatusOptions = [];
   }
 }
