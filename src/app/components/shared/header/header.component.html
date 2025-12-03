@@ -2,7 +2,8 @@
   <nav class="nav-container">
     <div class="nav-top">
       <div class="logo">
-        <span>Several Polymers</span>
+        <span *ngIf="clientName">{{ clientName }}</span>
+        <span *ngIf="!clientName">Several Polymers</span>
       </div>
       
       <div class="user-info" *ngIf="isAuthenticated">
@@ -15,6 +16,9 @@
     </div>
 
     <div class="nav-content" [class.show]="isMobileMenuOpen" *ngIf="isAuthenticated">
+      <div class="client-name" *ngIf="clientName">
+        {{ clientName }}
+      </div>
       <ul class="nav-links">
         <!-- Master Menu -->
         <li class="dropdown" *ngIf="hasMasterMenuItems()">

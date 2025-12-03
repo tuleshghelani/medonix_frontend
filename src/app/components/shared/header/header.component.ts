@@ -2,7 +2,10 @@ import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../services/auth.service';
 import { RoleService, MenuPermissions } from '../../../services/role.service';
-import { Subscription } from 'rxjs';
+import { UserService } from '../../../services/user.service';
+import { EncryptionService } from '../../../shared/services/encryption.service';
+import { Subscription, Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 @Component({
   selector: 'app-header',
@@ -18,7 +21,9 @@ export class HeaderComponent implements OnInit, OnDestroy {
   showPendingItemMenu: boolean = false;
   showEmployeeMenu: boolean = false;
   isMobileMenuOpen: boolean = false;
+  clientName: string = '';
   private authSubscription: Subscription;
+  private destroy$ = new Subject<void>();
   permissions: MenuPermissions = {
     canViewCategory: false,
     canViewProduct: false,
@@ -48,13 +53,16 @@ export class HeaderComponent implements OnInit, OnDestroy {
   constructor(
     private authService: AuthService,
     private roleService: RoleService,
-    private router: Router
+    private router: Router,
+    private userService: UserService,
+    private encryptionService: EncryptionService
   ) {
     this.authSubscription = this.authService.authState$.subscribe(
       (isAuthenticated) => {
         this.isAuthenticated = isAuthenticated;
         if (isAuthenticated) {
           this.permissions = this.roleService.getMenuPermissions();
+          this.loadCurrentUser();
         }
       }
     );
@@ -67,6 +75,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
         
         if (state) {
           this.permissions = this.roleService.getMenuPermissions();
+          this.loadCurrentUser();
         }
         
         // Check if user is authenticated but roles are missing
@@ -75,12 +84,77 @@ export class HeaderComponent implements OnInit, OnDestroy {
         }
       }
     );
+
+    // Load client name from localStorage if available
+    this.loadClientNameFromStorage();
+  }
+
+  loadCurrentUser(): void {
+    // Check if we already have encrypted user data in localStorage
+    const encryptedUserData = localStorage.getItem('encryptedUserData');
+    if (encryptedUserData) {
+      this.loadClientNameFromStorage();
+      return;
+    }
+
+    // Fetch current user data from API
+    this.userService.getCurrentUser()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success && response.data) {
+            // Encrypt the entire response and save to localStorage
+            // The encrypt method expects a string and will JSON.stringify it
+            const responseString = JSON.stringify(response);
+            const encrypted = this.encryptionService.encrypt(responseString);
+            localStorage.setItem('encryptedUserData', encrypted);
+            
+            // Extract and display client name
+            if (response.data.client && response.data.client.name) {
+              this.clientName = response.data.client.name;
+            }
+          }
+        },
+        error: (error) => {
+          console.error('Error loading current user:', error);
+        }
+      });
+  }
+
+  loadClientNameFromStorage(): void {
+    const encryptedUserData = localStorage.getItem('encryptedUserData');
+    if (encryptedUserData) {
+      try {
+        // The decrypt method already does JSON.parse, so it returns the parsed object
+        const decrypted: any = this.encryptionService.decrypt(encryptedUserData);
+        if (decrypted) {
+          let userData: any = null;
+          
+          // Check if decrypted is already an object
+          if (typeof decrypted === 'object' && decrypted !== null) {
+            userData = decrypted;
+          } else if (typeof decrypted === 'string') {
+            // If it's still a string, parse it again
+            userData = JSON.parse(decrypted);
+          }
+          
+          // Extract client name
+          if (userData && userData.data && userData.data.client && userData.data.client.name) {
+            this.clientName = userData.data.client.name;
+          }
+        }
+      } catch (error) {
+        console.error('Error decrypting user data:', error);
+      }
+    }
   }
 
   ngOnDestroy(): void {
     if (this.authSubscription) {
       this.authSubscription.unsubscribe();
     }
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   @HostListener('document:click', ['$event'])

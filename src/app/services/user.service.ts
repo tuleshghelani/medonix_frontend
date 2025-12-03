@@ -30,5 +30,9 @@ export class UserService {
   updatePassword(params: UserUpdatePasswordRequest): Observable<UserUpdatePasswordResponse> {
     return this.http.put<UserUpdatePasswordResponse>(`${this.apiUrl}/update-password`, params);
   }
+
+  getCurrentUser(): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/me`);
+  }
 }
 
