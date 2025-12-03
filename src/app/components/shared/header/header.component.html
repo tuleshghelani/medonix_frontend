@@ -113,7 +113,12 @@
               <a routerLink="/quotation/dispatch-list" routerLinkActive="active" (click)="closeAllMenus()">
                 <i class="fas fa-shopping-cart"></i> Dispatch Quotation
               </a>
-            </li>           
+            </li>   
+            <li *ngIf="permissions.canViewPendingItem">
+              <a routerLink="/quotation/pending-item" routerLinkActive="active" (click)="closeAllMenus()">
+                <i class="fas fa-shopping-cart"></i> Pending Item
+              </a>
+            </li>
           </ul>
         </li>
 

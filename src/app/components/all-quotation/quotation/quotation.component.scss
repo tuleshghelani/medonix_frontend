@@ -118,6 +118,38 @@
   
         td {
           vertical-align: middle;
+
+          .btn-icon {
+              background: none;
+              border: none;
+              padding: 8px;
+              cursor: pointer;
+              border-radius: 6px;
+              transition: all 0.2s ease;
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              touch-action: manipulation;
+              -webkit-tap-highlight-color: transparent;
+            &.dispatch {
+              color: #ff9800;
+              background-color: rgba(255, 152, 0, 0.1);
+              
+              &:hover:not(:disabled) {
+                background-color: #ff9800;
+                color: white;
+                transform: translateY(-1px);
+              }
+              
+              &:active:not(:disabled) {
+                transform: translateY(0);
+              }
+              
+              i {
+                font-size: 16px;
+              }
+            }
+          }
         }
       }
     }

@@ -5,6 +5,7 @@ import { AddQuotationComponent } from './add-quotation/add-quotation.component';
 import { OrderComponent } from './order/order.component';
 import { DispatchQuotationComponent } from './dispatch-quotation/dispatch-quotation.component';
 import { DispatchQuotationListComponent } from './dispatch-quotation-list/dispatch-quotation-list.component';
+import { PendingItemComponent } from './pending-item/pending-item.component';
 
 const routes: Routes = [
   { path: '', component: QuotationComponent },
@@ -13,6 +14,7 @@ const routes: Routes = [
   { path: 'order', component: OrderComponent },
   { path: 'dispatch', component: DispatchQuotationComponent },
   { path: 'dispatch-list', component: DispatchQuotationListComponent },
+  { path: 'pending-item', component: PendingItemComponent },
 ];
 
 @NgModule({

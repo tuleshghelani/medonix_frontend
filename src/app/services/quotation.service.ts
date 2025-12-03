@@ -153,6 +153,18 @@ export class QuotationService {
     return this.http.post<QuotationItemSearchResponse>(`${this.quotationItemsApiUrl}/search-with-details`, params);
   }
 
+  // Method for searching pending items
+  searchPendingItems(params: {
+    customerId?: number;
+    productId?: number;
+    page: number;
+    size: number;
+    sortBy: string;
+    sortDir: string;
+  }): Observable<any> {
+    return this.http.post<any>(`${this.quotationItemsApiUrl}/pending-item/search`, params);
+  }
+
   // Method for getting status chart data
   getStatusChartData(params: {
     startDate: string;

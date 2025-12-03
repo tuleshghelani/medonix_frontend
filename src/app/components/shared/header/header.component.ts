@@ -15,6 +15,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
   showTransactionMenu: boolean = false;
   showQuotationMenu: boolean = false;
   showDispatchQuotationMenu: boolean = false;
+  showPendingItemMenu: boolean = false;
   showEmployeeMenu: boolean = false;
   isMobileMenuOpen: boolean = false;
   private authSubscription: Subscription;
@@ -35,6 +36,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
     canViewSale: false,
     canViewSaleReturn: false,
     canViewQuotation: false,
+    canViewPendingItem: false,
     canViewDispatchQuotation: false,
     canViewEmployeeWithdraw: false,
     canViewAttendance: false,
@@ -90,6 +92,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
       this.showQuotationMenu = false;
       this.showDispatchQuotationMenu = false;
       this.showEmployeeMenu = false;
+      this.showPendingItemMenu = false;
       if (!target.closest('.nav-links')) {
         this.isMobileMenuOpen = false;
       }
@@ -108,6 +111,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
     this.showQuotationMenu = false;
     this.showDispatchQuotationMenu = false;
     this.showEmployeeMenu = false;
+    this.showPendingItemMenu = false;
   }
 
   toggleTransactionMenu(event: Event): void {
@@ -118,6 +122,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
     this.showQuotationMenu = false;
     this.showDispatchQuotationMenu = false;
     this.showEmployeeMenu = false;
+    this.showPendingItemMenu = false;
   }
 
   toggleQuotationMenu(event: Event): void {
@@ -128,6 +133,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
     this.showTransactionMenu = false;
     this.showDispatchQuotationMenu = false;
     this.showEmployeeMenu = false;
+    this.showPendingItemMenu = false;
   }
 
   toggleDispatchQuotationMenu(event: Event): void {
@@ -138,6 +144,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
     this.showTransactionMenu = false;
     this.showQuotationMenu = false;
     this.showEmployeeMenu = false;
+    this.showPendingItemMenu = false;
   }
 
   toggleEmployeeMenu(event: Event): void {
@@ -148,6 +155,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
     this.showTransactionMenu = false;
     this.showQuotationMenu = false;
     this.showDispatchQuotationMenu = false;
+    this.showPendingItemMenu = false;
   }
 
   isMasterActive(): boolean {
@@ -191,6 +199,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
     this.showQuotationMenu = false;
     this.showDispatchQuotationMenu = false;
     this.showEmployeeMenu = false;
+    this.showPendingItemMenu = false;
   }
 
   hasMasterMenuItems(): boolean {
