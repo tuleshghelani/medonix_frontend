@@ -112,7 +112,7 @@
 
         <div class="form-group">
           <label for="validityDays">
-            <i class="fas fa-calendar-day"></i> Validity Days
+            <i class="fas fa-calendar-day"></i> Credit Days
           </label>
           <input 
             type="number" 
@@ -122,11 +122,11 @@
             [class.is-invalid]="customerForm.get('validityDays')?.invalid && customerForm.get('validityDays')?.touched"
             min="0"
             step="1"
-            placeholder="Enter validity days"
+            placeholder="Enter Credit Days"
             (touchstart)="$event.stopPropagation()"
           >
           <div class="invalid-feedback" *ngIf="customerForm.get('validityDays')?.errors?.['min']">
-            Validity days must be greater than or equal to 0
+            Credit Days must be greater than or equal to 0
           </div>
         </div>
 
