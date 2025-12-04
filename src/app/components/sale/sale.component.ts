@@ -249,6 +249,34 @@ export class SaleComponent implements OnInit, OnDestroy {
     this.router.navigate(['/sale/return', encryptedId]);
   }
 
+  generatePdf(id: number, invoiceNumber?: string): void {
+    this.saleService.generatePdf(id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: ({ blob, filename }) => {
+          // Use invoiceNumber if available, otherwise use the filename from response
+          const pdfFilename = 'sale-' + (invoiceNumber ? `${invoiceNumber}.pdf` : filename);
+          
+          // Create a download link
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = pdfFilename;
+          document.body.appendChild(link);
+          link.click();
+          
+          // Clean up
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+          
+          this.snackbar.success('PDF downloaded successfully');
+        },
+        error: (error) => {
+          this.snackbar.error(error?.error?.message || 'Failed to generate PDF');
+        }
+      });
+  }
+
   loadSales(): void {
     this.isLoading = true;
     const params = {

@@ -94,6 +94,14 @@
             <td class="actions">
               <button 
                 *ngIf="canManageSales"
+                class="btn-icon pdf" 
+                (click)="generatePdf(sale.id!, sale.invoiceNumber)"
+                title="Export PDF"
+              >
+                <i class="fas fa-file-pdf"></i>
+              </button>
+              <button 
+                *ngIf="canManageSales"
                 class="btn-icon edit" 
                 (click)="editSales(sale.id!)"
                 title="Edit Sale"
