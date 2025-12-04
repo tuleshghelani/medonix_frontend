@@ -67,4 +67,18 @@ export class PurchaseService {
       })
     );
   }
+
+  generatePurchaseReturnPdf(id: number): Observable<{ blob: Blob; filename: string }> {
+    return this.http.post(`${this.purchaseReturnApiUrl}/generate-pdf`, { id }, {
+      responseType: 'blob',
+      observe: 'response'
+    }).pipe(
+      map(response => {
+        const contentDisposition = response.headers.get('Content-Disposition');
+        const filename = contentDisposition?.split('filename=')[1]?.replace(/"/g, '') || 'purchase-return.pdf';
+        const blob = new Blob([response.body!], { type: 'application/pdf' });
+        return { blob, filename };
+      })
+    );
+  }
 }

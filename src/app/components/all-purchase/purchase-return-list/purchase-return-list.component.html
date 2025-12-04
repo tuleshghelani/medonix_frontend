@@ -96,6 +96,13 @@
             <td>{{ purchaseReturn.totalPurchaseAmount ?? 0 }}</td>
             <td class="actions">
               <button 
+                class="btn-icon pdf" 
+                (click)="generatePdf(purchaseReturn.id, purchaseReturn.invoiceNumber)"
+                title="Export PDF"
+              >
+                <i class="fas fa-file-pdf"></i>
+              </button>
+              <button 
                 class="btn-icon edit" 
                 (click)="viewDetails(purchaseReturn.purchaseId)"
                 title="View Details"
