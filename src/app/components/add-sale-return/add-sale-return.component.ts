@@ -1,13 +1,27 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { FormArray, FormBuilder, FormGroup, Validators, AbstractControl } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, takeUntil } from 'rxjs';
+import { CommonModule } from '@angular/common';
+import { FormArray, FormBuilder, FormGroup, Validators, ReactiveFormsModule, ValidatorFn, AbstractControl, ValidationErrors } from '@angular/forms';
+import { Router, RouterModule } from '@angular/router';
+import { Subject, takeUntil, Subscription } from 'rxjs';
 import { formatDate } from '@angular/common';
 
 import { SaleService } from '../../services/sale.service';
 import { ProductService } from '../../services/product.service';
+import { CustomerService } from '../../services/customer.service';
 import { SnackbarService } from '../../shared/services/snackbar.service';
-import { EncryptionService } from '../../shared/services/encryption.service';
+import { LoaderComponent } from '../../shared/components/loader/loader.component';
+import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
+
+interface ProductForm {
+  productId: string;
+  quantity: number;
+  batchNumber: string;
+  unitPrice: number;
+  price: number;
+  taxPercentage: number;
+  taxAmount: number;
+  remarks: string;
+}
 
 @Component({
   selector: 'app-add-sale-return',
@@ -16,284 +30,370 @@ import { EncryptionService } from '../../shared/services/encryption.service';
   standalone: false
 })
 export class AddSaleReturnComponent implements OnInit, OnDestroy {
-  returnForm: FormGroup;
-  isLoading = false;
-  isSaving = false;
-  saleDetails: any;
+  returnForm!: FormGroup;
   products: any[] = [];
+  customers: any[] = [];
+  loading = false;
+  isLoadingProducts = false;
+  isLoadingCustomers = false;
   private destroy$ = new Subject<void>();
+  private productSubscriptions: Subscription[] = [];
+
+  get productsFormArray() {
+    return this.returnForm.get('products') as FormArray;
+  }
 
   constructor(
     private fb: FormBuilder,
-    private route: ActivatedRoute,
     private router: Router,
     private saleService: SaleService,
     private productService: ProductService,
-    private snackbar: SnackbarService,
-    private encryptionService: EncryptionService
+    private customerService: CustomerService,
+    private snackbar: SnackbarService
   ) {
-    this.returnForm = this.fb.group({
-      saleId: [null],
-      customerId: [null],
-      saleReturnDate: [formatDate(new Date(), 'yyyy-MM-dd', 'en'), Validators.required],
-      invoiceNumber: ['', Validators.required],
-      items: this.fb.array([])
-    });
-  }
-
-  get itemsFormArray(): FormArray {
-    return this.returnForm.get('items') as FormArray;
+    this.initForm();
   }
 
   ngOnInit(): void {
-    const encryptedId = this.route.snapshot.paramMap.get('id');
-    if (!encryptedId) {
-      this.snackbar.error('Invalid sale id');
-      return;
-    }
-
-    const decryptedId = this.encryptionService.decrypt(encryptedId);
-    const id = decryptedId ? Number(decryptedId) : NaN;
-
-    if (!id || isNaN(id)) {
-      this.snackbar.error('Invalid sale id');
-      return;
-    }
-
     this.loadProducts();
-    this.loadSaleDetails(id);
+    this.loadCustomers();
+    
+    // Listen to packaging charges changes to update display
+    this.returnForm.get('packagingAndForwadingCharges')?.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        // Trigger change detection for grand total
+      });
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+    this.productSubscriptions.forEach(sub => sub?.unsubscribe());
+  }
+
+  private initForm(): void {
+    this.returnForm = this.fb.group({
+      customerId: ['', Validators.required],
+      saleReturnDate: [formatDate(new Date(), 'yyyy-MM-dd', 'en'), Validators.required],
+      invoiceNumber: ['', Validators.required],
+      products: this.fb.array([]),
+      packagingAndForwadingCharges: [0, [Validators.required, Validators.min(0)]]
+    });
+
+    // Add initial product form group
+    this.addProduct();
+  }
+
+  private createProductFormGroup(): FormGroup {
+    return this.fb.group({
+      productId: ['', Validators.required],
+      quantity: ['', [Validators.required, Validators.min(1)]],
+      batchNumber: ['', [this.noDoubleQuotesValidator()]],
+      unitPrice: ['', [Validators.required, Validators.min(0.01)]],
+      price: [{ value: 0, disabled: true }],
+      taxPercentage: [{ value: 0, disabled: true }],
+      taxAmount: [{ value: 0, disabled: true }],
+      remarks: [null, []]
+    });
+  }
+
+  addProduct(): void {
+    const productGroup = this.createProductFormGroup();
+    this.setupProductCalculations(productGroup, this.productsFormArray.length);
+    this.productsFormArray.push(productGroup);
+  }
+
+  removeProduct(index: number): void {
+    if (this.productsFormArray.length === 1) return;
+    
+    // Unsubscribe from the removed product's subscription
+    if (this.productSubscriptions[index]) {
+      this.productSubscriptions[index].unsubscribe();
+      this.productSubscriptions.splice(index, 1);
+    }
+    
+    this.productsFormArray.removeAt(index);
+    
+    // Resubscribe remaining products with correct indices
+    this.productsFormArray.controls.forEach((control, newIndex) => {
+      if (this.productSubscriptions[newIndex]) {
+        this.productSubscriptions[newIndex].unsubscribe();
+      }
+      this.setupProductCalculations(control as FormGroup, newIndex);
+    });
+
+    this.calculateTotalAmount();
+  }
+
+  private setupProductCalculations(group: FormGroup, index: number): void {
+    // Listen to product selection to get tax percentage
+    const productIdSubscription = group.get('productId')?.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((productId) => {
+        if (productId) {
+          const selectedProduct = this.products.find(p => p.id === productId);
+          if (selectedProduct) {
+            const taxPercentage = selectedProduct.taxPercentage || 0;
+            group.patchValue({ taxPercentage }, { emitEvent: false });
+            this.calculateProductPrice(index);
+          }
+        }
+      });
+
+    // Listen to quantity and unitPrice changes
+    const valueSubscription = group.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.calculateProductPrice(index);
+      });
+    
+    this.productSubscriptions[index] = valueSubscription;
+  }
+
+  private calculateProductPrice(index: number): void {
+    const group = this.productsFormArray.at(index) as FormGroup;
+    if (!group) return;
+
+    const quantity = Number(group.get('quantity')?.value || 0);
+    const unitPrice = Number(group.get('unitPrice')?.value || 0);
+    const taxPercentage = Number(group.get('taxPercentage')?.value || 0);
+    
+    // Calculate price = unitPrice * quantity
+    const price = Number((quantity * unitPrice).toFixed(2));
+    
+    // Calculate taxAmount = (price * taxPercentage) / 100
+    const taxAmount = Number((price * taxPercentage / 100).toFixed(2));
+
+    group.patchValue({
+      price: price,
+      taxAmount: taxAmount
+    }, { emitEvent: false });
+
+    this.calculateTotalAmount();
+  }
+
+  getTotalAmount(): number {
+    return this.productsFormArray.controls
+      .reduce((total, group: any) => total + (group.get('price').value || 0), 0);
+  }
+
+  getTotalTaxAmount(): number {
+    return this.productsFormArray.controls
+      .reduce((total, group: any) => total + (group.get('taxAmount').value || 0), 0);
+  }
+
+  getTotalFinalPrice(): number {
+    // Sum of all items' finalPrice (price + taxAmount for each item)
+    return this.productsFormArray.controls
+      .reduce((total, group: any) => {
+        const price = Number(group.get('price')?.value || 0);
+        const taxAmount = Number(group.get('taxAmount')?.value || 0);
+        return total + (price + taxAmount);
+      }, 0);
+  }
+
+  getGrandTotal(): number {
+    // totalAmount = sum of all items' finalPrice + packagingAndForwadingCharges
+    const packagingCharges = Number(this.returnForm.get('packagingAndForwadingCharges')?.value || 0);
+    return this.getTotalFinalPrice() + packagingCharges;
   }
 
   private loadProducts(): void {
+    this.isLoadingProducts = true;
     this.productService.getProducts({ status: 'A' }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (response: any) => {
         if (response?.success && response.data) {
           this.products = response.data.content || response.data;
         }
-        this.mapProductNames();
+        this.isLoadingProducts = false;
       },
       error: () => {
         this.snackbar.error('Failed to load products');
+        this.isLoadingProducts = false;
       }
     });
   }
 
-  getMaxReturnQuantity(group: AbstractControl): number {
-    const quantity = Number(group.get('quantity')?.value || 0);
-    const returnedQuantity = Number(group.get('returnedQuantity')?.value || 0);
-    const max = quantity - returnedQuantity;
-    return isNaN(max) || max < 0 ? 0 : max;
-  }
-
-  private loadSaleDetails(id: number): void {
-    this.isLoading = true;
-    this.saleService.getSaleDetails(id, true).pipe(takeUntil(this.destroy$)).subscribe({
+  refreshProducts(): void {
+    this.isLoadingProducts = true;
+    this.productService.refreshProducts().pipe(takeUntil(this.destroy$)).subscribe({
       next: (response: any) => {
-        this.saleDetails = response;
-        this.returnForm.patchValue({
-          saleId: response.id,
-          customerId: response.customerId,
-          invoiceNumber: response.invoiceNumber ? `SR-${response.invoiceNumber}` : '',
-        });
-
-        const items = response.items || [];
-        this.buildItemsForm(items);
-
-        if (response.saleReturns) {
-          this.applyExistingSaleReturns(response.saleReturns);
+        if (response?.success) {
+          this.products = response.data;
+          this.snackbar.success('Products refreshed successfully');
         }
-        this.isLoading = false;
+        this.isLoadingProducts = false;
       },
-      error: (error: any) => {
-        this.snackbar.error(error?.error?.message || 'Failed to load sale details');
-        this.isLoading = false;
+      error: () => {
+        this.snackbar.error('Failed to refresh products');
+        this.isLoadingProducts = false;
       }
     });
   }
 
-  private buildItemsForm(items: any[]): void {
-    this.itemsFormArray.clear();
-
-    items.forEach(item => {
-      const quantity = Number(item.quantity || 0);
-      const returnedQuantity = this.getReturnedQuantityForItem(item.id);
-      const maxReturn = Math.max(0, quantity - returnedQuantity);
-
-      const group = this.fb.group({
-        saleItemId: [item.id],
-        productId: [item.productId],
-        productName: [null],
-        quantity: [quantity],
-        batchNumber: [item.batchNumber],
-        unitPrice: [item.unitPrice],
-        returnQuantity: [{ value: null, disabled: maxReturn <= 0 }, [
-          Validators.min(0),
-          Validators.max(maxReturn)
-        ]],
-        remarks: [null]
-      });
-
-      this.itemsFormArray.push(group);
-    });
-
-    this.mapProductNames();
-  }
-
-  private getReturnedQuantityForItem(saleItemId: number): number {
-    if (!this.saleDetails?.saleReturns?.items) {
-      return 0;
-    }
-    const returnItem = this.saleDetails.saleReturns.items.find((item: any) => item.saleItemId === saleItemId);
-    return returnItem ? Number(returnItem.quantity || 0) : 0;
-  }
-
-  private applyExistingSaleReturns(saleReturns: any): void {
-    if (!saleReturns) {
-      return;
-    }
-
-    if (saleReturns.saleReturnDate) {
-      const formattedDate = formatDate(saleReturns.saleReturnDate, 'yyyy-MM-dd', 'en');
-      this.returnForm.get('saleReturnDate')?.setValue(formattedDate);
-    }
-
-    if (saleReturns.invoiceNumber) {
-      this.returnForm.get('invoiceNumber')?.setValue(saleReturns.invoiceNumber);
-    }
-
-    const itemsBySaleItemId = new Map<number, any>();
-    (saleReturns.items || []).forEach((item: any) => {
-      if (item && item.saleItemId != null) {
-        itemsBySaleItemId.set(item.saleItemId, item);
-      }
-    });
-
-    this.itemsFormArray.controls.forEach(group => {
-      const saleItemId = group.get('saleItemId')?.value;
-      if (!saleItemId) {
-        return;
-      }
-
-      const existing = itemsBySaleItemId.get(saleItemId);
-      if (!existing) {
-        return;
-      }
-
-      if (existing.quantity != null) {
-        group.get('returnQuantity')?.setValue(existing.quantity, { emitEvent: false });
-      }
-
-      if (existing.unitPrice != null) {
-        group.get('unitPrice')?.setValue(existing.unitPrice, { emitEvent: false });
-      }
-
-      if (existing.remarks != null) {
-        group.get('remarks')?.setValue(existing.remarks, { emitEvent: false });
-      }
-    });
-  }
-
-  private mapProductNames(): void {
-    if (!this.products || this.products.length === 0) {
-      return;
-    }
-
-    this.itemsFormArray.controls.forEach(group => {
-      const productId = group.get('productId')?.value;
-      if (productId) {
-        const product = this.products.find((p: any) => p.id === productId);
-        if (product) {
-          group.get('productName')?.setValue(product.name, { emitEvent: false });
-
-          if (!group.get('unitPrice')?.value && product.unitPrice != null) {
-            group.get('unitPrice')?.setValue(product.unitPrice, { emitEvent: false });
-          }
+  private loadCustomers(): void {
+    this.isLoadingCustomers = true;
+    this.customerService.getCustomers({ status: 'A' }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (response: any) => {
+        if (response?.success) {
+          this.customers = response.data;
         }
+        this.isLoadingCustomers = false;
+      },
+      error: () => {
+        this.snackbar.error('Failed to load customers');
+        this.isLoadingCustomers = false;
       }
     });
   }
 
-  isReturnQuantityInvalid(index: number): boolean {
-    const control = this.itemsFormArray.at(index).get('returnQuantity');
-    if (!control || control.disabled) {
-      return false;
-    }
-    return !!control.invalid;
+  refreshCustomers(): void {
+    this.isLoadingCustomers = true;
+    this.customerService.refreshCustomers().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (response: any) => {
+        if (response?.success) {
+          this.customers = response.data;
+          this.snackbar.success('Customers refreshed successfully');
+        }
+        this.isLoadingCustomers = false;
+      },
+      error: () => {
+        this.snackbar.error('Failed to load customers');
+        this.isLoadingCustomers = false;
+      }
+    });
   }
 
-  getTotalReturnQuantity(): number {
-    return this.itemsFormArray.controls.reduce((sum: number, group: AbstractControl) => {
-      const control = group.get('returnQuantity');
-      if (!control || control.disabled) {
-        return sum;
-      }
+  isFieldInvalid(fieldName: string): boolean {
+    const field = this.returnForm.get(fieldName);
+    return field ? field.invalid && field.touched : false;
+  }
 
-      const value = Number(control.value || 0);
-      return sum + (isNaN(value) ? 0 : value);
-    }, 0);
+  isProductFieldInvalid(index: number, fieldName: string): boolean {
+    const control = this.productsFormArray.at(index).get(fieldName);
+    if (!control) return false;
+
+    const isInvalid = control.invalid && (control.dirty || control.touched);
+    
+    if (isInvalid) {
+      const errors = control.errors;
+      if (errors) {
+        if (errors['required']) return true;
+        if (errors['min'] && fieldName === 'quantity') return true;
+        if (errors['min'] && fieldName === 'unitPrice') return true;
+        if (errors['min'] || errors['max']) return true;
+        if (errors['min']) return true;
+      }
+    }
+    
+    return false;
+  }
+
+  resetForm(): void {
+    this.initForm();
   }
 
   onSubmit(): void {
-    if (!this.saleDetails) {
-      this.snackbar.error('Sale details not loaded');
-      return;
-    }
-
-    if (this.returnForm.invalid) {
-      this.returnForm.markAllAsTouched();
-      return;
-    }
-
-    const rawValue = this.returnForm.getRawValue();
-
-    const products = (rawValue.items || [])
-      .filter((item: any) => {
-        const qty = Number(item.returnQuantity || 0);
-        return !isNaN(qty) && qty > 0;
-      })
-      .map((item: any) => ({
-        productId: item.productId,
-        quantity: Number(item.returnQuantity),
-        unitPrice: item.unitPrice,
-        saleItemId: item.saleItemId,
-        remarks: item.remarks
-      }));
-
-    if (!products.length) {
-      this.snackbar.error('Please enter at least one return quantity greater than 0');
-      return;
-    }
-
-    const payload = {
-      saleId: rawValue.saleId,
-      saleReturnDate: formatDate(rawValue.saleReturnDate, 'dd-MM-yyyy', 'en'),
-      invoiceNumber: rawValue.invoiceNumber,
-      customerId: rawValue.customerId,
-      products
-    };
-
-    this.isSaving = true;
-
-    this.saleService.createSaleReturn(payload).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (res: any) => {
-        if (res?.success) {
-          this.snackbar.success(res.message || 'Sale return created successfully');
-          this.router.navigate(['/sale']);
-        } else {
-          this.snackbar.error(res?.message || 'Failed to create sale return');
+    this.markFormGroupTouched(this.returnForm);
+    
+    if (this.returnForm.valid) {
+      this.loading = true;
+      const formData = this.prepareFormData();
+      
+      this.saleService.createSaleReturn(formData).pipe(takeUntil(this.destroy$)).subscribe({
+        next: (response: any) => {
+          if (response?.success) {
+            this.snackbar.success(response.message || 'Sale return created successfully');
+            this.router.navigate(['/sale/return']);
+          } else {
+            this.snackbar.error(response?.message || 'Failed to create sale return');
+          }
+          this.loading = false;
+        },
+        error: (error: any) => {
+          const message = error?.error?.message || 'Failed to create sale return';
+          this.snackbar.error(message);
+          this.loading = false;
         }
-        this.isSaving = false;
-      },
-      error: (error: any) => {
-        const message = error?.error?.message || 'Failed to create sale return';
-        this.snackbar.error(message);
-        this.isSaving = false;
+      });
+    } else {
+      // Scroll to first error
+      const firstError = document.querySelector('.is-invalid');
+      if (firstError) {
+        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }
+
+  private prepareFormData(): any {
+    const formValue = this.returnForm.value;
+    const data: any = {
+      saleReturnDate: formatDate(formValue.saleReturnDate, 'dd-MM-yyyy', 'en'),
+      customerId: formValue.customerId,
+      invoiceNumber: formValue.invoiceNumber,
+      price: this.getTotalAmount(),
+      taxAmount: this.getTotalTaxAmount(),
+      packagingAndForwadingCharges: Number(formValue.packagingAndForwadingCharges || 0),
+      totalAmount: this.getGrandTotal(),
+      products: formValue.products.map((product: ProductForm, index: number) => {
+        const price = this.productsFormArray.at(index).get('price')?.value || 0;
+        const taxAmount = this.productsFormArray.at(index).get('taxAmount')?.value || 0;
+        return {
+          productId: product.productId,
+          quantity: product.quantity,
+          batchNumber: product.batchNumber,
+          unitPrice: product.unitPrice,
+          price: price,
+          taxPercentage: this.productsFormArray.at(index).get('taxPercentage')?.value,
+          taxAmount: taxAmount,
+          finalPrice: price + taxAmount,
+          remarks: product.remarks
+        };
+      })
+    };
+    
+    return data;
+  }
+
+  private markFormGroupTouched(formGroup: FormGroup | FormArray): void {
+    Object.values(formGroup.controls).forEach(control => {
+      if (control instanceof FormGroup || control instanceof FormArray) {
+        this.markFormGroupTouched(control);
+      } else {
+        control.markAsTouched();
+        control.markAsDirty();
       }
     });
+  }
+
+  private calculateTotalAmount(): void {
+    const totalPrice = this.productsFormArray.controls
+      .reduce((sum, group: any) => sum + (group.get('price').value || 0), 0);
+    
+    const totalTaxAmount = this.productsFormArray.controls
+      .reduce((sum, group: any) => sum + (group.get('taxAmount').value || 0), 0);
+      
+    this.returnForm.patchValue({ 
+      price: totalPrice,
+      taxAmount: totalTaxAmount
+    }, { emitEvent: false });
+  }
+
+  private noDoubleQuotesValidator(): ValidatorFn {
+    return (control: AbstractControl): ValidationErrors | null => {
+      if (!control.value) return null;
+      return control.value.includes('"') ? { doubleQuotes: true } : null;
+    };
+  }
+
+  getFormattedPrice(index: number): string {
+    const price = this.productsFormArray.at(index).get('price')?.value;
+    return price ? price.toFixed(2) : '0.00';
+  }
+
+  getFormattedTaxAmount(index: number): string {
+    const taxAmount = this.productsFormArray.at(index).get('taxAmount')?.value;
+    return taxAmount ? taxAmount.toFixed(2) : '0.00';
   }
 }

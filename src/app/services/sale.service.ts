@@ -65,4 +65,18 @@ export class SaleService {
       })
     );
   }
+
+  generateSaleReturnPdf(id: number): Observable<{ blob: Blob; filename: string }> {
+    return this.http.post(`${environment.apiUrl}/api/sale-returns/generate-pdf`, { id }, {
+      responseType: 'blob',
+      observe: 'response'
+    }).pipe(
+      map(response => {
+        const contentDisposition = response.headers.get('Content-Disposition');
+        const filename = contentDisposition?.split('filename=')[1]?.replace(/"/g, '') || 'sale-return.pdf';
+        const blob = new Blob([response.body!], { type: 'application/pdf' });
+        return { blob, filename };
+      })
+    );
+  }
 }

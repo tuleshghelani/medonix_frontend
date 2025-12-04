@@ -95,6 +95,13 @@
             <td>{{ saleReturn.totalSaleAmount ?? 0 }}</td>
             <td class="actions">
               <button 
+                class="btn-icon pdf" 
+                (click)="generatePdf(saleReturn.id, saleReturn.invoiceNumber)"
+                title="Export PDF"
+              >
+                <i class="fas fa-file-pdf"></i>
+              </button>
+              <button 
                 class="btn-icon edit" 
                 (click)="viewDetails(saleReturn?.saleId)"
                 [disabled]="!saleReturn?.saleId"

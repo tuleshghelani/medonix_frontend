@@ -62,6 +62,12 @@ const routes: Routes = [
     data: { roles: ['ADMIN', 'STAFF_ADMIN'] }
   },
   {
+    path: 'sale/return/create',
+    component: AddSaleReturnComponent,
+    canActivate: [AuthGuard, RoleGuard],
+    data: { roles: ['ADMIN', 'STAFF_ADMIN'] }
+  },
+  {
     path: 'sale/return/:id',
     component: AddSaleReturnComponent,
     canActivate: [AuthGuard, RoleGuard],
