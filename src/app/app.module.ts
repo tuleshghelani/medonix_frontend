@@ -19,6 +19,7 @@ import { AddSaleReturnComponent } from './components/add-sale-return/add-sale-re
 import { SaleReturnListComponent } from './components/sale-return-list/sale-return-list.component';
 import { PaginationComponent } from "./shared/components/pagination/pagination.component";
 import { SearchableSelectComponent } from "./shared/components/searchable-select/searchable-select.component";
+import { LedgerComponent } from './components/ledger/ledger.component';
 
 @NgModule({
   declarations: [
@@ -27,7 +28,8 @@ import { SearchableSelectComponent } from "./shared/components/searchable-select
     HeaderComponent,
     AddDealerComponent,
     AddSaleReturnComponent,
-    SaleReturnListComponent
+    SaleReturnListComponent,
+    LedgerComponent
   ],
   imports: [
     BrowserModule,

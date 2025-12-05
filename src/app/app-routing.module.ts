@@ -27,6 +27,7 @@ import { AddUserComponent } from './components/users/add-user/add-user.component
 import { AddDealerComponent } from './components/dealers/add-dealer/add-dealer.component';
 import { TransportMasterListComponent } from './components/Transports/transport-master-list/transport-master-list.component';
 import { AddTransportComponent } from './components/Transports/add-transport/add-transport.component';
+import { LedgerComponent } from './components/ledger/ledger.component';
 
 const routes: Routes = [
   { path: '', redirectTo: '/login', pathMatch: 'full' },
@@ -170,6 +171,12 @@ const routes: Routes = [
     path: 'daily-profit',
     component: DailyProfitComponent,
     canActivate: [AuthGuard]
+  },
+  {
+    path: 'ledger',
+    component: LedgerComponent,
+    canActivate: [AuthGuard, RoleGuard],
+    data: { roles: ['ADMIN', 'STAFF_ADMIN'] }
   },
   {
     path: 'quotation', 
