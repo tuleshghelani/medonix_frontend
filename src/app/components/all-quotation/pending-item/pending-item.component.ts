@@ -45,7 +45,7 @@ export interface PendingItem {
   quoteDate: string;
   customerId: number;
   customerName: string;
-  pendingRollQuantity: number;
+  pendingQuantity: number;
   contactNumber?: string | number | null;
 }
 

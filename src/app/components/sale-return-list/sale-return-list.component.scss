@@ -90,6 +90,26 @@
     }
   }
 
+  .action-buttons {
+    margin-bottom: 1rem;
+    display: flex;
+    justify-content: flex-start;
+    gap: 0.5rem;
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    @media (max-width: 768px) {
+      .btn {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  }
+
   .purchases-list {
     .table-responsive {
       overflow-x: auto;

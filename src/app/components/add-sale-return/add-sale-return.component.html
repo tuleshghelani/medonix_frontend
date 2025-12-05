@@ -6,7 +6,7 @@
   <div class="form-card">
     <div class="card-header">
       <h2 class="form-title">
-        <i class="fas fa-undo-alt"></i> Add New Sale Return
+        <i class="fas fa-undo-alt"></i> {{ isEdit ? 'Edit Sale Return' : 'Add New Sale Return' }}
       </h2>
     </div>
     
@@ -18,7 +18,7 @@
             <label for="customerId">
               <i class="fas fa-user"></i> Select Customer <span class="required">*</span>
             </label>
-            <div class="select-group">
+            <div class="select-group inline">
               <app-searchable-select
                 formControlName="customerId"
                 [options]="customers"
@@ -30,7 +30,7 @@
               ></app-searchable-select>
               <button 
                 type="button" 
-                class="btn btn-sm btn-primary refresh mt-2" 
+                class="btn btn-sm btn-primary refresh" 
                 (click)="refreshCustomers()" 
                 [disabled]="isLoadingCustomers"
                 title="Refresh Customers"
@@ -274,11 +274,11 @@
           [disabled]="returnForm.invalid || loading"
         >
           <i class="fas" [ngClass]="loading ? 'fa-spinner fa-spin' : 'fa-save'"></i>
-          {{ loading ? 'Saving...' : 'Save Sale Return' }}
+          {{ loading ? (isEdit ? 'Updating...' : 'Saving...') : (isEdit ? 'Update Sale Return' : 'Save Sale Return') }}
         </button>
       </div>
     </form>
   </div>
 </div>
 
-<app-loader *ngIf="loading"></app-loader>
+<app-loader [show]="loading"></app-loader>

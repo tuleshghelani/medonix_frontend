@@ -84,7 +84,7 @@
           <tr *ngFor="let item of pendingItems; let i = index">
             <td [innerHTML]="sanitizeHtml(item.productName)"></td>
             <td>{{ item.quantity }}</td>
-            <td>{{ item.pendingRollQuantity }}</td>
+            <td>{{ item.pendingQuantity }}</td>
             <td>{{ item.customerName }}</td>
             <td>
               <div *ngIf="item.contactNumber" style="display: flex; gap: 0.5rem;">

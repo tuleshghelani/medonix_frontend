@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, Validators, ReactiveFormsModule, ValidatorFn, AbstractControl, ValidationErrors } from '@angular/forms';
-import { Router, RouterModule } from '@angular/router';
+import { Router, RouterModule, ActivatedRoute } from '@angular/router';
 import { Subject, takeUntil, Subscription } from 'rxjs';
 import { formatDate } from '@angular/common';
 
@@ -11,6 +11,7 @@ import { CustomerService } from '../../services/customer.service';
 import { SnackbarService } from '../../shared/services/snackbar.service';
 import { LoaderComponent } from '../../shared/components/loader/loader.component';
 import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
+import { EncryptionService } from '../../shared/services/encryption.service';
 
 interface ProductForm {
   productId: string;
@@ -36,6 +37,8 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
   loading = false;
   isLoadingProducts = false;
   isLoadingCustomers = false;
+  isEdit = false;
+  saleReturnId: number | null = null;
   private destroy$ = new Subject<void>();
   private productSubscriptions: Subscription[] = [];
 
@@ -46,17 +49,51 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
   constructor(
     private fb: FormBuilder,
     private router: Router,
+    private route: ActivatedRoute,
     private saleService: SaleService,
     private productService: ProductService,
     private customerService: CustomerService,
-    private snackbar: SnackbarService
+    private snackbar: SnackbarService,
+    private encryptionService: EncryptionService
   ) {
     this.initForm();
   }
 
   ngOnInit(): void {
-    this.loadProducts();
+    // Check if we're in edit mode (route has encrypted ID)
+    const encryptedId = this.route.snapshot.paramMap.get('id');
+    if (encryptedId) {
+      const decryptedId = this.encryptionService.decrypt(encryptedId);
+      if (decryptedId) {
+        const id = Number(decryptedId);
+        if (!isNaN(id)) {
+          this.saleReturnId = id;
+          this.isEdit = true;
+        }
+      }
+    }
+    
+    // Load customers
     this.loadCustomers();
+    
+    // Load products and fetch details after products are loaded (if in edit mode)
+    this.isLoadingProducts = true;
+    this.productService.getProducts({ status: 'A' }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (response: any) => {
+        if (response?.success && response.data) {
+          this.products = response.data.content || response.data;
+          // Fetch sale return details after products are loaded (if in edit mode)
+          if (this.isEdit && this.saleReturnId) {
+            this.fetchSaleReturnDetails(this.saleReturnId);
+          }
+        }
+        this.isLoadingProducts = false;
+      },
+      error: () => {
+        this.snackbar.error('Failed to load products');
+        this.isLoadingProducts = false;
+      }
+    });
     
     // Listen to packaging charges changes to update display
     this.returnForm.get('packagingAndForwadingCharges')?.valueChanges
@@ -74,6 +111,7 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
 
   private initForm(): void {
     this.returnForm = this.fb.group({
+      id: [null],
       customerId: ['', Validators.required],
       saleReturnDate: [formatDate(new Date(), 'yyyy-MM-dd', 'en'), Validators.required],
       invoiceNumber: ['', Validators.required],
@@ -81,8 +119,10 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
       packagingAndForwadingCharges: [0, [Validators.required, Validators.min(0)]]
     });
 
-    // Add initial product form group
-    this.addProduct();
+    // Add initial product form group only if not in edit mode
+    if (!this.isEdit) {
+      this.addProduct();
+    }
   }
 
   private createProductFormGroup(): FormGroup {
@@ -301,18 +341,22 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
       this.loading = true;
       const formData = this.prepareFormData();
       
-      this.saleService.createSaleReturn(formData).pipe(takeUntil(this.destroy$)).subscribe({
+      const serviceCall = this.isEdit 
+        ? this.saleService.createSaleReturn(formData) // Update uses same endpoint with id
+        : this.saleService.createSaleReturn(formData);
+      
+      serviceCall.pipe(takeUntil(this.destroy$)).subscribe({
         next: (response: any) => {
           if (response?.success) {
-            this.snackbar.success(response.message || 'Sale return created successfully');
+            this.snackbar.success(response.message || `Sale return ${this.isEdit ? 'updated' : 'created'} successfully`);
             this.router.navigate(['/sale/return']);
           } else {
-            this.snackbar.error(response?.message || 'Failed to create sale return');
+            this.snackbar.error(response?.message || `Failed to ${this.isEdit ? 'update' : 'create'} sale return`);
           }
           this.loading = false;
         },
         error: (error: any) => {
-          const message = error?.error?.message || 'Failed to create sale return';
+          const message = error?.error?.message || `Failed to ${this.isEdit ? 'update' : 'create'} sale return`;
           this.snackbar.error(message);
           this.loading = false;
         }
@@ -352,6 +396,11 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
         };
       })
     };
+    
+    // Include id only when updating
+    if (this.isEdit && formValue.id) {
+      data.id = formValue.id;
+    }
     
     return data;
   }
@@ -395,5 +444,63 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
   getFormattedTaxAmount(index: number): string {
     const taxAmount = this.productsFormArray.at(index).get('taxAmount')?.value;
     return taxAmount ? taxAmount.toFixed(2) : '0.00';
+  }
+
+  private fetchSaleReturnDetails(id: number): void {
+    this.loading = true;
+    this.saleService.getSaleReturnDetail(id).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (response: any) => {
+        if (response && response.id) {
+          this.populateForm(response);
+        } else {
+          this.snackbar.error('Failed to load sale return details');
+        }
+        this.loading = false;
+      },
+      error: (error: any) => {
+        this.snackbar.error(error?.error?.message || 'Failed to load sale return details');
+        this.loading = false;
+      }
+    });
+  }
+
+  private populateForm(data: any): void {
+    // Clear existing products
+    this.productsFormArray.clear();
+    this.productSubscriptions.forEach(sub => sub?.unsubscribe());
+    this.productSubscriptions = [];
+
+    // Populate form with sale return data
+    this.returnForm.patchValue({
+      id: data.id,
+      customerId: data.customerId,
+      saleReturnDate: formatDate(new Date(data.saleReturnDate), 'yyyy-MM-dd', 'en'),
+      invoiceNumber: data.invoiceNumber,
+      packagingAndForwadingCharges: data.packagingAndForwadingCharges || 0
+    });
+
+    // Populate products
+    if (data.items && data.items.length > 0) {
+      data.items.forEach((item: any, index: number) => {
+        const productGroup = this.createProductFormGroup();
+        this.setupProductCalculations(productGroup, index);
+        
+        productGroup.patchValue({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          price: item.price || 0,
+          taxPercentage: item.taxPercentage || 0,
+          taxAmount: item.taxAmount || 0,
+          batchNumber: item.batchNumber || '',
+          remarks: item.remarks || ''
+        }, { emitEvent: false });
+
+        this.productsFormArray.push(productGroup);
+      });
+    } else {
+      // If no items, add one empty product
+      this.addProduct();
+    }
   }
 }

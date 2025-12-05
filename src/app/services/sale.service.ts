@@ -44,6 +44,10 @@ export class SaleService {
     return this.http.post<any>(`${environment.apiUrl}/api/sale-returns/delete`, { id });
   }
 
+  getSaleReturnDetail(id: number): Observable<any> {
+    return this.http.post<any>(`${environment.apiUrl}/api/sale-returns/detail`, { id });
+  }
+
   createFromQuotationItems(quotationItemIds: number[], packagingAndForwadingCharges?: number): Observable<any> {
     const payload: any = { quotationItemIds };
     if (packagingAndForwadingCharges !== undefined && packagingAndForwadingCharges !== null) {

@@ -21,7 +21,7 @@ interface SaleReturn {
   saleReturnDate: string;
   invoiceNumber: string;
   customerName: string;
-  saleId: number;
+  saleId?: number; // Optional since API may not always return it
 }
 
 interface SaleReturnSearchRequest {
@@ -246,7 +246,7 @@ export class SaleReturnListComponent implements OnInit, OnDestroy {
 
   viewDetails(id: number | undefined): void {
     if (!id) {
-      this.snackbar.error('Sale ID is not available');
+      this.snackbar.error('Sale return ID is not available');
       return;
     }
     const encryptedId = this.encryptionService.encrypt(id.toString());

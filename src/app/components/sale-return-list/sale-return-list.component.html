@@ -71,6 +71,12 @@
     </form>
   </div>
 
+  <div class="action-buttons" *ngIf="canManagePurchases">
+    <button routerLink="/sale/return/create" class="btn btn-sm btn-primary">
+      <i class="fas fa-plus"></i> Add Sale Return
+    </button>
+  </div>
+
   <div class="purchases-list card">
     <h2>Sale Returns</h2>
 
@@ -92,7 +98,7 @@
             <td>{{ saleReturn.invoiceNumber }}</td>
             <td>{{ saleReturn.customerName }}</td>
             <td>{{ saleReturn.saleReturnDate | date:'dd-MM-yyyy' }}</td>
-            <td>{{ saleReturn.totalSaleAmount ?? 0 }}</td>
+            <td>{{ saleReturn.totalSaleAmount || 0 }}</td>
             <td class="actions">
               <button 
                 class="btn-icon pdf" 
@@ -103,8 +109,8 @@
               </button>
               <button 
                 class="btn-icon edit" 
-                (click)="viewDetails(saleReturn?.saleId)"
-                [disabled]="!saleReturn?.saleId"
+                (click)="viewDetails(saleReturn?.id)"
+                [disabled]="!saleReturn?.id"
                 title="View Details"
               >
                 <i class="fas fa-eye"></i>
