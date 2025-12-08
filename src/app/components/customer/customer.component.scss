@@ -50,12 +50,12 @@
   font-weight: 500;
 
   &.active {
-    background-color: rgba($accent2, 0.1);
+    background-color: rgba(90, 158, 111, 0.1); // accent2
     color: var(--accent2);
   }
 
   &.inactive {
-    background-color: rgba($text-secondary, 0.1);
+    background-color: rgba(96, 125, 139, 0.1); // text-secondary
     color: var(--text-secondary);
   }
 
