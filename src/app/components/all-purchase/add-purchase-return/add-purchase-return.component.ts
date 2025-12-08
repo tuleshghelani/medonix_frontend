@@ -34,7 +34,7 @@ export class AddPurchaseReturnComponent {
       purchaseId: [null],
       customerId: [null],
       purchaseReturnDate: [formatDate(new Date(), 'yyyy-MM-dd', 'en'), Validators.required],
-      invoiceNumber: ['', Validators.required],
+      invoiceNumber: [''],
       items: this.fb.array([])
     });
   }

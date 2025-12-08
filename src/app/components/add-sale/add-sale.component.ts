@@ -101,7 +101,7 @@ export class AddSaleComponent implements OnInit, OnDestroy {
       id: [null],
       customerId: ['', Validators.required],
       saleDate: [formatDate(new Date(), 'yyyy-MM-dd', 'en'), Validators.required],
-      invoiceNumber: ['', Validators.required],
+      invoiceNumber: [''],
       products: this.fb.array([]),
       isBlack: [false, Validators.required],
       packagingAndForwadingCharges: [0, [Validators.required, Validators.min(0)]]

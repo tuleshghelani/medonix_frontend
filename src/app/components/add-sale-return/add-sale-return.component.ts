@@ -114,7 +114,7 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
       id: [null],
       customerId: ['', Validators.required],
       saleReturnDate: [formatDate(new Date(), 'yyyy-MM-dd', 'en'), Validators.required],
-      invoiceNumber: ['', Validators.required],
+      invoiceNumber: [''],
       products: this.fb.array([]),
       packagingAndForwadingCharges: [0, [Validators.required, Validators.min(0)]]
     });
