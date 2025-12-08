@@ -6,6 +6,8 @@ import { takeUntil } from 'rxjs/operators';
 import { LedgerService } from '../../services/ledger.service';
 import { CustomerService } from '../../services/customer.service';
 import { SnackbarService } from '../../shared/services/snackbar.service';
+import { AuthService } from '../../services/auth.service';
+import { UserService } from '../../services/user.service';
 
 @Component({
   selector: 'app-ledger',
@@ -19,19 +21,27 @@ export class LedgerComponent implements OnInit, OnDestroy {
   isLoading = false;
   isLoadingCustomers = false;
   isGeneratingPdf = false;
+  isDealer = false;
   private destroy$ = new Subject<void>();
 
   constructor(
     private fb: FormBuilder,
     private ledgerService: LedgerService,
     private customerService: CustomerService,
-    private snackbar: SnackbarService
+    private snackbar: SnackbarService,
+    private authService: AuthService,
+    private userService: UserService
   ) {
+    this.isDealer = this.authService.hasRole('DEALER');
     this.initForm();
   }
 
   ngOnInit(): void {
-    this.loadCustomers();
+    if (this.isDealer) {
+      this.loadDealerCustomerId();
+    } else {
+      this.loadCustomers();
+    }
   }
 
   ngOnDestroy(): void {
@@ -44,10 +54,39 @@ export class LedgerComponent implements OnInit, OnDestroy {
     const firstDayOfYear = new Date(today.getFullYear(), 0, 1);
 
     this.ledgerForm = this.fb.group({
-      customerId: ['', Validators.required],
+      customerId: [this.isDealer ? null : '', this.isDealer ? [] : Validators.required],
       startDate: [this.formatDateForInput(firstDayOfYear), Validators.required],
       endDate: [this.formatDateForInput(today), Validators.required]
     });
+  }
+
+  private loadDealerCustomerId(): void {
+    this.userService.getCurrentUser()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response: any) => {
+          if (response?.success && response?.data?.clientId) {
+            const customerId = response.data.clientId;
+            this.ledgerForm.patchValue({ customerId: customerId.toString() });
+            // Also add to customers array for display purposes
+            this.customers = [{
+              id: customerId,
+              name: response.data.client?.name || 'Current User'
+            }];
+          } else if (response?.data?.clientId) {
+            // Handle case where response might not have success property
+            const customerId = response.data.clientId;
+            this.ledgerForm.patchValue({ customerId: customerId.toString() });
+            this.customers = [{
+              id: customerId,
+              name: response.data.client?.name || 'Current User'
+            }];
+          }
+        },
+        error: () => {
+          this.snackbar.error('Failed to load user information');
+        }
+      });
   }
 
   private formatDateForInput(date: Date): string {
@@ -108,11 +147,17 @@ export class LedgerComponent implements OnInit, OnDestroy {
     const today = new Date();
     const firstDayOfYear = new Date(today.getFullYear(), 0, 1);
 
-    this.ledgerForm.patchValue({
-      customerId: '',
+    const resetData: any = {
       startDate: this.formatDateForInput(firstDayOfYear),
       endDate: this.formatDateForInput(today)
-    });
+    };
+
+    // Don't reset customerId for DEALER users
+    if (!this.isDealer) {
+      resetData.customerId = '';
+    }
+
+    this.ledgerForm.patchValue(resetData);
     this.ledgerForm.markAsUntouched();
   }
 
@@ -133,6 +178,12 @@ export class LedgerComponent implements OnInit, OnDestroy {
     }
 
     const formValues = this.ledgerForm.value;
+
+    // Safety check for DEALER users
+    if (this.isDealer && !formValues.customerId) {
+      this.snackbar.error('Customer information not available. Please refresh the page.');
+      return;
+    }
 
     // Validate date range
     const startDate = new Date(formValues.startDate);

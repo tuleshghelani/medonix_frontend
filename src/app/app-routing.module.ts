@@ -176,7 +176,7 @@ const routes: Routes = [
     path: 'ledger',
     component: LedgerComponent,
     canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN', 'STAFF_ADMIN'] }
+    data: { roles: ['ADMIN', 'STAFF_ADMIN', 'DEALER'] }
   },
   {
     path: 'quotation', 

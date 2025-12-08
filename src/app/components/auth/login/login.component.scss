@@ -1,11 +1,12 @@
 @use '../../../../styles.scss' as *;
+@import '../../../../variables';
 
 .login-container {
   height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: map-get($custom-primary, 50);
+  background-color: var(--primary-lightest);
 
   .login-card {
     background: white;
@@ -16,9 +17,10 @@
     max-width: 400px;
 
     h2 {
-      color: #1C3F60;
+      color: var(--primary);
       text-align: center;
       margin-bottom: 2rem;
+      font-weight: 600;
     }
 
     .form-group {
@@ -27,7 +29,17 @@
       label {
         display: block;
         margin-bottom: 0.5rem;
-        color: #333333;
+        color: var(--neutral-dark);
+        font-weight: 500;
+      }
+
+      .form-control {
+        border-color: var(--neutral-light);
+        
+        &:focus {
+          border-color: var(--primary);
+          box-shadow: 0 0 0 0.2rem rgba(0, 58, 88, 0.1);
+        }
       }
 
       .error-message {
@@ -42,12 +54,20 @@
       padding: 0.75rem;
       font-size: 1rem;
       margin-top: 1rem;
-      background-color: map-get($custom-primary, 500);
+      background-color: var(--primary);
       color: white;
+      border: none;
+      border-radius: 4px;
+      transition: background-color 0.3s ease;
+
+      &:hover:not(:disabled) {
+        background-color: var(--primary-dark);
+      }
 
       &:disabled {
         opacity: 0.7;
         cursor: not-allowed;
+        background-color: var(--neutral-light);
       }
     }
   }

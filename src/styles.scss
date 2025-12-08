@@ -56,7 +56,7 @@ body {
   background-color: var(--primary);
   color: white;
   &:hover {
-    background-color: darken(#29b6f6, 10%);
+    background-color: var(--primary-dark);
   }
 }
 
@@ -64,7 +64,7 @@ body {
   background-color: var(--secondary);
   color: white;
   &:hover {
-    background-color: darken(#1C3F60, 10%);
+    background-color: var(--secondary-dark);
   }
 }
 
@@ -101,7 +101,7 @@ body {
   }
 
   tr:hover {
-    background-color: rgba(174, 198, 207, 0.1);
+    background-color: var(--primary-lightest);
   }
 }
 
@@ -119,6 +119,54 @@ body {
 .mt-2 { margin-top: 1rem; }
 .mb-2 { margin-bottom: 1rem; }
 .p-2 { padding: 1rem; }
+
+/* Status/State Colors */
+.btn-success {
+  background-color: var(--success);
+  color: white;
+  &:hover {
+    background-color: darken($success, 10%);
+  }
+}
+
+.btn-warning {
+  background-color: var(--warning);
+  color: white;
+  &:hover {
+    background-color: darken($warning, 10%);
+  }
+}
+
+.btn-error,
+.btn-danger {
+  background-color: var(--error);
+  color: white;
+  &:hover {
+    background-color: darken($error, 10%);
+  }
+}
+
+.btn-info {
+  background-color: var(--info);
+  color: white;
+  &:hover {
+    background-color: darken($info, 10%);
+  }
+}
+
+.text-success { color: var(--success); }
+.text-warning { color: var(--warning); }
+.text-error,
+.text-danger { color: var(--error); }
+.text-info { color: var(--info); }
+.text-accent { color: var(--accent); }
+
+.bg-success { background-color: var(--success); }
+.bg-warning { background-color: var(--warning); }
+.bg-error,
+.bg-danger { background-color: var(--error); }
+.bg-info { background-color: var(--info); }
+.bg-accent { background-color: var(--accent); }
 
 // Dialog backdrop styles
 .custom-dialog-backdrop {

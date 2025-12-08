@@ -23,7 +23,7 @@
     <form [formGroup]="ledgerForm" (ngSubmit)="generatePdf($event)" class="filter-form">
       <div class="filter-grid">
         <!-- Customer Selection -->
-        <div class="form-group customer-group">
+        <div class="form-group customer-group" *ngIf="!isDealer">
           <label for="customerId">
             <i class="fas fa-user"></i> Select Customer <span class="required">*</span>
           </label>
@@ -116,9 +116,13 @@
       <h3>How to Generate Report</h3>
     </div>
     <div class="info-content">
-      <div class="info-step">
+      <div class="info-step" *ngIf="!isDealer">
         <div class="step-number">1</div>
         <div class="step-text">Select a customer from the dropdown</div>
+      </div>
+      <div class="info-step" *ngIf="isDealer">
+        <div class="step-number">1</div>
+        <div class="step-text">Your ledger will be generated automatically</div>
       </div>
       <div class="info-step">
         <div class="step-number">2</div>
