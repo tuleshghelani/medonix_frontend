@@ -23,7 +23,12 @@ export class ErrorInterceptor implements HttpInterceptor {
   intercept(request: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {
     return next.handle(request).pipe(
       catchError((error: HttpErrorResponse) => {
-        if (error.status === 401 && !request.url.includes('refresh-token')) {
+        // Skip token refresh for login and refresh-token endpoints
+        const isAuthEndpoint = request.url.includes('/login') || 
+                               request.url.includes('refresh-token') ||
+                               request.url.includes('/auth/');
+        
+        if (error.status === 401 && !isAuthEndpoint) {
           return this.handle401Error(request, next);
         }
         return throwError(() => error);

@@ -30,7 +30,10 @@ export class LoginComponent implements OnDestroy {
     });
   }
 
-  onSubmit() {
+  onSubmit(event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+
     if (this.loginForm.valid) {
       this.isLoading = true;
       this.authService.login(this.loginForm.value)
