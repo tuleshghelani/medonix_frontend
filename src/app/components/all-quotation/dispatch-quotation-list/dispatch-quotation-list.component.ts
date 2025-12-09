@@ -393,7 +393,7 @@ export class DispatchQuotationListComponent implements OnInit, OnDestroy {
 
 
 
-  printDispatchQuotation(id: number, quotation: any): void {
+  printQuotationPdf(id: number, quotation: any): void {
     if (!id) {
       this.snackbar.error('Please select quotation');
       return;
@@ -403,7 +403,7 @@ export class DispatchQuotationListComponent implements OnInit, OnDestroy {
 
     quotation.isPrinting = true;
 
-    this.quotationService.generateDispatchPdf(id, null)
+    this.quotationService.generatePdf(id)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {

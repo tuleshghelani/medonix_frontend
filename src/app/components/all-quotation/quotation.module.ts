@@ -6,14 +6,17 @@ import { AddQuotationComponent } from './add-quotation/add-quotation.component';
 import { OrderComponent } from './order/order.component';
 import { QuotationRoutingModule } from './quotation-routing.module';
 import { PendingItemComponent } from './pending-item/pending-item.component';
+import { DealerAddQuotationComponent } from './dealer-add-quotation/dealer-add-quotation.component';
 
 @NgModule({
-  declarations: [],
+  declarations: [
+  ],
   imports: [
     CommonModule,
     QuotationRoutingModule,
     QuotationComponent,
     AddQuotationComponent,
+    DealerAddQuotationComponent,
     OrderComponent,
     PendingItemComponent
   ]

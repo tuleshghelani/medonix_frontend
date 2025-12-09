@@ -374,6 +374,10 @@ export class QuotationComponent implements OnInit, OnDestroy {
     this.router.navigate(['/quotation/create']);
   }
 
+  addDealerOrder(): void {
+    this.router.navigate(['/quotation/dealer-order']);
+  }
+
   // Role helpers for template
   canEditQuotation(): boolean {
     return this.authService.isAdmin() || this.authService.isStaffAdmin();
