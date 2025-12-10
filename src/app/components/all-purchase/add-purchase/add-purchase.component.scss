@@ -304,6 +304,18 @@
     padding: 1rem;
     white-space: nowrap;
     border-bottom: 2px solid var(--border-color);
+
+    // Product Name header - increased width
+    &:first-child {
+      width: 30%;
+      min-width: 300px;
+    }
+
+    // Rate header - decreased width
+    &:nth-child(4) {
+      width: 10%;
+      max-width: 120px;
+    }
   }
 
   td {
@@ -315,9 +327,24 @@
       min-width: 80px;
     }
 
+    // Product Name column - increased width
     &:first-child {
+      width: 30%;
+      min-width: 300px;
+      
       .form-control {
-        min-width: 200px;
+        min-width: 300px;
+      }
+    }
+
+    // Rate column - decreased width
+    &:nth-child(4) {
+      width: 10%;
+      max-width: 120px;
+      
+      .form-control {
+        min-width: 100px;
+        max-width: 120px;
       }
     }
   }
