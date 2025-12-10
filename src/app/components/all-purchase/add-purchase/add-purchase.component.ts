@@ -140,7 +140,7 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
   }
 
   private setupProductCalculations(group: FormGroup, index: number) {
-    // Listen to product selection to get tax percentage
+    // Listen to product selection to get tax percentage and purchaseAmount
     const productIdSubscription = group.get('productId')?.valueChanges
       .pipe(takeUntil(this.destroy$))
       .subscribe((productId) => {
@@ -148,7 +148,8 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
           const selectedProduct = this.products.find(p => p.id === productId);
           if (selectedProduct) {
             const taxPercentage = selectedProduct.taxPercentage || 0;
-            group.patchValue({ taxPercentage }, { emitEvent: false });
+            const unitPrice = selectedProduct.purchaseAmount || 0;
+            group.patchValue({ taxPercentage, unitPrice }, { emitEvent: false });
             this.calculateProductPrice(index);
           }
         }
