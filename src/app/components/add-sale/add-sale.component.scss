@@ -15,6 +15,40 @@
   .back-btn {
     margin-bottom: 1rem;
   }
+
+  // Ensure the searchable select component and refresh button are in one row
+  .select-group {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    
+    app-searchable-select {
+      display: block;
+      flex: 1;
+      
+      // When the component has a custom width, allow it to break out of the grid
+      &.custom-width {
+        position: absolute;
+        z-index: 1000;
+        left: 0;
+      }
+      
+      &:focus-within {
+        z-index: 1000; // Ensure dropdown appears above other elements
+      }
+    }
+
+    .refresh {
+      flex-shrink: 0;
+      margin-top: 0;
+      height: 40px;
+      min-width: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
   
   .form-card {
     background: white;

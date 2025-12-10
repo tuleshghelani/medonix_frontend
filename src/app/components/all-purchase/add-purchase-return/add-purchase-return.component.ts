@@ -35,6 +35,7 @@ export class AddPurchaseReturnComponent {
       customerId: [null],
       purchaseReturnDate: [formatDate(new Date(), 'yyyy-MM-dd', 'en'), Validators.required],
       invoiceNumber: [''],
+      packagingAndForwadingCharges: [0, [Validators.required, Validators.min(0)]],
       items: this.fb.array([])
     });
   }
@@ -97,7 +98,8 @@ export class AddPurchaseReturnComponent {
           purchaseId: response.id,
           customerId: response.customerId,
           invoiceNumber: response.invoiceNumber ? `PR-${response.invoiceNumber}` : '',
-          isPurchaseReturn: true
+          isPurchaseReturn: true,
+          packagingAndForwadingCharges: response.packagingAndForwadingCharges || 0
         });
 
         const items = response.items || [];
@@ -156,6 +158,10 @@ export class AddPurchaseReturnComponent {
 
     if (purchaseReturns.invoiceNumber) {
       this.returnForm.get('invoiceNumber')?.setValue(purchaseReturns.invoiceNumber);
+    }
+
+    if (purchaseReturns.packagingAndForwadingCharges != null) {
+      this.returnForm.get('packagingAndForwadingCharges')?.setValue(purchaseReturns.packagingAndForwadingCharges);
     }
 
     const itemsByPurchaseItemId = new Map<number, any>();
@@ -269,6 +275,7 @@ export class AddPurchaseReturnComponent {
       customerId: rawValue.customerId,
       purchaseReturnDate: formatDate(rawValue.purchaseReturnDate, 'dd-MM-yyyy', 'en'),
       invoiceNumber: rawValue.invoiceNumber,
+      packagingAndForwadingCharges: Number(rawValue.packagingAndForwadingCharges || 0),
       products
     };
 

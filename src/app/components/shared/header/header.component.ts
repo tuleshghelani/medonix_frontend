@@ -22,6 +22,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
   showEmployeeMenu: boolean = false;
   isMobileMenuOpen: boolean = false;
   clientName: string = '';
+  clientLogoImage: string | null = null;
   private authSubscription: Subscription;
   private destroy$ = new Subject<void>();
   permissions: MenuPermissions = {
@@ -110,9 +111,20 @@ export class HeaderComponent implements OnInit, OnDestroy {
             const encrypted = this.encryptionService.encrypt(responseString);
             localStorage.setItem('encryptedUserData', encrypted);
             
-            // Extract and display client name
-            if (response.data.client && response.data.client.name) {
-              this.clientName = response.data.client.name;
+            // Extract client logo image and name
+            if (response.data.client) {
+              // Check if logoImage exists and is not null/empty
+              const logoImage = response.data.client.logoImage;
+              if (logoImage && logoImage.trim() !== '') {
+                this.clientLogoImage = logoImage;
+                this.clientName = ''; // Clear client name when logo is available
+              } else {
+                // If logoImage is null or empty, use client name
+                this.clientLogoImage = null;
+                if (response.data.client.name) {
+                  this.clientName = response.data.client.name;
+                }
+              }
             }
           }
         },
@@ -139,9 +151,21 @@ export class HeaderComponent implements OnInit, OnDestroy {
             userData = JSON.parse(decrypted);
           }
           
-          // Extract client name
-          if (userData && userData.data && userData.data.client && userData.data.client.name) {
-            this.clientName = userData.data.client.name;
+          // Extract client logo image and name
+          if (userData && userData.data && userData.data.client) {
+            const client = userData.data.client;
+            // Check if logoImage exists and is not null/empty
+            const logoImage = client.logoImage;
+            if (logoImage && logoImage.trim() !== '') {
+              this.clientLogoImage = logoImage;
+              this.clientName = ''; // Clear client name when logo is available
+            } else {
+              // If logoImage is null or empty, use client name
+              this.clientLogoImage = null;
+              if (client.name) {
+                this.clientName = client.name;
+              }
+            }
           }
         }
       } catch (error) {
@@ -278,6 +302,10 @@ export class HeaderComponent implements OnInit, OnDestroy {
   }
 
   hasMasterMenuItems(): boolean {
+    // Dealers should not see the Master menu
+    if (this.authService.hasRole('DEALER')) {
+      return false;
+    }
     return this.roleService.hasMasterMenuItems();
   }
 

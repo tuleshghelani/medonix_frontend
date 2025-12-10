@@ -91,6 +91,7 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
       customerId: ['', Validators.required],
       purchaseDate: [formatDate(new Date(), 'yyyy-MM-dd', 'en'), Validators.required],
       invoiceNumber: ['', Validators.required],
+      packagingAndForwadingCharges: [0, [Validators.required, Validators.min(0)]],
       products: this.fb.array([])
     });
 
@@ -195,6 +196,11 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
   getTotalTaxAmount(): number {
     return this.productsFormArray.controls
       .reduce((total, group: any) => total + (group.get('taxAmount').value || 0), 0);
+  }
+
+  getGrandTotal(): number {
+    const packagingCharges = Number(this.purchaseForm.get('packagingAndForwadingCharges')?.value || 0);
+    return this.getTotalAmount() + this.getTotalTaxAmount() + packagingCharges;
   }
 
   private loadProducts(): void {
@@ -336,6 +342,7 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
       invoiceNumber: formValue.invoiceNumber,
       price: this.getTotalAmount(),
       taxAmount: this.getTotalTaxAmount(),
+      packagingAndForwadingCharges: Number(formValue.packagingAndForwadingCharges || 0),
       products: formValue.products.map((product: ProductForm, index: number) => ({
         productId: product.productId,
         quantity: product.quantity,
@@ -420,6 +427,7 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
       id: data.id,
       purchaseDate: formatDate(new Date(data.purchaseDate), 'yyyy-MM-dd', 'en'),
       invoiceNumber: data.invoiceNumber,
+      packagingAndForwadingCharges: data.packagingAndForwadingCharges || 0,
     });
 
     // Clear existing products
