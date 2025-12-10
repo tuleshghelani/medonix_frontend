@@ -72,12 +72,16 @@
                   </div>
                 </td>
 
-                <!-- Unit Price (Readonly - from product saleAmount) -->
+                <!-- Unit Price (Readonly - from customer price API) -->
                 <td class="price-col">
                   <div class="input-group readonly-field">
                     <span class="currency-symbol">₹</span>
                     <input type="number" formControlName="unitPrice" class="form-control" readonly
-                      title="Fixed dealer price">
+                      title="Customer price"
+                      [class.loading]="isLoadingPrices[i]">
+                    <span class="price-loader" *ngIf="isLoadingPrices[i]">
+                      <i class="fas fa-spinner fa-spin"></i>
+                    </span>
                   </div>
                 </td>
 

@@ -30,6 +30,9 @@ import { AddTransportComponent } from './components/Transports/add-transport/add
 import { LedgerComponent } from './components/ledger/ledger.component';
 import { PaymentHistoryListComponent } from './components/payment-history/payment-history-list/payment-history-list.component';
 import { AddPaymentHistoryComponent } from './components/payment-history/add-payment-history/add-payment-history.component';
+import { CustomerPriceListComponent } from './components/all-customer-price/customer-price-list/customer-price-list.component';
+import { DealerAddQuotationComponent } from './components/all-quotation/dealer-add-quotation/dealer-add-quotation.component';
+import { AddCustomerPriceComponent } from './components/all-customer-price/add-customer-price/add-customer-price.component';
 
 const routes: Routes = [
   { path: '', redirectTo: '/login', pathMatch: 'full' },
@@ -228,6 +231,18 @@ const routes: Routes = [
     component: AddDealerComponent,
     // canActivate: [AuthGuard, RoleGuard],
     data: { roles: ['ADMIN','STAFF_ADMIN','DEALER'] }
+  },
+  {
+    path: 'customer-price',
+    component: CustomerPriceListComponent,
+    canActivate: [AuthGuard, RoleGuard],
+    data: { roles: ['ADMIN', 'STAFF_ADMIN', 'DEALER'] }
+  },
+  {
+    path: 'customer-price/add',
+    component: AddCustomerPriceComponent,
+    canActivate: [AuthGuard, RoleGuard],
+    data: { roles: ['ADMIN', 'STAFF_ADMIN', 'DEALER'] }
   },
   {
     path: 'chart',

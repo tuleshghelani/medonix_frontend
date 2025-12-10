@@ -56,8 +56,7 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
   };
   private itemSubscriptions: Subscription[] = [];
   private productPriceCache: Map<string, number> = new Map();
-  isLoadingPrices = false;
-  loadingPriceIndex: number | null = null;
+  isLoadingPrices: { [key: number]: boolean } = {};
 
   get itemsFormArray() {
     return this.quotationForm.get('items') as FormArray;
@@ -259,8 +258,25 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
       this.itemSubscriptions[index].unsubscribe();
       this.itemSubscriptions.splice(index, 1);
     }
-    
+
+    // Clean up loading state
+    if (this.isLoadingPrices[index]) {
+      delete this.isLoadingPrices[index];
+    }
+
     this.itemsFormArray.removeAt(index);
+
+    // Rebuild loading states map with new indices
+    const newLoadingPrices: { [key: number]: boolean } = {};
+    Object.keys(this.isLoadingPrices).forEach(key => {
+      const oldIndex = Number(key);
+      if (oldIndex > index) {
+        newLoadingPrices[oldIndex - 1] = this.isLoadingPrices[oldIndex];
+      } else if (oldIndex < index) {
+        newLoadingPrices[oldIndex] = this.isLoadingPrices[oldIndex];
+      }
+    });
+    this.isLoadingPrices = newLoadingPrices;
     
     this.itemsFormArray.controls.forEach((control, newIndex) => {
       if (this.itemSubscriptions[newIndex]) {
@@ -633,68 +649,90 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
     const customerId = this.quotationForm.get('customerId')?.value;
     
     if (customerId) {
-      const cacheKey = `${customerId}-${selectedProduct.id}`;
-      
-      if (this.productPriceCache.has(cacheKey)) {
-        itemGroup.patchValue({
-          unitPrice: this.productPriceCache.get(cacheKey)
-        }, { emitEvent: true });
-        this.calculateItemPrice(index);
-        return;
-      }
-      
-      this.isLoadingPrices = true;
-      this.loadingPriceIndex = index;
-      
-      itemGroup.patchValue({
-        unitPrice: (selectedProduct.saleAmount ?? selectedProduct.sale_amount ?? 0)
-      }, { emitEvent: true });
-      this.calculateItemPrice(index);
-      // this.priceService.getLatestPrices({
-      //   productId: selectedProduct.id,
-      //   customerId: customerId
-      // })
-      // .pipe(
-      //   takeUntil(this.destroy$),
-      //   finalize(() => {
-      //     this.isLoadingPrices = false;
-      //     this.loadingPriceIndex = null;
-      //     this.cdr.detectChanges();
-      //   })
-      // )
-      // .subscribe({
-      //   next: (response) => {
-      //     if (response.success) {
-      //       const price = response.data.lastSalePrice || selectedProduct.sale_amount || 0;
-            
-      //       this.productPriceCache.set(cacheKey, price);
-            
-      //       itemGroup.patchValue({
-      //         unitPrice: price
-      //       }, { emitEvent: true });
-      //     } else {
-      //       itemGroup.patchValue({
-      //         unitPrice: selectedProduct.sale_amount || 0
-      //       }, { emitEvent: true });
-      //     }
-      //   },
-      //   error: (error) => {
-      //     console.error('Error fetching latest price:', error);
-      //     this.snackbar.error('Failed to fetch latest prices');
-          
-      //     const price = selectedProduct.sale_amount || 0;
-      //     this.productPriceCache.set(cacheKey, price);
-          
-      //     itemGroup.patchValue({
-      //       unitPrice: price
-      //     }, { emitEvent: true });
-      //   }
-      // });
+      // Fetch customer price from API
+      this.fetchCustomerPrice(index, selectedProduct.id, customerId);
     } else {
+      // If no customer selected, use product saleAmount
       itemGroup.patchValue({
         unitPrice: (selectedProduct.saleAmount ?? selectedProduct.sale_amount ?? 0)
       }, { emitEvent: true });
       this.calculateItemPrice(index);
+    }
+  }
+
+  private fetchCustomerPrice(index: number, productId: number, customerId: number): void {
+    this.isLoadingPrices[index] = true;
+    
+    const cacheKey = `${customerId}-${productId}`;
+    
+    // Check cache first
+    if (this.productPriceCache.has(cacheKey)) {
+      const cachedPrice = this.productPriceCache.get(cacheKey)!;
+      const itemGroup = this.itemsFormArray.at(index);
+      
+      itemGroup.patchValue({
+        unitPrice: cachedPrice
+      }, { emitEvent: true });
+      
+      this.isLoadingPrices[index] = false;
+      this.calculateItemPrice(index);
+      this.cdr.detectChanges();
+      return;
+    }
+    
+    const requestData = {
+      customerId: customerId,
+      productId: productId
+    };
+
+    this.priceService.getCustomerPrice(requestData)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.isLoadingPrices[index] = false;
+          this.cdr.detectChanges();
+        })
+      )
+      .subscribe({
+        next: (response) => {
+          if (response.success && response.data) {
+            const price = response.data.price || 0;
+            
+            // Cache the price
+            this.productPriceCache.set(cacheKey, price);
+            
+            const itemGroup = this.itemsFormArray.at(index);
+            itemGroup.patchValue({
+              unitPrice: price
+            }, { emitEvent: true });
+
+            this.calculateItemPrice(index);
+          } else {
+            // Fallback to product saleAmount if API fails
+            this.setFallbackPrice(index);
+          }
+        },
+        error: (error) => {
+          console.error('Error fetching customer price:', error);
+          // Fallback to product saleAmount if API fails
+          this.setFallbackPrice(index);
+        }
+      });
+  }
+
+  private setFallbackPrice(index: number): void {
+    const itemGroup = this.itemsFormArray.at(index);
+    const productId = itemGroup.get('productId')?.value;
+    const selectedProduct = this.products.find(p => p.id === productId);
+    
+    if (selectedProduct) {
+      const unitPrice = selectedProduct.saleAmount ?? selectedProduct.sale_amount ?? 0;
+      itemGroup.patchValue({
+        unitPrice: unitPrice
+      }, { emitEvent: true });
+
+      this.calculateItemPrice(index);
+      this.cdr.detectChanges();
     }
   }
 

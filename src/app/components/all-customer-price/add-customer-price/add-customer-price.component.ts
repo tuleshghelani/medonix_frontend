@@ -1,30 +1,37 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, AbstractControl } from '@angular/forms';
+import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormsModule, AbstractControl } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-import { Subject, takeUntil, Subscription, debounceTime, filter, distinctUntilChanged, finalize } from 'rxjs';
+import { Subject, takeUntil, Subscription, debounceTime, filter, distinctUntilChanged, fromEvent } from 'rxjs';
 import { formatDate } from '@angular/common';
 import { ProductService } from '../../../services/product.service';
 import { SnackbarService } from '../../../shared/services/snackbar.service';
 import { QuotationService } from '../../../services/quotation.service';
 import { PriceService } from '../../../services/price.service';
+import { AuthService } from '../../../services/auth.service';
+import { UserService } from '../../../services/user.service';
+import { CustomerService } from '../../../services/customer.service';
+import { EncryptionService } from '../../../shared/services/encryption.service';
 import { SearchableSelectComponent } from "../../../shared/components/searchable-select/searchable-select.component";
 import { LoaderComponent } from '../../../shared/components/loader/loader.component';
+import { PaginationComponent } from '../../../shared/components/pagination/pagination.component';
 
 @Component({
   standalone: true,
-  selector: 'app-dealer-add-quotation',
-  templateUrl: './dealer-add-quotation.component.html',
-  styleUrls: ['./dealer-add-quotation.component.scss'],
+  selector: 'app-add-customer-price',
+  templateUrl: './add-customer-price.component.html',
+  styleUrl: './add-customer-price.component.scss',
   imports: [
     CommonModule,
     ReactiveFormsModule,
+    FormsModule,
     RouterModule,
     SearchableSelectComponent,
-    LoaderComponent
+    LoaderComponent,
+    PaginationComponent
   ]
 })
-export class DealerAddQuotationComponent implements OnInit, OnDestroy {
+export class AddCustomerPriceComponent {
   quotationForm!: FormGroup;
   products: any[] = [];
   loading = false;
@@ -32,7 +39,33 @@ export class DealerAddQuotationComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   isLoading = false;
   isLoadingPrices: { [key: number]: boolean } = {};
-  private productPriceCache: Map<string, number> = new Map();
+  currentUser: any = null;
+  customerId: number | null = null;
+  
+  // Customer selection
+  customers: any[] = [];
+  selectedCustomerId: number | null = null;
+  isLoadingCustomers = false;
+  
+  // Products with prices
+  productsWithPrices: any[] = [];
+  isLoadingProductsWithPrices = false;
+  currentPage = 0;
+  pageSize = 10;
+  totalElements = 0;
+  totalPages = 0;
+  searchTerm = '';
+  sortBy = '';
+  sortDir = 'ASC';
+  
+  // Price update
+  updatingPrices: { [key: number]: boolean } = {};
+  
+  // Price delete
+  deletingPrices: { [key: number]: boolean } = {};
+  
+  // Search debounce
+  private searchSubject = new Subject<string>();
 
   totals: { price: number; tax: number; finalPrice: number; taxPercentage: number } = {
     price: 0,
@@ -52,6 +85,10 @@ export class DealerAddQuotationComponent implements OnInit, OnDestroy {
     private quotationService: QuotationService,
     private productService: ProductService,
     private priceService: PriceService,
+    private customerService: CustomerService,
+    private authService: AuthService,
+    private userService: UserService,
+    private encryptionService: EncryptionService,
     private snackbar: SnackbarService,
     private router: Router,
     private cdr: ChangeDetectorRef
@@ -60,8 +97,72 @@ export class DealerAddQuotationComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+    this.loadCurrentUser();
+    this.loadCustomers();
     this.loadProducts();
     this.setupItemSubscriptions();
+    this.setupSearchDebounce();
+  }
+
+  private setupSearchDebounce(): void {
+    this.searchSubject.pipe(
+      debounceTime(500),
+      distinctUntilChanged(),
+      takeUntil(this.destroy$)
+    ).subscribe(searchTerm => {
+      this.searchTerm = searchTerm;
+      this.currentPage = 0;
+      this.loadProductsWithPrices();
+    });
+  }
+
+  private loadCurrentUser(): void {
+    // Check if we already have encrypted user data in localStorage
+    const encryptedUserData = localStorage.getItem('encryptedUserData');
+    if (encryptedUserData) {
+      try {
+        const decrypted: any = this.encryptionService.decrypt(encryptedUserData);
+        if (decrypted) {
+          let userData: any = null;
+          
+          if (typeof decrypted === 'object' && decrypted !== null) {
+            userData = decrypted;
+          } else if (typeof decrypted === 'string') {
+            userData = JSON.parse(decrypted);
+          }
+          
+          if (userData && userData.data) {
+            this.currentUser = userData.data;
+            // Get customerId from user data if available (for non-DEALER roles)
+            if (!this.authService.hasRole('DEALER') && userData.data.client?.id) {
+              this.customerId = userData.data.client.id;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error decrypting user data:', error);
+      }
+    }
+
+    // If not found in localStorage, fetch from API
+    if (!this.currentUser) {
+      this.userService.getCurrentUser()
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (response) => {
+            if (response.success && response.data) {
+              this.currentUser = response.data;
+              // Get customerId from user data if available (for non-DEALER roles)
+              if (!this.authService.hasRole('DEALER') && response.data.client?.id) {
+                this.customerId = response.data.client.id;
+              }
+            }
+          },
+          error: (error) => {
+            console.error('Error loading current user:', error);
+          }
+        });
+    }
   }
 
   ngOnDestroy() {
@@ -70,8 +171,6 @@ export class DealerAddQuotationComponent implements OnInit, OnDestroy {
     this.itemSubscriptions.forEach(sub => sub?.unsubscribe());
     this.itemSubscriptions = [];
     this.products = [];
-    // Clear Map to help with garbage collection
-    this.productPriceCache.clear();
   }
 
   private initForm() {
@@ -187,64 +286,45 @@ export class DealerAddQuotationComponent implements OnInit, OnDestroy {
       quantity: selectedProduct.quantity || 1
     }, { emitEvent: false });
 
-    // Fetch customer price from API (for DEALER role, customerId is auto-resolved)
+    // Fetch customer price from API
     this.fetchCustomerPrice(index, selectedProduct.id);
   }
 
   private fetchCustomerPrice(index: number, productId: number): void {
     this.isLoadingPrices[index] = true;
     
-    // For DEALER role, customerId is auto-resolved by backend, so we don't pass it
-    const cacheKey = `dealer-${productId}`;
-    
-    // Check cache first
-    if (this.productPriceCache.has(cacheKey)) {
-      const cachedPrice = this.productPriceCache.get(cacheKey)!;
-      const itemGroup = this.itemsFormArray.at(index);
-      
-      itemGroup.patchValue({
-        unitPrice: cachedPrice
-      }, { emitEvent: true });
-      
-      this.isLoadingPrices[index] = false;
-      this.calculateItemPrice(index);
-      this.cdr.detectChanges();
-      return;
-    }
-    
-    const requestData = {
+    const requestData: any = {
       productId: productId
-      // customerId is not passed for DEALER role - backend auto-resolves it
     };
 
+    // Add customerId only if not DEALER role and customerId is available
+    if (!this.authService.hasRole('DEALER') && this.customerId) {
+      requestData.customerId = this.customerId;
+    }
+
     this.priceService.getCustomerPrice(requestData)
-      .pipe(
-        takeUntil(this.destroy$),
-        finalize(() => {
-          this.isLoadingPrices[index] = false;
-          this.cdr.detectChanges();
-        })
-      )
+      .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {
+          this.isLoadingPrices[index] = false;
+          
           if (response.success && response.data) {
             const price = response.data.price || 0;
-            
-            // Cache the price
-            this.productPriceCache.set(cacheKey, price);
-            
             const itemGroup = this.itemsFormArray.at(index);
+            
             itemGroup.patchValue({
               unitPrice: price
-            }, { emitEvent: true });
+            }, { emitEvent: false });
 
             this.calculateItemPrice(index);
+            this.cdr.detectChanges();
           } else {
             // Fallback to product saleAmount if API fails
             this.setFallbackPrice(index);
           }
         },
         error: (error) => {
+          this.isLoadingPrices[index] = false;
           console.error('Error fetching customer price:', error);
           // Fallback to product saleAmount if API fails
           this.setFallbackPrice(index);
@@ -495,6 +575,257 @@ export class DealerAddQuotationComponent implements OnInit, OnDestroy {
 
     this.itemSubscriptions[index] = subscription;
   }
+
+  // Customer selection methods
+  loadCustomers(): void {
+    this.isLoadingCustomers = true;
+    this.customerService.getCustomers({ status: 'A' })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.customers = response.data || [];
+          }
+          this.isLoadingCustomers = false;
+        },
+        error: () => {
+          this.snackbar.error('Failed to load customers');
+          this.isLoadingCustomers = false;
+        }
+      });
+  }
+
+  refreshCustomers(): void {
+    this.isLoadingCustomers = true;
+    this.customerService.refreshCustomers()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.customers = response.data || [];
+            this.snackbar.success('Customers refreshed successfully');
+          }
+          this.isLoadingCustomers = false;
+        },
+        error: () => {
+          this.snackbar.error('Failed to refresh customers');
+          this.isLoadingCustomers = false;
+        }
+      });
+  }
+
+  onCustomerSelect(event: any): void {
+    const customerId = event.value;
+    if (customerId) {
+      this.selectedCustomerId = customerId;
+      this.customerId = customerId;
+      this.currentPage = 0;
+      this.loadProductsWithPrices();
+    } else {
+      this.selectedCustomerId = null;
+      this.customerId = null;
+      this.productsWithPrices = [];
+    }
+  }
+
+  // Products with prices methods
+  loadProductsWithPrices(): void {
+    if (!this.selectedCustomerId) {
+      return;
+    }
+
+    this.isLoadingProductsWithPrices = true;
+    const requestData: any = {
+      customerId: this.selectedCustomerId,
+      page: this.currentPage,
+      size: this.pageSize,
+      sortBy: this.sortBy,
+      sortDir: this.sortDir
+    };
+
+    if (this.searchTerm) {
+      requestData.search = this.searchTerm;
+    }
+
+    this.priceService.getProductsWithPrices(requestData)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success && response.data) {
+            this.productsWithPrices = response.data.content || [];
+            this.totalElements = response.data.totalElements || 0;
+            this.totalPages = response.data.totalPages || 0;
+            this.currentPage = response.data.currentPage || 0;
+          } else {
+            this.productsWithPrices = [];
+            this.totalElements = 0;
+            this.totalPages = 0;
+          }
+          this.isLoadingProductsWithPrices = false;
+          this.cdr.detectChanges();
+        },
+        error: (error) => {
+          console.error('Error loading products with prices:', error);
+          this.snackbar.error(error?.error?.message || 'Failed to load products with prices');
+          this.productsWithPrices = [];
+          this.isLoadingProductsWithPrices = false;
+          this.cdr.detectChanges();
+        }
+      });
+  }
+
+  onSearchChange(searchTerm: string): void {
+    this.searchSubject.next(searchTerm);
+  }
+
+  onPageChange(page: number): void {
+    this.currentPage = page;
+    this.loadProductsWithPrices();
+  }
+
+  onPageSizeChange(size: number): void {
+    this.pageSize = size;
+    this.currentPage = 0;
+    this.loadProductsWithPrices();
+  }
+
+  onSortChange(sortBy: string, sortDir: string): void {
+    this.sortBy = sortBy;
+    this.sortDir = sortDir;
+    this.currentPage = 0;
+    this.loadProductsWithPrices();
+  }
+
+  updateEffectivePrice(product: any, newPrice: any): void {
+    if (!product || !this.selectedCustomerId) {
+      return;
+    }
+
+    const productId = product.productId;
+    if (this.updatingPrices[productId]) {
+      return;
+    }
+
+    // Convert to number and validate
+    const priceValue = parseFloat(newPrice);
+    if (isNaN(priceValue) || priceValue < 0) {
+      this.snackbar.error('Please enter a valid price (must be a positive number)');
+      // Reset to original value
+      product.effectivePrice = product.effectivePrice;
+      this.cdr.detectChanges();
+      return;
+    }
+
+    // Check if price actually changed
+    if (product.effectivePrice === priceValue) {
+      return;
+    }
+
+    this.updatingPrices[productId] = true;
+    const oldPrice = product.effectivePrice;
+
+    // Call API to save/update customer price
+    const requestData = {
+      id: null,
+      customerId: this.selectedCustomerId,
+      productId: productId,
+      price: priceValue
+    };
+
+    this.priceService.saveCustomerPrice(requestData)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            product.effectivePrice = priceValue;
+            product.priceSource = 'customer_price';
+            // Update customerPriceId if returned in response
+            if (response.data?.id) {
+              product.customerPriceId = response.data.id;
+            }
+            this.snackbar.success(response.message || `Price updated from ₹${oldPrice.toFixed(2)} to ₹${priceValue.toFixed(2)}`);
+          } else {
+            // Revert to old price on failure
+            product.effectivePrice = oldPrice;
+            this.snackbar.error(response.message || 'Failed to update price');
+          }
+          this.updatingPrices[productId] = false;
+          this.cdr.detectChanges();
+        },
+        error: (error) => {
+          // Revert to old price on error
+          product.effectivePrice = oldPrice;
+          this.snackbar.error(error?.error?.message || 'Failed to update price');
+          this.updatingPrices[productId] = false;
+          this.cdr.detectChanges();
+        }
+      });
+  }
+
+  getPriceSourceColor(priceSource: string): string {
+    if (priceSource === 'customer_price') {
+      return 'customer-price';
+    } else if (priceSource === 'product_sale_amount') {
+      return 'product-sale-price';
+    }
+    return '';
+  }
+
+  getPriceSourceLabel(priceSource: string): string {
+    if (priceSource === 'customer_price') {
+      return 'Customer Price';
+    } else if (priceSource === 'product_sale_amount') {
+      return 'Product Sale Price';
+    }
+    return 'Default Price';
+  }
+
+  deleteCustomerPrice(product: any): void {
+    if (!product || !product.customerPriceId) {
+      this.snackbar.error('No customer price found to delete');
+      return;
+    }
+
+    const productId = product.productId;
+    if (this.deletingPrices[productId]) {
+      return;
+    }
+
+    // Confirm deletion
+    if (!confirm('Are you sure you want to delete this customer price? The price will revert to the product sale amount.')) {
+      return;
+    }
+
+    this.deletingPrices[productId] = true;
+
+    this.priceService.deleteCustomerPrice(product.customerPriceId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            // Update product to use sale amount
+            product.effectivePrice = product.saleAmount;
+            product.priceSource = 'product_sale_amount';
+            product.customerPriceId = null;
+            this.snackbar.success(response.message || 'Customer price deleted successfully');
+            // Reload products to refresh the list
+            this.loadProductsWithPrices();
+          } else {
+            this.snackbar.error(response.message || 'Failed to delete customer price');
+          }
+          this.deletingPrices[productId] = false;
+          this.cdr.detectChanges();
+        },
+        error: (error) => {
+          this.snackbar.error(error?.error?.message || 'Failed to delete customer price');
+          this.deletingPrices[productId] = false;
+          this.cdr.detectChanges();
+        }
+      });
+  }
+
+  // Expose Math to template
+  Math = Math;
 
   // Touch event handling for mobile devices
   private touchStartTime: number = 0;

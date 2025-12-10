@@ -67,6 +67,11 @@
                 <i class="fas fa-truck"></i> Transport
               </a>
             </li>
+            <li *ngIf="permissions.canViewCustomerPrice"> 
+              <a routerLink="/customer-price" routerLinkActive="active" (click)="closeAllMenus()">
+                <i class="fas fa-money-bill-wave"></i> Customer Price
+              </a>
+            </li>
             <!-- <li *ngIf="isAdmin()">
               <a routerLink="/users" routerLinkActive="active">Users</a>
             </li> -->

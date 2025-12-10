@@ -218,6 +218,9 @@
                       <input type="number" formControlName="unitPrice" class="form-control"
                         [class.is-invalid]="isItemFieldInvalid(i, 'unitPrice')" min="0.01" step="0.01"
                         (touchstart)="$event.preventDefault()">
+                      <span class="price-loader" *ngIf="isLoadingPrices[i]">
+                        <i class="fas fa-spinner fa-spin"></i>
+                      </span>
                     </div>
                   </td>
                   
@@ -226,8 +229,12 @@
                     <input type="text" formControlName="remarks" class="form-control" placeholder="Remarks">
                   </td>
                   <td>
-                    <div class="input-group">
-                      <input type="number" formControlName="price" class="form-control" readonly>
+                    <div class="input-group" [class.loading]="isLoadingPrices[i]">
+                      <input type="number" formControlName="price" class="form-control" readonly
+                        [class.loading]="isLoadingPrices[i]">
+                      <span class="price-loader" *ngIf="isLoadingPrices[i]">
+                        <i class="fas fa-spinner fa-spin"></i>
+                      </span>
                     </div>
                   </td>
                   <td>

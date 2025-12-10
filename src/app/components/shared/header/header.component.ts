@@ -33,6 +33,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
     canViewEmployee: false,
     canViewMachine: false,
     canViewTransport: false,
+    canViewCustomerPrice: false,
     canViewBrand: false,
     canViewUser: false,
     canViewEnquiry: false,

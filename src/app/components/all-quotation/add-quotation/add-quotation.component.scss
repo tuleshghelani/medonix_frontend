@@ -708,8 +708,36 @@
   }
   
   .input-group {
+    position: relative;
+
     input {
       background-color: #fff;
+    }
+
+    &.loading {
+      input {
+        opacity: 0.6;
+      }
+    }
+
+    .price-loader {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--primary);
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      i {
+        font-size: 14px;
+      }
+    }
+
+    .form-control.loading {
+      opacity: 0.6;
     }
   }
 }

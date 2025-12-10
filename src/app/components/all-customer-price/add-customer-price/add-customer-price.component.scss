@@ -191,9 +191,561 @@ $transition-base: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   flex-direction: column;
   padding: 20px;
+  gap: 20px;
 
   @media (max-width: 768px) {
     padding: 12px;
+    gap: 16px;
+  }
+}
+
+// Customer Selection Section
+.customer-selection-section {
+  background: $neutral-lightest;
+  border-radius: $border-radius;
+  padding: 20px;
+  border: 2px solid $secondary;
+
+  .section-header {
+    margin-bottom: 16px;
+
+    h3 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: $neutral-dark;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      i {
+        color: $secondary;
+        font-size: 18px;
+      }
+    }
+  }
+
+  .customer-select-wrapper {
+    .form-field-container {
+      .select-group {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+
+        app-searchable-select {
+          flex: 1;
+          z-index: 10;
+
+          @media (max-width: 768px) {
+            ::ng-deep .dropdown-menu {
+              position: fixed !important;
+              left: 12px !important;
+              right: 12px !important;
+              width: calc(100vw - 24px) !important;
+              max-width: none !important;
+              z-index: 1000 !important;
+              box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15) !important;
+              border-radius: 12px !important;
+              max-height: 50vh !important;
+              overflow-y: auto !important;
+            }
+          }
+        }
+
+        .refresh {
+          width: 38px;
+          height: 38px;
+          padding: 0;
+          background: white;
+          border: 1px solid $neutral-light;
+          color: $primary;
+          flex-shrink: 0;
+
+          &:hover:not(:disabled) {
+            background: $primary;
+            color: white;
+            border-color: $primary;
+          }
+
+          @media (max-width: 768px) {
+            width: 44px;
+            height: 44px;
+          }
+        }
+      }
+    }
+  }
+
+  @media (max-width: 768px) {
+    padding: 12px;
+  }
+}
+
+// Products with Prices Section
+.products-prices-section {
+  background: $neutral-lightest;
+  border-radius: $border-radius;
+  padding: 20px;
+  border: 2px solid $secondary;
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+
+    h3 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: $neutral-dark;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      i {
+        color: $secondary;
+        font-size: 18px;
+      }
+    }
+
+    .search-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+
+      .search-input-wrapper {
+        position: relative;
+        min-width: 250px;
+
+        i {
+          position: absolute;
+          left: 12px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: $neutral-medium;
+          z-index: 1;
+        }
+
+        .search-input {
+          padding-left: 40px;
+          width: 100%;
+        }
+      }
+    }
+
+    @media (max-width: 768px) {
+      flex-direction: column;
+      align-items: stretch;
+
+      .search-controls {
+        width: 100%;
+
+        .search-input-wrapper {
+          min-width: auto;
+          width: 100%;
+        }
+      }
+    }
+  }
+
+  @media (max-width: 768px) {
+    padding: 12px;
+  }
+}
+
+// Products Prices Table
+.products-prices-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 900px;
+
+  thead {
+    th {
+      background: linear-gradient(180deg, $neutral-lightest 0%, $neutral-lighter 100%);
+      color: $neutral-dark;
+      font-weight: 600;
+      font-size: 12px;
+      padding: 12px 10px;
+      text-align: left;
+      white-space: nowrap;
+      border-bottom: 2px solid $neutral-lighter;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+
+      &:first-child {
+        border-radius: 8px 0 0 0;
+      }
+
+      &:last-child {
+        border-radius: 0 8px 0 0;
+      }
+    }
+  }
+
+  tbody {
+    .product-price-row {
+      transition: $transition-base;
+
+      &:hover {
+        background: rgba($secondary-lightest, 0.3);
+      }
+
+      &:nth-child(even) {
+        background: rgba($neutral-lightest, 0.5);
+
+        &:hover {
+          background: rgba($secondary-lightest, 0.4);
+        }
+      }
+
+      &.customer-price {
+        background: rgba($success, 0.05);
+
+        &:hover {
+          background: rgba($success, 0.1);
+        }
+      }
+
+      &.product-sale-price {
+        background: rgba($warning, 0.05);
+
+        &:hover {
+          background: rgba($warning, 0.1);
+        }
+      }
+
+      td {
+        padding: 12px 10px;
+        vertical-align: middle;
+        border-bottom: 1px solid $neutral-lighter;
+      }
+    }
+
+    .no-data-row {
+      .no-data-cell {
+        padding: 40px 20px;
+        text-align: center;
+
+        .no-data-message {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
+          color: $neutral-medium;
+
+          i {
+            font-size: 48px;
+            opacity: 0.5;
+          }
+
+          p {
+            margin: 0;
+            font-size: 14px;
+          }
+        }
+      }
+    }
+  }
+
+  // Column Widths
+  .product-name-col {
+    min-width: 200px;
+  }
+
+  .product-code-col {
+    min-width: 120px;
+  }
+
+  .hsn-code-col {
+    min-width: 100px;
+  }
+
+  .sale-amount-col {
+    min-width: 120px;
+  }
+
+  .effective-price-col {
+    min-width: 150px;
+  }
+
+  .price-source-col {
+    min-width: 150px;
+  }
+
+  .action-col {
+    min-width: 80px;
+    width: 80px;
+    text-align: center;
+  }
+
+  // Product Name
+  .product-name {
+    font-weight: 500;
+    color: $neutral-dark;
+    font-size: 14px;
+  }
+
+  .product-code {
+    color: $neutral-medium;
+    font-size: 13px;
+    font-family: 'Courier New', monospace;
+  }
+
+  .hsn-code {
+    color: $neutral-medium;
+    font-size: 13px;
+    font-family: 'Courier New', monospace;
+  }
+
+  // Sale Amount
+  .sale-amount {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-weight: 500;
+    color: $neutral-dark;
+    padding: 6px 10px;
+    background: $neutral-lighter;
+    border-radius: 6px;
+    white-space: nowrap;
+    font-size: 13px;
+
+    .currency {
+      color: $neutral-medium;
+      font-size: 12px;
+    }
+  }
+
+  // Effective Price Input
+  .effective-price-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+
+    .currency-symbol {
+      position: absolute;
+      left: 10px;
+      color: $neutral-medium;
+      font-weight: 500;
+      z-index: 1;
+    }
+
+    .effective-price-input {
+      padding-left: 24px;
+      width: 100%;
+      font-weight: 600;
+      color: $primary;
+      border: 2px solid $primary-light;
+
+      &:focus {
+        border-color: $primary;
+        box-shadow: 0 0 0 3px rgba($primary, 0.1);
+      }
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+    }
+
+    .price-update-loader {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: $primary;
+      z-index: 2;
+    }
+  }
+
+  // Price Source Badge
+  .price-source-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+
+    &.customer-price {
+      background: rgba($success, 0.15);
+      color: darken($success, 15%);
+      border: 1px solid rgba($success, 0.3);
+
+      i {
+        color: $success;
+      }
+    }
+
+    &.product-sale-price {
+      background: rgba($warning, 0.15);
+      color: darken($warning, 15%);
+      border: 1px solid rgba($warning, 0.3);
+
+      i {
+        color: $warning;
+      }
+    }
+
+    i {
+      font-size: 10px;
+    }
+  }
+
+  // Action Buttons Container
+  .action-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  // Update Button
+  .update-btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 6px;
+  }
+
+  // Delete Button
+  .delete-btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 6px;
+  }
+
+  @media (max-width: 768px) {
+    font-size: 12px;
+    min-width: 800px;
+
+    thead th {
+      padding: 10px 8px;
+      font-size: 10px;
+    }
+
+    tbody td {
+      padding: 10px 8px;
+    }
+
+    .product-name {
+      font-size: 12px;
+    }
+
+    .product-code,
+    .hsn-code {
+      font-size: 11px;
+    }
+
+    .sale-amount {
+      font-size: 11px;
+      padding: 5px 8px;
+    }
+
+    .effective-price-input-wrapper {
+      .effective-price-input {
+        font-size: 12px;
+        padding-left: 20px;
+      }
+    }
+
+    .price-source-badge {
+      font-size: 10px;
+      padding: 4px 8px;
+    }
+
+    .action-buttons {
+      gap: 6px;
+    }
+
+    .update-btn,
+    .delete-btn {
+      width: 32px;
+      height: 32px;
+    }
+  }
+}
+
+// Pagination
+.pagination-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid $neutral-lighter;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  .pagination-info {
+    font-size: 13px;
+    color: $neutral-medium;
+  }
+
+  .pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    .page-info {
+      font-size: 13px;
+      color: $neutral-dark;
+      font-weight: 500;
+      padding: 0 8px;
+    }
+
+    .btn {
+      min-width: 100px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: stretch;
+
+    .pagination-controls {
+      width: 100%;
+      justify-content: space-between;
+
+      .btn {
+        flex: 1;
+      }
+    }
+  }
+}
+
+// Loading State
+.loading-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 60px 20px;
+  min-height: 200px;
+
+  .loading-spinner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    color: $neutral-medium;
+
+    i {
+      font-size: 32px;
+      color: $primary;
+    }
+
+    p {
+      margin: 0;
+      font-size: 14px;
+    }
   }
 }
 
