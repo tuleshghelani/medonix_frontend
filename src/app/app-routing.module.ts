@@ -28,6 +28,8 @@ import { AddDealerComponent } from './components/dealers/add-dealer/add-dealer.c
 import { TransportMasterListComponent } from './components/Transports/transport-master-list/transport-master-list.component';
 import { AddTransportComponent } from './components/Transports/add-transport/add-transport.component';
 import { LedgerComponent } from './components/ledger/ledger.component';
+import { PaymentHistoryListComponent } from './components/payment-history/payment-history-list/payment-history-list.component';
+import { AddPaymentHistoryComponent } from './components/payment-history/add-payment-history/add-payment-history.component';
 
 const routes: Routes = [
   { path: '', redirectTo: '/login', pathMatch: 'full' },
@@ -184,6 +186,25 @@ const routes: Routes = [
     canActivate: [AuthGuard, RoleGuard],
     data: { preload: true, roles: ['ADMIN', 'STAFF_ADMIN', 'DEALER'] }
   },  
+  // Payment Routes
+  {
+    path: 'payment-history',
+    component: PaymentHistoryListComponent,
+    canActivate: [AuthGuard, RoleGuard],
+    data: { roles: ['ADMIN', 'SALES_AND_MARKETING'] }
+  },
+  {
+    path: 'payment-history/add',
+    component: AddPaymentHistoryComponent,
+    canActivate: [AuthGuard, RoleGuard],
+    data: { roles: ['ADMIN', 'SALES_AND_MARKETING'] }
+  },
+  {
+    path: 'payment-history/edit/:encryptedId',
+    component: AddPaymentHistoryComponent,
+    canActivate: [AuthGuard, RoleGuard],
+    data: { roles: ['ADMIN', 'SALES_AND_MARKETING'] }
+  },
   {
     path: 'data-center',
     component: DataCenterComponent,
