@@ -161,30 +161,81 @@
 }
 
 .select-group {
+  position: relative;
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 0.5rem;
+  width: 100%;
+  overflow: visible; // Allow dropdown to overflow container
 
   &.inline {
     flex-direction: row;
-    align-items: flex-start;
+    align-items: center;
     gap: 0.5rem;
+  }
 
-    app-searchable-select {
-      flex: 1;
+  app-searchable-select {
+    display: block;
+    flex: 1;
+    position: relative;
+    z-index: 100;
+    overflow: visible; // Ensure dropdown can render outside
+    
+    // When the component has a custom width, allow it to break out of the grid
+    &.custom-width {
+      position: absolute;
+      z-index: 1000;
+      left: 0;
     }
-
-    .refresh {
-      height: 40px;
-      min-width: 40px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    
+    &:focus-within {
+      z-index: 1000; // Ensure dropdown appears above other elements
+      position: relative;
+      
+      // Ensure dropdown appears above refresh button
+      ::ng-deep .select-dropdown {
+        z-index: 1001 !important;
+        position: absolute !important;
+      }
+    }
+    
+    // Ensure dropdown always appears above refresh button
+    ::ng-deep .select-dropdown {
+      z-index: 1001 !important;
+      position: absolute !important;
     }
   }
 
   .refresh {
-    align-self: flex-start;
+    flex-shrink: 0;
+    margin-top: 0;
+    height: 40px;
+    min-width: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 1; // Keep button behind dropdown - lower than dropdown's z-index: 1001
+    border: 1px solid var(--supporting);
+    border-radius: 8px;
+    background: white;
+    transition: all 0.3s ease;
+    color: var(--primary);
+    touch-action: manipulation;
+
+    &:hover:not(:disabled) {
+      background: var(--primary);
+      color: white;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    i {
+      font-size: 1rem;
+    }
   }
 }
 
@@ -362,6 +413,7 @@
 .form-field-container {
   position: relative;
   margin-bottom: 1rem;
+  overflow: visible; // Allow dropdown to overflow
 
   .form-control, .input-group {
     &.is-invalid {

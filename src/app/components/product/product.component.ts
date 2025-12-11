@@ -86,7 +86,7 @@ export class ProductComponent implements OnInit, OnDestroy {
       categoryId: ['', [Validators.required]],
       minimumStock: [0, [Validators.required, Validators.min(0)]],
       purchaseAmount: [0, [Validators.required, Validators.min(0)]],
-      saleAmount: [0, [Validators.required, Validators.min(0)]],
+      saleAmount: [null, [Validators.required, Validators.min(0)]],
       measurement: ['kg'],
       status: ['A'],
       description: [''],
@@ -321,7 +321,7 @@ export class ProductComponent implements OnInit, OnDestroy {
       productCode: '',
       materialName: '',
       purchaseAmount: 0,
-      saleAmount: 0,
+      saleAmount: null,
       measurement: 'kg',
       taxPercentage: 5,
       remainingQuantity: 0,
@@ -374,7 +374,7 @@ export class ProductComponent implements OnInit, OnDestroy {
       materialName: '',
       minimumStock: 0,
       purchaseAmount: 0,
-      saleAmount: 0,
+      saleAmount: null,
       measurement: 'kg',
       taxPercentage: 5,
       remainingQuantity: 0,
@@ -443,6 +443,23 @@ export class ProductComponent implements OnInit, OnDestroy {
     // }
   }
 
+  // Custom validator to ensure saleAmount is positive and greater than 0
+  private positiveNumberValidator(): any {
+    return (control: any) => {
+      if (control.value === null || control.value === undefined || control.value === '') {
+        return { required: true };
+      }
+      const value = Number(control.value);
+      if (isNaN(value)) {
+        return { invalidNumber: true };
+      }
+      if (value <= 0) {
+        return { min: { min: 0.01, actual: value } };
+      }
+      return null;
+    };
+  }
+
   exportProducts(): void {
     const searchParams = { ...this.searchForm.value };
     delete searchParams.pageSize;
@@ -478,10 +495,25 @@ export class ProductComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    // Complete destroy subject to clean up all takeUntil subscriptions
     this.destroy$.next();
     this.destroy$.complete();
+
+    // Clean up DOM classes
     if (this.dropdownPinned && this.isBrowser) {
       document.body.classList.remove('dropdown-open');
+    }
+
+    // Clear arrays to release memory
+    this.products = [];
+    this.categories = [];
+
+    // Reset forms to release form subscriptions
+    if (this.productForm) {
+      this.productForm.reset();
+    }
+    if (this.searchForm) {
+      this.searchForm.reset();
     }
   }
 

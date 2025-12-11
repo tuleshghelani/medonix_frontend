@@ -1,7 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
+import { Subject, takeUntil } from 'rxjs';
 import { SnackbarService } from '../../shared/services/snackbar.service';
 import { LoaderComponent } from '../../shared/components/loader/loader.component';
 import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
@@ -29,11 +30,14 @@ interface DiscountCalculation {
  templateUrl: './add-combined-purchase-sale.component.html',
  styleUrls: ['./add-combined-purchase-sale.component.scss']
 })
-export class AddCombinedPurchaseSaleComponent implements OnInit {
+export class AddCombinedPurchaseSaleComponent implements OnInit, OnDestroy {
  combinedForm!: FormGroup;
  products: any[] = [];
  loading = false;
  isLoadingProducts = false;
+ private destroy$ = new Subject<void>();
+ private formSubscriptions: any[] = [];
+
   constructor(
    private fb: FormBuilder,
    private productService: ProductService,
@@ -75,36 +79,62 @@ export class AddCombinedPurchaseSaleComponent implements OnInit {
    this.setupPurchaseDiscountCalculation();
    this.setupSaleDiscountCalculation();
  }
+  ngOnDestroy(): void {
+    // Unsubscribe from all form subscriptions
+    this.formSubscriptions.forEach(sub => {
+      if (sub && !sub.closed) {
+        sub.unsubscribe();
+      }
+    });
+    this.formSubscriptions = [];
+
+    // Complete destroy subject to clean up all takeUntil subscriptions
+    this.destroy$.next();
+    this.destroy$.complete();
+
+    // Clear arrays to release memory
+    this.products = [];
+
+    // Reset form to release form subscriptions
+    if (this.combinedForm) {
+      this.combinedForm.reset();
+    }
+  }
+
   private loadProducts(): void {
    this.isLoadingProducts = true;
-   this.productService.getProducts({ status: 'A' }).subscribe({
-     next: (response) => {
-       if (response.success) {
-         this.products = response.data;
+   this.productService.getProducts({ status: 'A' })
+     .pipe(takeUntil(this.destroy$))
+     .subscribe({
+       next: (response) => {
+         if (response.success) {
+           this.products = response.data;
+         }
+         this.isLoadingProducts = false;
+       },
+       error: (error) => {
+         this.snackbar.error('Failed to load products');
+         this.isLoadingProducts = false;
        }
-       this.isLoadingProducts = false;
-     },
-     error: (error) => {
-       this.snackbar.error('Failed to load products');
-       this.isLoadingProducts = false;
-     }
-   });
+     });
  }
   refreshProducts(): void {
    this.isLoadingProducts = true;
-   this.productService.refreshProducts().subscribe({
-     next: (response) => {
-       if (response.success) {
-         this.products = response.data;
-         this.snackbar.success('Products refreshed successfully');
+   this.productService.refreshProducts()
+     .pipe(takeUntil(this.destroy$))
+     .subscribe({
+       next: (response) => {
+         if (response.success) {
+           this.products = response.data;
+           this.snackbar.success('Products refreshed successfully');
+         }
+         this.isLoadingProducts = false;
+       },
+       error: (error) => {
+         this.snackbar.error('Failed to refresh products');
+         this.isLoadingProducts = false;
        }
-       this.isLoadingProducts = false;
-     },
-     error: (error) => {
-       this.snackbar.error('Failed to refresh products');
-       this.isLoadingProducts = false;
-     }
-   });
+     });
  }
   onSubmit() {
    if (this.combinedForm.valid) {
@@ -140,17 +170,19 @@ export class AddCombinedPurchaseSaleComponent implements OnInit {
 
      if (!this.loading) return; // Stop if date validation failed
      
-     this.combinedService.createCombinedPurchaseSale(formData).subscribe({
-       next: (response:any) => {
-         this.snackbar.success('Combined purchase and sale created successfully');
-         this.resetForm();
-         this.loading = false;
-       },
-       error: (error:any) => {
-         this.snackbar.error(error?.error?.message || 'Failed to create combined purchase and sale');
-         this.loading = false;
-       }
-     });
+     this.combinedService.createCombinedPurchaseSale(formData)
+       .pipe(takeUntil(this.destroy$))
+       .subscribe({
+         next: (response:any) => {
+           this.snackbar.success('Combined purchase and sale created successfully');
+           this.resetForm();
+           this.loading = false;
+         },
+         error: (error:any) => {
+           this.snackbar.error(error?.error?.message || 'Failed to create combined purchase and sale');
+           this.loading = false;
+         }
+       });
    }
  }
   resetForm(): void {
@@ -186,34 +218,49 @@ export class AddCombinedPurchaseSaleComponent implements OnInit {
  }
  
   private setupProductChangeListener() {
-    this.combinedForm.get('productId')?.valueChanges.subscribe(selectedProductId => {
-      if (selectedProductId) {
-        const selectedProduct = this.products.find(product => product.id === selectedProductId);
-        if (selectedProduct) {
-          this.combinedForm.patchValue({
-            purchaseUnitPrice: selectedProduct.purchase_amount,
-            saleUnitPrice: selectedProduct.sale_amount
-          }, { emitEvent: false });
+    const sub = this.combinedForm.get('productId')?.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(selectedProductId => {
+        if (selectedProductId) {
+          const selectedProduct = this.products.find(product => product.id === selectedProductId);
+          if (selectedProduct) {
+            this.combinedForm.patchValue({
+              purchaseUnitPrice: selectedProduct.purchase_amount,
+              saleUnitPrice: selectedProduct.sale_amount
+            }, { emitEvent: false });
+          }
         }
-      }
-    });
+      });
+    if (sub) {
+      this.formSubscriptions.push(sub);
+    }
   }
 
   private setupPurchaseDiscountCalculation() {
     const purchaseFields = ['quantity', 'purchaseUnitPrice', 'purchaseDiscount', 'purchaseDiscountAmount'];
     purchaseFields.forEach(field => {
-      this.combinedForm.get(field)?.valueChanges.subscribe(() => {
-        this.calculatePurchaseDiscount();
-      });
+      const sub = this.combinedForm.get(field)?.valueChanges
+        .pipe(takeUntil(this.destroy$))
+        .subscribe(() => {
+          this.calculatePurchaseDiscount();
+        });
+      if (sub) {
+        this.formSubscriptions.push(sub);
+      }
     });
   }
 
   private setupSaleDiscountCalculation() {
     const saleFields = ['quantity', 'saleUnitPrice', 'saleDiscount', 'saleDiscountAmount'];
     saleFields.forEach(field => {
-      this.combinedForm.get(field)?.valueChanges.subscribe(() => {
-        this.calculateSaleDiscount();
-      });
+      const sub = this.combinedForm.get(field)?.valueChanges
+        .pipe(takeUntil(this.destroy$))
+        .subscribe(() => {
+          this.calculateSaleDiscount();
+        });
+      if (sub) {
+        this.formSubscriptions.push(sub);
+      }
     });
   }
 

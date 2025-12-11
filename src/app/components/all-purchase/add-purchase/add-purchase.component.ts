@@ -80,9 +80,26 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    // Unsubscribe from all product subscriptions
+    this.productSubscriptions.forEach(sub => {
+      if (sub && !sub.closed) {
+        sub.unsubscribe();
+      }
+    });
+    this.productSubscriptions = [];
+
+    // Complete destroy subject to clean up all takeUntil subscriptions
     this.destroy$.next();
     this.destroy$.complete();
-    this.productSubscriptions.forEach(sub => sub?.unsubscribe());
+
+    // Clear arrays to release memory
+    this.products = [];
+    this.customers = [];
+
+    // Reset form to release form subscriptions
+    if (this.purchaseForm) {
+      this.purchaseForm.reset();
+    }
   }
 
   private initForm() {
@@ -205,68 +222,76 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
 
   private loadProducts(): void {
     this.isLoadingProducts = true;
-    this.productService.getProducts({ status: 'A' }).subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.products = response.data;
+    this.productService.getProducts({ status: 'A' })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.products = response.data;
+          }
+          this.isLoadingProducts = false;
+        },
+        error: (error) => {
+          this.snackbar.error('Failed to load products');
+          this.isLoadingProducts = false;
         }
-        this.isLoadingProducts = false;
-      },
-      error: (error) => {
-        this.snackbar.error('Failed to load products');
-        this.isLoadingProducts = false;
-      }
-    });
+      });
   }
 
   refreshProducts(): void {
     this.isLoadingProducts = true;
-    this.productService.refreshProducts().subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.products = response.data;
-          this.snackbar.success('Products refreshed successfully');
+    this.productService.refreshProducts()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.products = response.data;
+            this.snackbar.success('Products refreshed successfully');
+          }
+          this.isLoadingProducts = false;
+        },
+        error: (error) => {
+          this.snackbar.error('Failed to refresh products');
+          this.isLoadingProducts = false;
         }
-        this.isLoadingProducts = false;
-      },
-      error: (error) => {
-        this.snackbar.error('Failed to refresh products');
-        this.isLoadingProducts = false;
-      }
-    });
+      });
   }
 
   private loadCustomers(): void {
     this.isLoadingCustomers = true;
-    this.customerService.getCustomers({ status: 'A' }).subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.customers = response.data;
+    this.customerService.getCustomers({ status: 'A' })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.customers = response.data;
+          }
+          this.isLoadingCustomers = false;
+        },
+        error: (error) => {
+          this.snackbar.error('Failed to load customers');
+          this.isLoadingCustomers = false;
         }
-        this.isLoadingCustomers = false;
-      },
-      error: (error) => {
-        this.snackbar.error('Failed to load customers');
-        this.isLoadingCustomers = false;
-      }
-    });
+      });
   }
 
   refreshCustomers(): void {
     this.isLoadingCustomers = true;
-    this.customerService.refreshCustomers().subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.customers = response.data;
+    this.customerService.refreshCustomers()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.customers = response.data;
+          }
+          this.snackbar.success('Customers refreshed successfully');
+          this.isLoadingCustomers = false;
+        },
+        error: (error) => {
+          this.snackbar.error('Failed to load customers');
+          this.isLoadingCustomers = false;
         }
-        this.snackbar.success('Customers refreshed successfully');
-        this.isLoadingCustomers = false;
-      },
-      error: (error) => {
-        this.snackbar.error('Failed to load customers');
-        this.isLoadingCustomers = false;
-      }
-    });
+      });
   }
 
   isFieldInvalid(fieldName: string): boolean {
@@ -311,20 +336,22 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
         ? this.purchaseService.updatePurchase(formData)
         : this.purchaseService.createPurchase(formData);
       
-      serviceCall.subscribe({
-        next: (response: any) => {
-          if (response?.success) {
-            this.snackbar.success(`Purchase ${this.isEdit ? 'updated' : 'created'} successfully`);
-            localStorage.removeItem('purchaseId');
-            this.router.navigate(['/purchase']);
+      serviceCall
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (response: any) => {
+            if (response?.success) {
+              this.snackbar.success(`Purchase ${this.isEdit ? 'updated' : 'created'} successfully`);
+              localStorage.removeItem('purchaseId');
+              this.router.navigate(['/purchase']);
+            }
+            this.loading = false;
+          },
+          error: (error) => {
+            this.snackbar.error(error?.error?.message || `Failed to ${this.isEdit ? 'update' : 'create'} purchase`);
+            this.loading = false;
           }
-          this.loading = false;
-        },
-        error: (error) => {
-          this.snackbar.error(error?.error?.message || `Failed to ${this.isEdit ? 'update' : 'create'} purchase`);
-          this.loading = false;
-        }
-      });
+        });
     } else {
       // Scroll to first error
       const firstError = document.querySelector('.is-invalid');
@@ -406,11 +433,11 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
   }
 
   private fetchPurchaseDetails(id: number): void {
-    this.purchaseService.getPurchaseDetails(id).subscribe({
-      next: (response: any) => {
-        console.log('response : ', response);
+    this.purchaseService.getPurchaseDetails(id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response: any) => {
           if (response.id) {
-            console.log('response.data : ', response.id);
             this.isEdit = true;
             this.populateForm(response);
           }
@@ -422,6 +449,14 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
   }
 
   private populateForm(data: any): void {
+    // Clear existing subscriptions before repopulating
+    this.productSubscriptions.forEach(sub => {
+      if (sub && !sub.closed) {
+        sub.unsubscribe();
+      }
+    });
+    this.productSubscriptions = [];
+
     this.purchaseForm.patchValue({
       customerId: data.customerId,
       id: data.id,
@@ -446,7 +481,7 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
         taxAmount: item.taxAmount,
         batchNumber: item.batchNumber,
         remarks: item.remarks
-      });
+      }, { emitEvent: false });
       this.productsFormArray.push(productGroup);
     });
     this.isEdit = true;

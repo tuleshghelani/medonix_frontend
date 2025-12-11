@@ -161,35 +161,39 @@ export class AddPaymentHistoryComponent implements OnInit, OnDestroy {
 
   private loadCustomers(): void {
     this.isLoadingCustomers = true;
-    this.customerService.getCustomers({ status: 'A' }).subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.customers = response.data;
+    this.customerService.getCustomers({ status: 'A' })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.customers = response.data;
+          }
+          this.isLoadingCustomers = false;
+        },
+        error: (error) => {
+          this.snackbar.error('Failed to load customers');
+          this.isLoadingCustomers = false;
         }
-        this.isLoadingCustomers = false;
-      },
-      error: (error) => {
-        this.snackbar.error('Failed to load customers');
-        this.isLoadingCustomers = false;
-      }
-    });
+      });
   }
 
   refreshCustomers(): void {
     this.isLoadingCustomers = true;
-    this.customerService.refreshCustomers().subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.customers = response.data;
-          this.snackbar.success('Customers refreshed successfully');
+    this.customerService.refreshCustomers()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.customers = response.data;
+            this.snackbar.success('Customers refreshed successfully');
+          }
+          this.isLoadingCustomers = false;
+        },
+        error: (error) => {
+          this.snackbar.error('Failed to refresh customers');
+          this.isLoadingCustomers = false;
         }
-        this.isLoadingCustomers = false;
-      },
-      error: (error) => {
-        this.snackbar.error('Failed to refresh customers');
-        this.isLoadingCustomers = false;
-      }
-    });
+      });
   }
 
   // Convert date from YYYY-MM-DD (date picker) to DD-MM-YYYY (API format)
@@ -230,7 +234,6 @@ export class AddPaymentHistoryComponent implements OnInit, OnDestroy {
         this.router.navigate(['/payment-history']);
       },
       error: (error: any) => {
-        console.error('Error saving payment history:', error);
         this.snackbar.error('Failed to save payment history');
       },
       complete: () => { this.loading = false; }
@@ -238,7 +241,16 @@ export class AddPaymentHistoryComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    // Complete destroy subject to clean up all takeUntil subscriptions
     this.destroy$.next();
     this.destroy$.complete();
+
+    // Clear arrays to release memory
+    this.customers = [];
+
+    // Reset form to release form subscriptions
+    if (this.form) {
+      this.form.reset();
+    }
   }
 }

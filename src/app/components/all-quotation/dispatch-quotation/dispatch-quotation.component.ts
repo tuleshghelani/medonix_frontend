@@ -86,10 +86,17 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    // Unsubscribe from all item subscriptions
+    this.itemSubscriptions.forEach(sub => {
+      if (sub && !sub.closed) {
+        sub.unsubscribe();
+      }
+    });
+    this.itemSubscriptions = [];
+
+    // Complete destroy subject to clean up all takeUntil subscriptions
     this.destroy$.next();
     this.destroy$.complete();
-    this.itemSubscriptions.forEach(sub => sub?.unsubscribe());
-    this.itemSubscriptions = [];
 
     // Clear Maps and Sets to help with garbage collection
     this.lastStatusByIndex = {};
@@ -98,10 +105,15 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
     this.selectedQuotationItemIds.clear();
     this.selectedDispatchItemIds.clear();
 
-    // Clear arrays
+    // Clear arrays to release memory
     this.products = [];
     this.customers = [];
     this.transports = [];
+
+    // Reset form to release form subscriptions
+    if (this.quotationForm) {
+      this.quotationForm.reset();
+    }
   }
 
   private initForm() {

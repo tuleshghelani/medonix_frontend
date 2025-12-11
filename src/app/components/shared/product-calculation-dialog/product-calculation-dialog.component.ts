@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, Inject, HostListener } from '@angular/core';
+import { Component, Input, Output, EventEmitter, Inject, HostListener, OnDestroy } from '@angular/core';
 import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormsModule, AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
 import { PolyCarbonateType, Product, ProductCalculationType, ProductMainType } from '../../../models/product.model';
 import { MMProductCalculationTotal, SQFTProductCalculationTotal } from '../../../models/product-calculation.model';
@@ -16,7 +16,7 @@ import { ProductCalculationService } from '../../../services/product-calculation
   imports: [CommonModule, ReactiveFormsModule, FormsModule],
   providers: [CalculationService, ProductCalculationService]
 })
-export class ProductCalculationDialogComponent {
+export class ProductCalculationDialogComponent implements OnDestroy {
   product: any = null;
   calculationType: ProductCalculationType;
   // Add calculationBase property
@@ -447,7 +447,18 @@ export class ProductCalculationDialogComponent {
   }
 
   ngOnDestroy(): void {
-    this.subscriptions.forEach(sub => sub.unsubscribe());
+    // Unsubscribe from all subscriptions
+    this.subscriptions.forEach(sub => {
+      if (sub && !sub.closed) {
+        sub.unsubscribe();
+      }
+    });
+    this.subscriptions = [];
+
+    // Reset form to release form subscriptions
+    if (this.calculationForm) {
+      this.calculationForm.reset();
+    }
   }
 
   // Add keyboard shortcut listener for Alt+A

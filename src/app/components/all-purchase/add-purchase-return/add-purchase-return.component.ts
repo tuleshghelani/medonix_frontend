@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, Validators, AbstractControl } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
@@ -14,7 +14,7 @@ import { EncryptionService } from '../../../shared/services/encryption.service';
   templateUrl: './add-purchase-return.component.html',
   styleUrls: ['./add-purchase-return.component.scss']
 })
-export class AddPurchaseReturnComponent {
+export class AddPurchaseReturnComponent implements OnInit, OnDestroy {
   returnForm: FormGroup;
   isLoading = false;
   isSaving = false;
@@ -64,8 +64,18 @@ export class AddPurchaseReturnComponent {
   }
 
   ngOnDestroy(): void {
+    // Complete destroy subject to clean up all takeUntil subscriptions
     this.destroy$.next();
     this.destroy$.complete();
+
+    // Clear arrays to release memory
+    this.products = [];
+    this.purchaseDetails = null;
+
+    // Reset form to release form subscriptions
+    if (this.returnForm) {
+      this.returnForm.reset();
+    }
   }
 
   private loadProducts(): void {

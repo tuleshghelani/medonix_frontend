@@ -104,9 +104,26 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    // Unsubscribe from all product subscriptions
+    this.productSubscriptions.forEach(sub => {
+      if (sub && !sub.closed) {
+        sub.unsubscribe();
+      }
+    });
+    this.productSubscriptions = [];
+
+    // Complete destroy subject to clean up all takeUntil subscriptions
     this.destroy$.next();
     this.destroy$.complete();
-    this.productSubscriptions.forEach(sub => sub?.unsubscribe());
+
+    // Clear arrays to release memory
+    this.products = [];
+    this.customers = [];
+
+    // Reset form to release form subscriptions
+    if (this.returnForm) {
+      this.returnForm.reset();
+    }
   }
 
   private initForm(): void {

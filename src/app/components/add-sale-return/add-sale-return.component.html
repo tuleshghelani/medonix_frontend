@@ -123,16 +123,28 @@
               <tr *ngFor="let product of productsFormArray.controls; let i=index" [formGroupName]="i">
                 <td>
                   <div class="form-field-container">
-                    <app-searchable-select
-                      [focusWidthPx]="600"
-                      formControlName="productId"
-                      [options]="products"
-                      labelKey="name"
-                      valueKey="id"
-                      [placeholder]="'Select Product'"
-                      [searchPlaceholder]="'Search products...'"
-                      [class.is-invalid]="isProductFieldInvalid(i, 'productId')"
-                    ></app-searchable-select>
+                    <div class="select-group">
+                      <app-searchable-select
+                        [focusWidthPx]="600"
+                        formControlName="productId"
+                        [options]="products"
+                        labelKey="name"
+                        valueKey="id"
+                        [placeholder]="'Select Product'"
+                        [searchPlaceholder]="'Search products...'"
+                        [class.is-invalid]="isProductFieldInvalid(i, 'productId')"
+                      ></app-searchable-select>
+                      <button 
+                        type="button" 
+                        class="btn btn-sm btn-primary refresh" 
+                        (click)="refreshProducts()"
+                        [disabled]="isLoadingProducts" 
+                        title="Refresh Products"
+                        (touchstart)="$event.preventDefault()"
+                      >
+                        <i class="fas" [ngClass]="isLoadingProducts ? 'fa-spinner fa-spin' : 'fa-sync-alt'"></i>
+                      </button>
+                    </div>
                     <div class="invalid-feedback" *ngIf="isProductFieldInvalid(i, 'productId')">
                       Please select a product
                     </div>

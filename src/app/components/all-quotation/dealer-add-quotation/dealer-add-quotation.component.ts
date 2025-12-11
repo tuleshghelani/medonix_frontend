@@ -65,13 +65,26 @@ export class DealerAddQuotationComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    // Unsubscribe from all item subscriptions
+    this.itemSubscriptions.forEach(sub => {
+      if (sub && !sub.closed) {
+        sub.unsubscribe();
+      }
+    });
+    this.itemSubscriptions = [];
+
+    // Complete destroy subject to clean up all takeUntil subscriptions
     this.destroy$.next();
     this.destroy$.complete();
-    this.itemSubscriptions.forEach(sub => sub?.unsubscribe());
-    this.itemSubscriptions = [];
+
+    // Clear arrays and maps to release memory
     this.products = [];
-    // Clear Map to help with garbage collection
     this.productPriceCache.clear();
+
+    // Reset form to release form subscriptions
+    if (this.quotationForm) {
+      this.quotationForm.reset();
+    }
   }
 
   private initForm() {
@@ -245,7 +258,6 @@ export class DealerAddQuotationComponent implements OnInit, OnDestroy {
           }
         },
         error: (error) => {
-          console.error('Error fetching customer price:', error);
           // Fallback to product saleAmount if API fails
           this.setFallbackPrice(index);
         }

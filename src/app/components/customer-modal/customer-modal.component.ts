@@ -56,17 +56,22 @@ export class CustomerModalComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    // Complete the destroy subject to unsubscribe all observables
-    this.destroy$.next();
-    this.destroy$.complete();
-
     // Unsubscribe from modal state subscription
     if (this.modalStateSubscription) {
       this.modalStateSubscription.unsubscribe();
     }
 
+    // Complete the destroy subject to unsubscribe all observables
+    this.destroy$.next();
+    this.destroy$.complete();
+
     // Clean up references
     this.currentCustomer = null;
+
+    // Reset form to release form subscriptions
+    if (this.customerForm) {
+      this.customerForm.reset();
+    }
   }
 
   private initForm() {

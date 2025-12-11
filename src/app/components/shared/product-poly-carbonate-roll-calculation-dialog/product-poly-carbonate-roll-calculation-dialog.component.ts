@@ -1,4 +1,4 @@
-import { Component, Inject, HostListener } from '@angular/core';
+import { Component, Inject, HostListener, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormsModule, AbstractControl } from '@angular/forms';
 import { Product } from '../../../models/product.model';
@@ -12,7 +12,7 @@ import { Subscription } from 'rxjs';
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, FormsModule]
 })
-export class ProductPolyCarbonateRollCalculationDialogComponent {
+export class ProductPolyCarbonateRollCalculationDialogComponent implements OnDestroy {
   product: Product;
   
   calculationForm!: FormGroup;
@@ -324,8 +324,17 @@ export class ProductPolyCarbonateRollCalculationDialogComponent {
   }
 
   ngOnDestroy(): void {
-    // Clean up all subscriptions
-    this.subscriptions.forEach(sub => sub.unsubscribe());
+    // Unsubscribe from all subscriptions
+    this.subscriptions.forEach(sub => {
+      if (sub && !sub.closed) {
+        sub.unsubscribe();
+      }
+    });
     this.subscriptions = [];
+
+    // Reset form to release form subscriptions
+    if (this.calculationForm) {
+      this.calculationForm.reset();
+    }
   }
 }

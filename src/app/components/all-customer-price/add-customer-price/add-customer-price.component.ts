@@ -140,7 +140,7 @@ export class AddCustomerPriceComponent {
           }
         }
       } catch (error) {
-        console.error('Error decrypting user data:', error);
+        // Silently handle decryption error
       }
     }
 
@@ -159,18 +159,41 @@ export class AddCustomerPriceComponent {
             }
           },
           error: (error) => {
-            console.error('Error loading current user:', error);
+            // Silently handle error - user data not critical for this component
           }
         });
     }
   }
 
   ngOnDestroy() {
+    // Unsubscribe from all item subscriptions
+    this.itemSubscriptions.forEach(sub => {
+      if (sub && !sub.closed) {
+        sub.unsubscribe();
+      }
+    });
+    this.itemSubscriptions = [];
+
+    // Complete search subject
+    this.searchSubject.complete();
+
+    // Complete destroy subject to clean up all takeUntil subscriptions
     this.destroy$.next();
     this.destroy$.complete();
-    this.itemSubscriptions.forEach(sub => sub?.unsubscribe());
-    this.itemSubscriptions = [];
+
+    // Clear arrays and objects to release memory
     this.products = [];
+    this.customers = [];
+    this.productsWithPrices = [];
+    this.currentUser = null;
+    this.updatingPrices = {};
+    this.deletingPrices = {};
+    this.isLoadingPrices = {};
+
+    // Reset form to release form subscriptions
+    if (this.quotationForm) {
+      this.quotationForm.reset();
+    }
   }
 
   private initForm() {
@@ -325,7 +348,6 @@ export class AddCustomerPriceComponent {
         },
         error: (error) => {
           this.isLoadingPrices[index] = false;
-          console.error('Error fetching customer price:', error);
           // Fallback to product saleAmount if API fails
           this.setFallbackPrice(index);
         }
@@ -665,7 +687,6 @@ export class AddCustomerPriceComponent {
           this.cdr.detectChanges();
         },
         error: (error) => {
-          console.error('Error loading products with prices:', error);
           this.snackbar.error(error?.error?.message || 'Failed to load products with prices');
           this.productsWithPrices = [];
           this.isLoadingProductsWithPrices = false;

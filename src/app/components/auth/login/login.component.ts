@@ -46,7 +46,7 @@ export class LoginComponent implements OnDestroy {
               localStorage.setItem('user', JSON.stringify(response.user));
             }
             this.snackbar.success('Login successful');
-            this.router.navigate(['/category']);
+            this.router.navigate(['/quotation']);
           },
           error: (error) => {
             this.snackbar.error(error?.error?.message || 'Login failed');
