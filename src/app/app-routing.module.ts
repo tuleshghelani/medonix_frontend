@@ -55,6 +55,12 @@ const routes: Routes = [
     canActivate: [AuthGuard, RoleGuard],
     data: { preload: true, roles: ['ADMIN', 'STAFF_ADMIN', 'DEALER'] }
   },
+  { 
+    path: 'purchase-challan', 
+    loadChildren: () => import('./components/all-purchase/purchase-challan.module').then(m => m.PurchaseChallanModule),
+    canActivate: [AuthGuard, RoleGuard],
+    data: { preload: true, roles: ['ADMIN', 'STAFF_ADMIN', 'DEALER'] }
+  },
   {
     path: 'sale',
     component: SaleComponent,
