@@ -14,6 +14,7 @@ import { SearchableSelectComponent } from '../../shared/components/searchable-se
 import { EncryptionService } from '../../shared/services/encryption.service';
 
 interface ProductForm {
+  id?: number | null;
   productId: string;
   quantity: number;
   batchNumber: string;
@@ -144,6 +145,7 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
 
   private createProductFormGroup(): FormGroup {
     return this.fb.group({
+      id: [null], // Item ID for updates
       productId: ['', Validators.required],
       quantity: ['', [Validators.required, Validators.min(1)]],
       batchNumber: ['', [this.noDoubleQuotesValidator()]],
@@ -398,9 +400,10 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
       packagingAndForwadingCharges: Number(formValue.packagingAndForwadingCharges || 0),
       totalAmount: this.getGrandTotal(),
       products: formValue.products.map((product: ProductForm, index: number) => {
+        const itemId = this.productsFormArray.at(index).get('id')?.value;
         const price = this.productsFormArray.at(index).get('price')?.value || 0;
         const taxAmount = this.productsFormArray.at(index).get('taxAmount')?.value || 0;
-        return {
+        const item: any = {
           productId: product.productId,
           quantity: product.quantity,
           batchNumber: product.batchNumber,
@@ -411,6 +414,11 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
           finalPrice: price + taxAmount,
           remarks: product.remarks
         };
+        // Include item id when updating
+        if (this.isEdit && itemId) {
+          item.id = itemId;
+        }
+        return item;
       })
     };
     
@@ -503,6 +511,7 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
         this.setupProductCalculations(productGroup, index);
         
         productGroup.patchValue({
+          id: item.id, // Store item ID for updates
           productId: item.productId,
           quantity: item.quantity,
           unitPrice: item.unitPrice,

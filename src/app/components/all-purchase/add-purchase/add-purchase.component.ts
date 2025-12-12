@@ -15,6 +15,7 @@ import { SearchableSelectComponent } from '../../../shared/components/searchable
 import { EncryptionService } from '../../../shared/services/encryption.service';
 
 interface ProductForm {
+  id?: number | null;
   productId: string;
   quantity: number;
   batchNumber: string;
@@ -118,6 +119,7 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
 
   private createProductFormGroup(): FormGroup {
     return this.fb.group({
+      id: [null], // Item ID for updates
       productId: ['', Validators.required],
       quantity: ['', [Validators.required, Validators.min(1)]],
       batchNumber: ['', [this.noDoubleQuotesValidator()]],
@@ -370,16 +372,24 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
       price: this.getTotalAmount(),
       taxAmount: this.getTotalTaxAmount(),
       packagingAndForwadingCharges: Number(formValue.packagingAndForwadingCharges || 0),
-      products: formValue.products.map((product: ProductForm, index: number) => ({
-        productId: product.productId,
-        quantity: product.quantity,
-        batchNumber: product.batchNumber,
-        unitPrice: product.unitPrice,
-        price: this.productsFormArray.at(index).get('price')?.value,
-        taxPercentage: this.productsFormArray.at(index).get('taxPercentage')?.value,
-        taxAmount: this.productsFormArray.at(index).get('taxAmount')?.value,
-        remarks: product.remarks
-      }))
+      products: formValue.products.map((product: ProductForm, index: number) => {
+        const itemId = this.productsFormArray.at(index).get('id')?.value;
+        const item: any = {
+          productId: product.productId,
+          quantity: product.quantity,
+          batchNumber: product.batchNumber,
+          unitPrice: product.unitPrice,
+          price: this.productsFormArray.at(index).get('price')?.value,
+          taxPercentage: this.productsFormArray.at(index).get('taxPercentage')?.value,
+          taxAmount: this.productsFormArray.at(index).get('taxAmount')?.value,
+          remarks: product.remarks
+        };
+        // Include item id when updating
+        if (this.isEdit && itemId) {
+          item.id = itemId;
+        }
+        return item;
+      })
     };
     
     // Include id only when updating
@@ -473,6 +483,7 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
       const productGroup = this.createProductFormGroup();
       this.setupProductCalculations(productGroup, index);
       productGroup.patchValue({
+        id: item.id, // Store item ID for updates
         productId: item.productId,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
