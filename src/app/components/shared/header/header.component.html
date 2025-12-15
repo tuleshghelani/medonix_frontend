@@ -98,11 +98,16 @@
             <li *ngIf="permissions.canViewPurchase">
               <a routerLink="/purchase" routerLinkActive="active" (click)="closeAllMenus()">
                 <i class="fas fa-shopping-cart"></i> Purchase
-              </a>
+              </a>  
             </li>
             <li *ngIf="permissions.canViewPurchase">
               <a routerLink="/purchase-challan" routerLinkActive="active" (click)="closeAllMenus()">
                 <i class="fas fa-file-invoice"></i> Purchase Challan
+              </a>
+            </li>
+            <li *ngIf="permissions.canViewPurchase">
+              <a routerLink="/purchase-order" routerLinkActive="active" (click)="closeAllMenus()">
+                <i class="fas fa-clipboard-list"></i> Purchase Order
               </a>
             </li>
             <li *ngIf="permissions.canViewPurchaseReturn">
