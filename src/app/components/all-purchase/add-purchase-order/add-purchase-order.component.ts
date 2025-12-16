@@ -13,6 +13,7 @@ import { SnackbarService } from '../../../shared/services/snackbar.service';
 import { LoaderComponent } from '../../../shared/components/loader/loader.component';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select.component';
 import { EncryptionService } from '../../../shared/services/encryption.service';
+import { PackagingChargesModalComponent } from '../../all-quotation/dispatch-quotation/packaging-charges-modal.component';
 
 interface ProductForm {
   id?: number | null;
@@ -34,7 +35,8 @@ interface ProductForm {
     ReactiveFormsModule,
     RouterModule,
     LoaderComponent,
-    SearchableSelectComponent
+    SearchableSelectComponent,
+    PackagingChargesModalComponent
   ],
   templateUrl: './add-purchase-order.component.html',
   styleUrls: ['./add-purchase-order.component.scss']
@@ -49,6 +51,9 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
   isEdit = false;
   private destroy$ = new Subject<void>();
   private productSubscriptions: Subscription[] = [];
+  private selectedItemIds = new Set<number>();
+  showPackagingChargesModal = false;
+  purchaseId?: number;
 
   get productsFormArray() {
     return this.purchaseOrderForm.get('products') as FormArray;
@@ -96,6 +101,7 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
     // Clear arrays to release memory
     this.products = [];
     this.customers = [];
+    this.selectedItemIds.clear();
 
     // Reset form to release form subscriptions
     if (this.purchaseOrderForm) {
@@ -127,7 +133,8 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
       price: [{ value: 0, disabled: true }],
       taxPercentage: [{ value: 0, disabled: true }],
       taxAmount: [{ value: 0, disabled: true }],
-      remarks:[null, []]
+      remarks:[null, []],
+      purchaseId: [null] // Purchase ID if this item has been converted to purchase
     });
   }
 
@@ -437,18 +444,31 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
     return taxAmount ? taxAmount.toFixed(2) : '0.00';
   }
 
-  private fetchPurchaseOrderDetails(id: number): void {
+  private fetchPurchaseOrderDetails(id: number, setLoading: boolean = false): void {
+    if (setLoading) {
+      this.loading = true;
+    }
     this.purchaseOrderService.getPurchaseOrderDetails(id)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response: any) => {
           if (response.id) {
             this.isEdit = true;
+            // Store purchaseId if available in response
+            if (response.purchaseId) {
+              this.purchaseId = response.purchaseId;
+            }
             this.populateForm(response);
+          }
+          if (setLoading) {
+            this.loading = false;
           }
         },
         error: (error: any) => {
           this.snackbar.error(error?.error?.message || 'Failed to load purchase order details');
+          if (setLoading) {
+            this.loading = false;
+          }
         }
       });
   }
@@ -495,11 +515,153 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
         taxPercentage: taxPercentage,
         taxAmount: taxAmount,
         batchNumber: item.batchNumber || '',
-        remarks: item.remarks || ''
+        remarks: item.remarks || '',
+        purchaseId: item.purchaseId || null // Store purchaseId if item has been converted
       }, { emitEvent: false });
+
+      // Disable form controls if purchaseId exists (either at order level or item level)
+      const itemPurchaseId = item.purchaseId || null;
+      if (this.purchaseId || itemPurchaseId) {
+        productGroup.get('productId')?.disable();
+        productGroup.get('quantity')?.disable();
+        productGroup.get('batchNumber')?.disable();
+        productGroup.get('unitPrice')?.disable();
+        productGroup.get('remarks')?.disable();
+      }
+
       this.productsFormArray.push(productGroup);
     });
     this.isEdit = true;
+  }
+
+  // Selection helpers for converting to purchase
+  private getItemIdByIndex(index: number): number | null {
+    const group = this.productsFormArray.at(index) as FormGroup;
+    const id = group?.get('id')?.value;
+    return typeof id === 'number' ? id : null;
+  }
+
+  isSelected(index: number): boolean {
+    const id = this.getItemIdByIndex(index);
+    if (!id) return false;
+    return this.selectedItemIds.has(id);
+  }
+
+  toggleSelection(index: number, event: Event): void {
+    const id = this.getItemIdByIndex(index);
+    if (!id) return;
+    const input = event.target as HTMLInputElement;
+    if (input.checked) {
+      this.selectedItemIds.add(id);
+    } else {
+      this.selectedItemIds.delete(id);
+    }
+  }
+
+  hasSelection(): boolean {
+    return this.selectedItemIds.size > 0;
+  }
+
+  convertToPurchase(): void {
+    const orderId = this.purchaseOrderForm.get('id')?.value;
+    if (!orderId) {
+      this.snackbar.error('Purchase order ID not found');
+      return;
+    }
+
+    // Check if any items are selected
+    if (!this.hasSelection()) {
+      this.snackbar.error('Please select at least one item to convert to purchase');
+      return;
+    }
+
+    // Show packaging charges modal before converting (as per requirement, matching dispatch-quotation behavior)
+    this.showPackagingChargesModal = true;
+  }
+
+  onPackagingChargesConfirm(data: number | { id: number; invoiceNumber: string; packagingAndForwadingCharges: number }): void {
+    this.showPackagingChargesModal = false;
+    
+    // Get selected item IDs
+    const purchaseOrderItemIds = Array.from(this.selectedItemIds);
+    
+    if (purchaseOrderItemIds.length === 0) {
+      this.snackbar.error('Please select at least one item to convert to purchase');
+      return;
+    }
+    
+    // Handle both number (backward compatibility) and object (new format with invoice number)
+    let requestBody: { id: number; invoiceNumber: string; packagingAndForwadingCharges: number; purchaseOrderItemIds: number[] };
+    
+    if (typeof data === 'object' && data.id !== undefined) {
+      // New format: object with id, invoiceNumber (from user input), and packagingAndForwadingCharges
+      requestBody = {
+        ...data,
+        purchaseOrderItemIds: purchaseOrderItemIds
+      };
+    } else {
+      // Fallback: use form values if number is passed (shouldn't happen but for safety)
+      const orderId = this.purchaseOrderForm.get('id')?.value;
+      const invoiceNumber = this.purchaseOrderForm.get('invoiceNumber')?.value;
+      
+      if (!orderId) {
+        this.snackbar.error('Purchase order ID not found');
+        return;
+      }
+
+      requestBody = {
+        id: orderId,
+        invoiceNumber: invoiceNumber || '',
+        packagingAndForwadingCharges: typeof data === 'number' ? data : 0,
+        purchaseOrderItemIds: purchaseOrderItemIds
+      };
+    }
+
+    if (!requestBody.id) {
+      this.snackbar.error('Purchase order ID not found');
+      return;
+    }
+
+    this.loading = true;
+    this.purchaseOrderService.convertToPurchase(requestBody)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response: any) => {
+          if (response?.success) {
+            this.snackbar.success(response?.message || 'Purchase order converted to purchase successfully');
+            if (response?.data?.purchaseId) {
+              this.purchaseId = response.data.purchaseId;
+            }
+            // Clear selections after successful conversion
+            this.selectedItemIds.clear();
+            // Refresh the component to reload purchase order details with updated purchaseId
+            this.fetchPurchaseOrderDetails(requestBody.id, true);
+          } else {
+            this.snackbar.error(response?.message || 'Failed to convert purchase order to purchase');
+            this.loading = false;
+          }
+        },
+        error: (error: any) => {
+          this.snackbar.error(error?.error?.message || 'Failed to convert purchase order to purchase');
+          this.loading = false;
+        }
+      });
+  }
+
+  onPackagingChargesCancel(): void {
+    this.showPackagingChargesModal = false;
+  }
+
+  private disableProductFormControls(): void {
+    // Disable all product form controls when purchaseId exists
+    this.productsFormArray.controls.forEach((control) => {
+      const productGroup = control as FormGroup;
+      productGroup.get('productId')?.disable();
+      productGroup.get('quantity')?.disable();
+      productGroup.get('batchNumber')?.disable();
+      productGroup.get('unitPrice')?.disable();
+      productGroup.get('remarks')?.disable();
+    });
   }
 
 }

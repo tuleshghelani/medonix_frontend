@@ -487,7 +487,7 @@ export class ProductComponent implements OnInit, OnDestroy {
   private calculateTotalRemainingQuantity(): void {
     const remainingQuantity = this.productForm.get('remainingQuantity')?.value ?? 0;
     const blockedQuantity = this.productForm.get('blockedQuantity')?.value ?? 0;
-    const totalRemaining = remainingQuantity - blockedQuantity;
+    const totalRemaining = remainingQuantity + blockedQuantity;
 
     this.productForm.patchValue({
       totalRemainingQuantity: totalRemaining

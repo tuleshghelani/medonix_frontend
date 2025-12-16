@@ -229,7 +229,7 @@ export class PurchaseOrderComponent implements OnInit, OnDestroy {
       });
   }
 
-  convertToPurchase(id: number, invoiceNumber?: string): void {
+  /*convertToPurchase(id: number, invoiceNumber?: string): void {
     if (confirm(`Are you sure you want to convert Purchase Order ${invoiceNumber || id} to Purchase? This action cannot be undone.`)) {
       this.isLoading = true;
       this.purchaseOrderService.convertToPurchase(id)
@@ -255,7 +255,7 @@ export class PurchaseOrderComponent implements OnInit, OnDestroy {
           }
         });
     }
-  }
+  }*/
 
   ngOnDestroy(): void {
     this.destroy$.next();

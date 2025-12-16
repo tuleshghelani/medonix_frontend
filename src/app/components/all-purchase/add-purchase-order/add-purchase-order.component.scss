@@ -290,14 +290,23 @@
     white-space: nowrap;
     border-bottom: 2px solid var(--border-color);
 
+    // Select column - narrow width for checkbox
+    &.select-col {
+      width: 60px;
+      max-width: 60px;
+      min-width: 60px;
+      text-align: center;
+      padding: 1rem 0.5rem;
+    }
+
     // Product Name header - increased width
-    &:first-child {
+    &.product-name-col {
       width: 30%;
       min-width: 300px;
     }
 
     // Rate header - decreased width
-    &:nth-child(4) {
+    &.rate-col {
       width: 10%;
       max-width: 120px;
     }
@@ -312,8 +321,17 @@
       min-width: 80px;
     }
 
+    // Select column - narrow width for checkbox
+    &.select-col {
+      width: 60px;
+      max-width: 60px;
+      min-width: 60px;
+      text-align: center;
+      padding: 0.75rem 0.5rem;
+    }
+
     // Product Name column - increased width
-    &:first-child {
+    &.product-name-col {
       width: 30%;
       min-width: 300px;
       
@@ -323,7 +341,7 @@
     }
 
     // Rate column - decreased width
-    &:nth-child(4) {
+    &.rate-col {
       width: 10%;
       max-width: 120px;
       

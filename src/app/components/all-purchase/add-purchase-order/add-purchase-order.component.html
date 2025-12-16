@@ -102,22 +102,28 @@
       </div>
 
       <!-- Products Section -->
-      <div class="products-section" formArrayName="products">
+      <section class="products-section" formArrayName="products" aria-labelledby="products-heading">
         <div class="products-header">
-          <h3><i class="fas fa-boxes"></i> Products</h3>
-          <button type="button" class="btn btn-sm btn-primary" (click)="addProduct()">
-            <i class="fas fa-plus"></i> Add Product
-          </button>
+          <h3 id="products-heading"><i class="fas fa-boxes" aria-hidden="true"></i> Products</h3>
+          <div>
+            <button type="button" class="btn btn-success me-2" *ngIf="isEdit && purchaseOrderForm.get('id')?.value && !purchaseId" (click)="convertToPurchase()">
+              <i class="fa-solid fa-shopping-cart"></i> Convert to Purchase
+            </button>
+            <button type="button" class="btn btn-sm btn-primary" (click)="addProduct()" [disabled]="!!purchaseId">
+              <i class="fas fa-plus"></i> Add Product
+            </button>
+          </div>
         </div>
 
         <div class="table-responsive">
           <table class="table products-table">
             <thead>
               <tr>
-                <th>Product Name</th>
+                <th class="select-col" *ngIf="!purchaseId">Select</th>
+                <th class="product-name-col">Product Name</th>
                 <th>Quantity</th>
                 <th>Batch Number</th>
-                <th>Rate</th>
+                <th class="rate-col">Rate</th>
                 <th>Price</th>
                 <th>Tax Amount</th>
                 <th>Remarks</th>
@@ -126,18 +132,29 @@
             </thead>
             <tbody>
               <tr *ngFor="let product of productsFormArray.controls; let i=index" [formGroupName]="i">
-                <td>
+                <td class="select-col" *ngIf="!purchaseId">
+                  <div *ngIf="isEdit && productsFormArray.at(i).get('id')?.value && !productsFormArray.at(i).get('purchaseId')?.value">
+                    <input 
+                      type="checkbox" 
+                      [checked]="isSelected(i)" 
+                      (change)="toggleSelection(i, $event)"
+                      [attr.aria-label]="'Select item ' + (i + 1) + ' for purchase conversion'"
+                      title="Select for purchase conversion">
+                  </div>
+                </td>
+                <td class="product-name-col">
                   <div class="form-field-container">
                     <div class="select-group">
                       <app-searchable-select
                         [focusWidthPx]="600"
-                        formControlName="productId"
-                        [options]="products"
-                        labelKey="name"
-                        valueKey="id"
-                        [placeholder]="'Select Product'"
-                        [searchPlaceholder]="'Search products...'"
-                        [class.is-invalid]="isProductFieldInvalid(i, 'productId')"
+                      formControlName="productId"
+                      [options]="products"
+                      labelKey="name"
+                      valueKey="id"
+                      [placeholder]="'Select Product'"
+                      [searchPlaceholder]="'Search products...'"
+                      [class.is-invalid]="isProductFieldInvalid(i, 'productId')"
+                      [disabled]="!!purchaseId || !!productsFormArray.at(i).get('purchaseId')?.value"
                       ></app-searchable-select>
                       <button 
                         type="button" 
@@ -164,6 +181,7 @@
                       [class.is-invalid]="isProductFieldInvalid(i, 'quantity')"
                       placeholder="Qty"
                       min="1"
+                      [readonly]="!!purchaseId || !!productsFormArray.at(i).get('purchaseId')?.value"
                     >
                     <div class="invalid-feedback" *ngIf="isProductFieldInvalid(i, 'quantity')">
                       Quantity must be 1 or greater
@@ -178,13 +196,14 @@
                       class="form-control"
                       [class.is-invalid]="isProductFieldInvalid(i, 'batchNumber')"
                       placeholder="Batch Number"
+                      [readonly]="!!purchaseId || !!productsFormArray.at(i).get('purchaseId')?.value"
                     >
                     <div class="invalid-feedback" *ngIf="productsFormArray.at(i).get('batchNumber')?.errors?.['doubleQuotes']">
                       Double quotes are not allowed
                     </div>
                   </div>
                 </td>
-                <td>
+                <td class="rate-col">
                   <div class="form-field-container">
                     <div class="input-group">
                       <input 
@@ -195,6 +214,7 @@
                         placeholder="Price"
                         min="0.01"
                         step="0.01"
+                        [readonly]="!!purchaseId || !!productsFormArray.at(i).get('purchaseId')?.value"
                       >
                     </div>
                     <div class="invalid-feedback" *ngIf="isProductFieldInvalid(i, 'unitPrice')">
@@ -231,6 +251,7 @@
                       formControlName="remarks" 
                       class="form-control"
                       placeholder="Remarks"
+                      [readonly]="!!purchaseId || !!productsFormArray.at(i).get('purchaseId')?.value"
                     >
                   </div>
                 </td>
@@ -239,7 +260,7 @@
                     type="button" 
                     class="btn btn-sm btn-danger" 
                     (click)="removeProduct(i)"
-                    [disabled]="productsFormArray.length === 1"
+                    [disabled]="productsFormArray.length === 1 || !!purchaseId || !!productsFormArray.at(i).get('purchaseId')?.value"
                     title="Remove Product"
                   >
                     <i class="fas fa-trash"></i>
@@ -249,10 +270,10 @@
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
 
       <!-- Purchase Order Summary -->
-      <div class="purchase-summary">
+      <section class="purchase-summary" aria-label="Purchase Order Summary">
         <div class="summary-item">
           <span>Total Products:</span>
           <strong>{{ productsFormArray.length }}</strong>
@@ -273,7 +294,7 @@
           <span>Grand Total:</span>
           <strong>₹{{ getGrandTotal() | number:'1.2-2' }}</strong>
         </div>
-      </div>
+      </section>
 
       <!-- Form Actions -->
       <div class="form-actions">
@@ -300,3 +321,11 @@
 
 <app-loader *ngIf="loading"></app-loader>
 
+<app-packaging-charges-modal
+  [show]="showPackagingChargesModal"
+  [defaultCharges]="purchaseOrderForm.get('packagingAndForwadingCharges')?.value || 0"
+  [requireInvoiceNumber]="true"
+  [orderId]="purchaseOrderForm.get('id')?.value"
+  (confirm)="onPackagingChargesConfirm($event)"
+  (cancel)="onPackagingChargesCancel()"
+></app-packaging-charges-modal>

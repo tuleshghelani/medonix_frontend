@@ -47,8 +47,8 @@ export class PurchaseOrderService {
     );
   }
 
-  convertToPurchase(orderId: number): Observable<any> {
-    return this.http.post(`${this.apiUrl}/convert-to-purchase`, { orderId });
+  convertToPurchase(data: { id: number; invoiceNumber: string; packagingAndForwadingCharges: number; purchaseOrderItemIds: number[] }): Observable<any> {
+    return this.http.post(`${this.apiUrl}/convert-to-purchase`, data);
   }
 }
 

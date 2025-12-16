@@ -956,9 +956,12 @@ export class DispatchQuotationComponent implements OnInit, OnDestroy {
     this.showPackagingChargesModal = true;
   }
 
-  onPackagingChargesConfirm(charges: number): void {
+  onPackagingChargesConfirm(data: number | { id: number; invoiceNumber: string; packagingAndForwadingCharges: number }): void {
     this.showPackagingChargesModal = false;
     const ids = Array.from(this.selectedQuotationItemIds);
+    
+    // Extract charges - handle both number (backward compatibility) and object (new format)
+    const charges = typeof data === 'number' ? data : data.packagingAndForwadingCharges;
     
     // Create sale with the packaging charges entered in modal
     // This is separate from the quotation's packagingAndForwadingCharges

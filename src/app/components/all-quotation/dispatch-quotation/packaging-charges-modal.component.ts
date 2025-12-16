@@ -15,6 +15,22 @@ import { trigger, transition, style, animate } from '@angular/animations';
         </div>
         <form [formGroup]="chargesForm" (ngSubmit)="onSubmit()">
           <div class="modal-body">
+            <div class="form-group" *ngIf="requireInvoiceNumber">
+              <label for="invoiceNumber">
+                <i class="fas fa-file-invoice"></i> Invoice Number <span class="required">*</span>
+              </label>
+              <input 
+                type="text" 
+                id="invoiceNumber" 
+                formControlName="invoiceNumber" 
+                class="form-control"
+                placeholder="Enter invoice number"
+                [class.is-invalid]="chargesForm.get('invoiceNumber')?.invalid && chargesForm.get('invoiceNumber')?.touched"
+              >
+              <div class="invalid-feedback" *ngIf="chargesForm.get('invoiceNumber')?.errors?.['required']">
+                Invoice number is required
+              </div>
+            </div>
             <div class="form-group">
               <label for="packagingAndForwadingCharges">
                 <i class="fas fa-rupee-sign"></i> Packaging & Forwarding Charges <span class="required">*</span>
@@ -66,7 +82,9 @@ import { trigger, transition, style, animate } from '@angular/animations';
 export class PackagingChargesModalComponent implements OnChanges {
   @Input() show = false;
   @Input() defaultCharges: number = 0;
-  @Output() confirm = new EventEmitter<number>();
+  @Input() requireInvoiceNumber: boolean = false;
+  @Input() orderId?: number;
+  @Output() confirm = new EventEmitter<number | { id: number; invoiceNumber: string; packagingAndForwadingCharges: number }>();
   @Output() cancel = new EventEmitter<void>();
 
   chargesForm: FormGroup;
@@ -74,6 +92,7 @@ export class PackagingChargesModalComponent implements OnChanges {
 
   constructor(private fb: FormBuilder) {
     this.chargesForm = this.fb.group({
+      invoiceNumber: [''],
       packagingAndForwadingCharges: [
         0,
         [Validators.required, Validators.min(0)]
@@ -82,9 +101,19 @@ export class PackagingChargesModalComponent implements OnChanges {
   }
 
   ngOnChanges(): void {
-    if (this.show && this.defaultCharges !== undefined) {
+    if (this.show) {
+      // Set validators for invoice number if required
+      const invoiceNumberControl = this.chargesForm.get('invoiceNumber');
+      if (this.requireInvoiceNumber) {
+        invoiceNumberControl?.setValidators([Validators.required]);
+      } else {
+        invoiceNumberControl?.clearValidators();
+      }
+      invoiceNumberControl?.updateValueAndValidity();
+      
       this.chargesForm.patchValue({
-        packagingAndForwadingCharges: this.defaultCharges || 0
+        packagingAndForwadingCharges: this.defaultCharges !== undefined ? this.defaultCharges : 0,
+        invoiceNumber: ''
       });
     }
   }
@@ -96,7 +125,19 @@ export class PackagingChargesModalComponent implements OnChanges {
   onSubmit(): void {
     if (this.chargesForm.valid) {
       const charges = Number(this.chargesForm.get('packagingAndForwadingCharges')?.value || 0);
-      this.confirm.emit(charges);
+      
+      // If orderId is provided and invoice number is required, emit object with all fields
+      if (this.requireInvoiceNumber && this.orderId !== undefined && this.orderId !== null) {
+        const invoiceNumber = this.chargesForm.get('invoiceNumber')?.value || '';
+        this.confirm.emit({
+          id: this.orderId,
+          invoiceNumber: invoiceNumber,
+          packagingAndForwadingCharges: charges
+        });
+      } else {
+        // Otherwise emit just the charges number for backward compatibility (dispatch-quotation)
+        this.confirm.emit(charges);
+      }
     } else {
       this.chargesForm.markAllAsTouched();
     }
