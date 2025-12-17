@@ -54,5 +54,15 @@ export class PurchaseOrderService {
   updatePurchaseOrderItemGetQuantity(payload: { id: number; getQuantity: number | null }): Observable<any> {
     return this.http.put(`${environment.apiUrl}/api/purchase-order-items/update-get-quantity`, payload);
   }
+
+  searchPendingPurchaseOrderItems(request: {
+    id?: number;
+    productId?: number;
+    customerId?: number;
+    page?: number;
+    size?: number;
+  }): Observable<any> {
+    return this.http.post(`${environment.apiUrl}/api/purchase-order-items/pending-item/search`, request);
+  }
 }
 

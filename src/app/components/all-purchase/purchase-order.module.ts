@@ -9,6 +9,7 @@ import { PurchaseOrderRoutingModule } from './purchase-order-routing.module';
 import { LoaderComponent } from '../../shared/components/loader/loader.component';
 import { SearchableSelectComponent } from '../../shared/components/searchable-select/searchable-select.component';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
+import { PurchaseOrderItemPendingComponent } from './purchase-order-item-pending/purchase-order-item-pending.component';
 
 @NgModule({
   imports: [
@@ -20,7 +21,8 @@ import { PaginationComponent } from '../../shared/components/pagination/paginati
     SearchableSelectComponent,
     PaginationComponent,
     PurchaseOrderComponent,
-    AddPurchaseOrderComponent
+    AddPurchaseOrderComponent,
+    PurchaseOrderItemPendingComponent
   ]
 })
 export class PurchaseOrderModule { }

@@ -110,6 +110,11 @@
                 <i class="fas fa-clipboard-list"></i> Purchase Order
               </a>
             </li>
+            <li *ngIf="permissions.canViewPurchase">
+              <a routerLink="/purchase-order/pending-item" routerLinkActive="active" (click)="closeAllMenus()">
+                <i class="fas fa-clock"></i> PO Pending Items
+              </a>
+            </li>
             <li *ngIf="permissions.canViewPurchaseReturn">
               <a routerLink="/purchase/return" routerLinkActive="active" (click)="closeAllMenus()">
                 <i class="fas fa-undo"></i> Purchase Return
