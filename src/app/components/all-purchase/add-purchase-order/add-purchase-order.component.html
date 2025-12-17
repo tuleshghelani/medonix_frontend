@@ -122,7 +122,7 @@
                 <th class="select-col" *ngIf="!purchaseId">Select</th>
                 <th class="product-name-col">Product Name</th>
                 <th>Quantity</th>
-                <th>Batch Number</th>
+                <th>Get Quantity</th>
                 <th class="rate-col">Rate</th>
                 <th>Price</th>
                 <th>Tax Amount</th>
@@ -191,15 +191,22 @@
                 <td>
                   <div class="form-field-container">
                     <input 
-                      type="text" 
-                      formControlName="batchNumber" 
+                      type="number" 
+                      formControlName="getQuantity" 
                       class="form-control"
-                      [class.is-invalid]="isProductFieldInvalid(i, 'batchNumber')"
-                      placeholder="Batch Number"
-                      [readonly]="!!purchaseId || !!productsFormArray.at(i).get('purchaseId')?.value"
+                      [class.is-invalid]="isProductFieldInvalid(i, 'getQuantity')"
+                      placeholder="Get Qty"
+                      min="0"
+                      step="1"
+                      (focus)="onGetQuantityFocus(i)"
+                      (change)="onGetQuantityChange(i, $event)"
+                      [readonly]="false"
                     >
-                    <div class="invalid-feedback" *ngIf="productsFormArray.at(i).get('batchNumber')?.errors?.['doubleQuotes']">
-                      Double quotes are not allowed
+                    <div class="invalid-feedback" *ngIf="productsFormArray.at(i).get('getQuantity')?.errors?.['maxQuantity']">
+                      Get Quantity cannot exceed Quantity
+                    </div>
+                    <div class="invalid-feedback" *ngIf="productsFormArray.at(i).get('getQuantity')?.errors?.['min']">
+                      Get Quantity must be 0 or greater
                     </div>
                   </div>
                 </td>

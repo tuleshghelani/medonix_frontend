@@ -50,5 +50,9 @@ export class PurchaseOrderService {
   convertToPurchase(data: { id: number; invoiceNumber: string; packagingAndForwadingCharges: number; purchaseOrderItemIds: number[] }): Observable<any> {
     return this.http.post(`${this.apiUrl}/convert-to-purchase`, data);
   }
+
+  updatePurchaseOrderItemGetQuantity(payload: { id: number; getQuantity: number | null }): Observable<any> {
+    return this.http.put(`${environment.apiUrl}/api/purchase-order-items/update-get-quantity`, payload);
+  }
 }
 

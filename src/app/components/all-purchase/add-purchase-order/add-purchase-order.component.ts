@@ -19,7 +19,7 @@ interface ProductForm {
   id?: number | null;
   productId: string;
   quantity: number;
-  batchNumber: string;
+  getQuantity?: number | null | string;
   unitPrice: number;
   price: number;
   taxPercentage: number;
@@ -128,7 +128,7 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
       id: [null], // Item ID for updates
       productId: ['', Validators.required],
       quantity: ['', [Validators.required, Validators.min(1)]],
-      batchNumber: ['', [this.noDoubleQuotesValidator()]],
+      getQuantity: [null, [this.getQuantityValidator()]],
       unitPrice: ['', [Validators.required, Validators.min(0.01)]],
       price: [{ value: 0, disabled: true }],
       taxPercentage: [{ value: 0, disabled: true }],
@@ -182,6 +182,14 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
         }
       });
 
+    // Keep getQuantity in sync with quantity for validation
+    const quantityControl = group.get('quantity');
+    const quantitySubscription = quantityControl?.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        group.get('getQuantity')?.updateValueAndValidity({ emitEvent: false });
+      });
+
     // Listen to quantity and unitPrice changes
     const valueSubscription = group.valueChanges
       .pipe(takeUntil(this.destroy$))
@@ -189,7 +197,15 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
         this.calculateProductPrice(index);
       });
     
-    this.productSubscriptions[index] = valueSubscription;
+    const compositeSubscription = new Subscription();
+    if (productIdSubscription) {
+      compositeSubscription.add(productIdSubscription);
+    }
+    if (quantitySubscription) {
+      compositeSubscription.add(quantitySubscription);
+    }
+    compositeSubscription.add(valueSubscription);
+    this.productSubscriptions[index] = compositeSubscription;
   }
 
   private calculateProductPrice(index: number): void {
@@ -320,7 +336,7 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
         if (errors['required']) return true;
         if (errors['min'] && fieldName === 'quantity') return true;
         if (errors['min'] && fieldName === 'unitPrice') return true;
-        if (errors['min'] || errors['max']) return true;
+        if (errors['min'] || errors['max'] || errors['maxQuantity']) return true;
         if (errors['min']) return true;
       }
     }
@@ -383,7 +399,9 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
           productId: Number(product.productId),
           quantity: Number(product.quantity),
           unitPrice: Number(product.unitPrice),
-          batchNumber: product.batchNumber || '',
+          getQuantity: product.getQuantity === null || product.getQuantity === undefined || product.getQuantity === '' 
+            ? null 
+            : Number(product.getQuantity),
           remarks: product.remarks || ''
         };
         // Include item id when updating
@@ -425,13 +443,6 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
       taxAmount: totalTaxAmount,
       totalAmount: totalPrice + totalTaxAmount 
     }, { emitEvent: false });
-  }
-
-  private noDoubleQuotesValidator(): ValidatorFn {
-    return (control: AbstractControl): ValidationErrors | null => {
-      if (!control.value) return null;
-      return control.value.includes('"') ? { doubleQuotes: true } : null;
-    };
   }
 
   getFormattedPrice(index: number): string {
@@ -510,11 +521,11 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
         id: item.id, // Store item ID for updates
         productId: item.productId,
         quantity: quantity,
+        getQuantity: item.getQuantity ?? null,
         unitPrice: unitPrice,
         price: price,
         taxPercentage: taxPercentage,
         taxAmount: taxAmount,
-        batchNumber: item.batchNumber || '',
         remarks: item.remarks || '',
         purchaseId: item.purchaseId || null // Store purchaseId if item has been converted
       }, { emitEvent: false });
@@ -524,7 +535,6 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
       if (this.purchaseId || itemPurchaseId) {
         productGroup.get('productId')?.disable();
         productGroup.get('quantity')?.disable();
-        productGroup.get('batchNumber')?.disable();
         productGroup.get('unitPrice')?.disable();
         productGroup.get('remarks')?.disable();
       }
@@ -658,10 +668,98 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
       const productGroup = control as FormGroup;
       productGroup.get('productId')?.disable();
       productGroup.get('quantity')?.disable();
-      productGroup.get('batchNumber')?.disable();
       productGroup.get('unitPrice')?.disable();
       productGroup.get('remarks')?.disable();
     });
+  }
+
+  onGetQuantityFocus(index: number): void {
+    const control = this.productsFormArray.at(index).get('getQuantity');
+    if (control && control.value === null) {
+      control.setValue('', { emitEvent: false });
+    }
+  }
+
+  onGetQuantityChange(index: number, event: Event): void {
+    const control = this.productsFormArray.at(index).get('getQuantity');
+    const quantity = Number(this.productsFormArray.at(index).get('quantity')?.value || 0);
+    const input = event.target as HTMLInputElement;
+    const rawValue = input.value;
+
+    if (!rawValue) {
+      control?.setValue(null, { emitEvent: false });
+      control?.updateValueAndValidity();
+      this.syncGetQuantityToServer(index, null);
+      return;
+    }
+
+    const value = Number(rawValue);
+    if (isNaN(value) || value < 0) {
+      control?.setValue(0, { emitEvent: false });
+      control?.updateValueAndValidity();
+      this.syncGetQuantityToServer(index, 0);
+      return;
+    }
+
+    if (value > quantity) {
+      control?.setValue(quantity, { emitEvent: false });
+      control?.updateValueAndValidity();
+      this.snackbar.warning('Get Quantity cannot exceed Quantity');
+      this.syncGetQuantityToServer(index, quantity);
+      return;
+    }
+
+    control?.setValue(value, { emitEvent: false });
+    control?.updateValueAndValidity();
+    this.syncGetQuantityToServer(index, value);
+  }
+
+  private syncGetQuantityToServer(index: number, getQuantity: number | null): void {
+    const group = this.productsFormArray.at(index) as FormGroup;
+    if (!this.isEdit) return;
+
+    const itemId = group.get('id')?.value;
+    if (!itemId) return;
+
+    this.purchaseOrderService.updatePurchaseOrderItemGetQuantity({
+      id: itemId,
+      getQuantity: getQuantity === null ? null : Number(getQuantity)
+    }).pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response: any) => {
+          if (response?.success === false) {
+            this.snackbar.error(response?.message || 'Failed to update Get Quantity');
+          }
+        },
+        error: () => {
+          this.snackbar.error('Failed to update Get Quantity');
+        }
+      });
+  }
+
+  private getQuantityValidator(): ValidatorFn {
+    return (control: AbstractControl): ValidationErrors | null => {
+      const value = control.value;
+      if (value === null || value === undefined || value === '') {
+        return null;
+      }
+
+      const numeric = Number(value);
+      if (isNaN(numeric) || numeric < 0) {
+        return { min: true };
+      }
+
+      const parent = control.parent as FormGroup | null;
+      const quantityRaw = parent?.get('quantity')?.value;
+      const quantityValue = quantityRaw === null || quantityRaw === undefined || quantityRaw === '' 
+        ? null 
+        : Number(quantityRaw);
+      if (quantityValue !== null && !isNaN(quantityValue) && numeric > quantityValue) {
+        return { maxQuantity: true };
+      }
+
+      return null;
+    };
   }
 
 }
