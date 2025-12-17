@@ -12,18 +12,7 @@
       <p class="muted">Refine by order, product, or customer to focus on what matters.</p>
     </div>
     <form [formGroup]="searchForm" (ngSubmit)="onSubmit($event)" class="search-form" aria-label="Pending purchase order item filters">
-      <div class="form-group">
-        <label for="orderId">Order ID</label>
-        <input 
-          id="orderId"
-          type="number"
-          formControlName="orderId"
-          min="0"
-          placeholder="Enter order id"
-          inputmode="numeric"
-        >
-      </div>
-
+    
       <div class="form-group">
         <label>Product</label>
         <div class="product-select-group">
