@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input, Output, EventEmitter, forwardRef, ElementRef, HostListener, OnDestroy, ViewChild } from '@angular/core';
+import { Component, Input, Output, EventEmitter, forwardRef, ElementRef, HostListener, OnDestroy, ViewChild, AfterViewInit } from '@angular/core';
 import { ControlValueAccessor, FormsModule, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
@@ -20,7 +20,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
     FormsModule
   ]
 })
-export class SearchableSelectComponent implements ControlValueAccessor, OnDestroy {
+export class SearchableSelectComponent implements ControlValueAccessor, OnDestroy, AfterViewInit {
   @Input() options: any[] = [];
   @Input() labelKey: string = 'name';
   @Input() valueKey: string = 'id';
@@ -47,11 +47,13 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
   filteredOptions: any[] = [];
   highlightedIndex: number = -1;
   interactingWithDropdown = false;
+  isPlaceholderVisible: boolean = true; // Track if placeholder is being shown
 
   onChange: any = () => {};
   onTouch: any = () => {};
 
   private searchDebounceTimer: any;
+  private isFirstClick: boolean = true; // Track first click to clear placeholder
 
   constructor(
     private elementRef: ElementRef,
@@ -66,6 +68,15 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
       };
     });
     this.filteredOptions = this.options;
+  }
+
+  ngAfterViewInit() {
+    // Set initial display text in contenteditable div
+    setTimeout(() => {
+      if (this.searchInput && !this.isOpen) {
+        this.searchInput.nativeElement.textContent = this.getDisplayText();
+      }
+    }, 0);
   }
 
   ngOnDestroy(): void {
@@ -89,9 +100,42 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
   onDropdownPointerDown(event?: Event) {
     // Prevent input blur from closing dropdown prematurely on mobile
     if (event) {
+      event.preventDefault();
       event.stopPropagation();
     }
     this.interactingWithDropdown = true;
+  }
+
+  onInputClick(event: MouseEvent | TouchEvent) {
+    // Prevent form submission
+    if (event.type === 'touchstart') {
+      event.preventDefault();
+    }
+    
+    // Clear placeholder text on first click
+    if (this.isFirstClick || this.isPlaceholderVisible) {
+      const currentText = this.getDisplayText();
+      const isPlaceholder = !this.hasSelection() && 
+        (currentText === this.placeholder || 
+         (this.defaultOption && currentText === this.defaultOption.label));
+      
+      if (isPlaceholder) {
+        if (event.type === 'touchstart') {
+          event.preventDefault();
+        }
+        this.searchText = '';
+        this.isPlaceholderVisible = false;
+        this.isFirstClick = false;
+        
+        // Clear the contenteditable div
+        setTimeout(() => {
+          if (this.searchInput) {
+            this.searchInput.nativeElement.textContent = '';
+            this.searchInput.nativeElement.focus();
+          }
+        }, 0);
+      }
+    }
   }
 
   
@@ -133,6 +177,22 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
         const selectedOption = this.options.find(opt => opt[this.valueKey] === value);
         if (selectedOption) {
           this.searchText = selectedOption[this.labelKey];
+          this.isPlaceholderVisible = false;
+          this.isFirstClick = false;
+          
+          // Update the contenteditable div
+          if (this.searchInput) {
+            this.searchInput.nativeElement.textContent = this.searchText;
+          }
+        }
+      } else {
+        this.isPlaceholderVisible = true;
+        this.isFirstClick = true;
+        this.searchText = '';
+        
+        // Update the contenteditable div with placeholder
+        if (this.searchInput) {
+          this.searchInput.nativeElement.textContent = this.getDisplayText();
         }
       }
     }
@@ -147,15 +207,33 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
   }
 
   toggleDropdown(event?: Event) {
-    event?.stopPropagation();
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    
     this.isOpen = !this.isOpen;
     if (this.isOpen) {
-      this.searchText = '';
+      // Clear placeholder on first interaction
+      if (this.isFirstClick || this.isPlaceholderVisible) {
+        const currentText = this.getDisplayText();
+        const isPlaceholder = !this.hasSelection() && 
+          (currentText === this.placeholder || 
+           (this.defaultOption && currentText === this.defaultOption.label));
+        
+        if (isPlaceholder) {
+          this.searchText = '';
+          this.isPlaceholderVisible = false;
+          this.isFirstClick = false;
+        }
+      }
+      
       this.filterOptions();
       
       // Focus the search input when dropdown opens
       setTimeout(() => {
         if (this.searchInput) {
+          this.searchInput.nativeElement.textContent = this.searchText;
           this.searchInput.nativeElement.focus();
         }
       }, 0);
@@ -163,6 +241,31 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
   }
 
   onFocus() {
+    // Clear placeholder text on first focus
+    if (this.isFirstClick || this.isPlaceholderVisible) {
+      const currentText = this.searchInput?.nativeElement?.textContent || this.getDisplayText();
+      const isPlaceholder = !this.hasSelection() && 
+        (currentText === this.placeholder || 
+         (this.defaultOption && currentText === this.defaultOption.label) ||
+         !currentText.trim());
+      
+      if (isPlaceholder) {
+        this.searchText = '';
+        this.isPlaceholderVisible = false;
+        this.isFirstClick = false;
+        
+        // Clear the contenteditable div
+        setTimeout(() => {
+          if (this.searchInput) {
+            this.searchInput.nativeElement.textContent = '';
+          }
+        }, 0);
+      } else if (this.searchInput && this.searchText) {
+        // Set the search text if it exists
+        this.searchInput.nativeElement.textContent = this.searchText;
+      }
+    }
+    
     this.isOpen = true;
     this.filterOptions();
     this.highlightedIndex = -1;
@@ -222,6 +325,18 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
         const selected = this.options.find(opt => opt[this.valueKey] === this.selectedValue);
         this.searchText = selected ? selected[this.labelKey] : '';
         
+        // Update the contenteditable div with the display text
+        if (this.searchInput) {
+          const displayText = this.getDisplayText();
+          this.searchInput.nativeElement.textContent = displayText;
+        }
+        
+        // Reset placeholder visibility if no selection
+        if (!this.selectedValue) {
+          this.isPlaceholderVisible = true;
+          this.isFirstClick = true;
+        }
+        
         // Reset width on blur
         if (this.focusWidthPx) {
           const element = this.elementRef.nativeElement as HTMLElement;
@@ -261,12 +376,25 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
   }
 
   onSearch(event: any) {
-    const value = event.target.innerText;
+    // Prevent form submission
+    if (event.type === 'keydown' && (event.key === 'Enter' || event.keyCode === 13)) {
+      event.preventDefault();
+      return;
+    }
+    
+    // Get the current text content from the contenteditable div
+    const value = (event.target.textContent || event.target.innerText || '').trim();
     
     // If multiple selection and has selected values, don't update search text
     if (this.multiple && this.selectedValues.length > 0 && !this.isOpen) {
       this.searchText = this.getDisplayText();
       return;
+    }
+    
+    // Mark that placeholder is no longer visible once user starts typing
+    if (this.isPlaceholderVisible || this.isFirstClick) {
+      this.isPlaceholderVisible = false;
+      this.isFirstClick = false;
     }
     
     this.searchText = value;
@@ -294,7 +422,11 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
   }
 
   selectOption(option: any, event?: Event) {
-    event?.stopPropagation();
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    
     if (this.multiple) {
       const value = option[this.valueKey];
       const index = this.selectedValues.indexOf(value);
@@ -309,8 +441,15 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
     } else {
       this.selectedValue = option[this.valueKey];
       this.searchText = option[this.labelKey];
+      this.isPlaceholderVisible = false;
+      this.isFirstClick = false;
       this.onChange(this.selectedValue);
       this.isOpen = false;
+      
+      // Update the contenteditable div with selected text
+      if (this.searchInput) {
+        this.searchInput.nativeElement.textContent = this.searchText;
+      }
     }
     this.onTouch();
     this.selectionChange.emit({ value: this.selectedValue });
@@ -319,6 +458,7 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
 
   // Clear selection
   clearSelection(event: Event) {
+    event.preventDefault();
     event.stopPropagation();
     if (this.multiple) {
       this.selectedValues = [];
@@ -326,6 +466,8 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
     } else {
       this.selectedValue = null;
       this.searchText = '';
+      this.isPlaceholderVisible = true;
+      this.isFirstClick = true;
       this.onChange(null);
     }
     this.onTouch();
@@ -354,6 +496,12 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
   }
 
   handleKeydown(event: KeyboardEvent): void {
+    // Prevent form submission on Enter
+    if (event.key === 'Enter' && !this.isOpen) {
+      event.preventDefault();
+      return;
+    }
+    
     if (!this.isOpen) {
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         this.isOpen = true;
@@ -381,9 +529,14 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
 
       case 'Enter':
         if (this.highlightedIndex >= 0 && this.filteredOptions[this.highlightedIndex]) {
-          this.selectOption(this.filteredOptions[this.highlightedIndex]);
+          this.selectOption(this.filteredOptions[this.highlightedIndex], event);
           (event.target as HTMLElement).blur();
           event.preventDefault();
+          event.stopPropagation();
+        } else {
+          // Prevent form submission if no option is highlighted
+          event.preventDefault();
+          event.stopPropagation();
         }
         break;
 
@@ -433,6 +586,17 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
         const selected = this.options.find(opt => opt[this.valueKey] === this.selectedValue);
         this.searchText = selected ? selected[this.labelKey] : '';
         
+        // Update the contenteditable div with display text
+        if (this.searchInput) {
+          this.searchInput.nativeElement.textContent = this.getDisplayText();
+        }
+        
+        // Reset placeholder visibility if no selection
+        if (!this.selectedValue) {
+          this.isPlaceholderVisible = true;
+          this.isFirstClick = true;
+        }
+        
         // Reset width when closing dropdown
         if (this.focusWidthPx) {
           this.elementRef.nativeElement.style.width = '';
@@ -446,6 +610,11 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
   }
 
   getDisplayText(): string {
+    // If search text is set and not a placeholder, return it
+    if (this.searchText && !this.isPlaceholderVisible && !this.isFirstClick) {
+      return this.searchText;
+    }
+    
     if (this.multiple) {
       const selectedCount = this.selectedValues.length;
       if (selectedCount === 0) return this.placeholder;
@@ -461,8 +630,11 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
       return `${selectedCount} items selected`;
     }
     
-    if (!this.selectedValue && this.defaultOption) {
-      return this.defaultOption.label;
+    if (!this.selectedValue) {
+      if (this.defaultOption) {
+        return this.defaultOption.label;
+      }
+      return this.placeholder;
     }
     
     const selected = this.options.find(opt => opt[this.valueKey] === this.selectedValue);
