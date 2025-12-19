@@ -6,6 +6,7 @@ export interface Customer {
   gst: string;
   dlNumber?: string;
   address: string;
+  pincode: string;
   remainingPaymentAmount: number;
   nextActionDate: string;
   remarks: string;

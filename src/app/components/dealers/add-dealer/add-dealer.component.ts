@@ -35,6 +35,7 @@ export class AddDealerComponent implements OnInit {
       gst: ['', [Validators.required, Validators.pattern(/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[0-9A-Z]{1}$/)]],
       dlNumber: ['', [Validators.maxLength(32)]],
       address: ['', [Validators.required, Validators.maxLength(250)]],
+      pincode: ['', [Validators.required, Validators.pattern(/^\d{6}$/)]],
       mobile: ['', [Validators.required, Validators.pattern(/^[6-9]\d{9}$/)]],
       remarks: ['', [Validators.maxLength(250)]]
     });

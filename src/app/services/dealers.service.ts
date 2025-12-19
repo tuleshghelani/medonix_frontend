@@ -12,6 +12,7 @@ export interface RegisterDealerRequest {
   gst: string;
   dlNumber?: string;
   address: string;
+  pincode: string;
   mobile: string;
   remarks?: string;
 }

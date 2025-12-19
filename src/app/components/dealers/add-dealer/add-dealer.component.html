@@ -68,6 +68,16 @@
         </div>
 
         <div class="field">
+          <label for="pincode">Pincode</label>
+          <input id="pincode" type="text" formControlName="pincode" placeholder="123456" maxlength="6" />
+          <small class="hint">Enter 6-digit pincode</small>
+          <small class="error" *ngIf="f['pincode'].touched && f['pincode'].invalid">
+            <span *ngIf="f['pincode'].errors?.['required']">Pincode is required</span>
+            <span *ngIf="f['pincode'].errors?.['pattern']">Enter a valid 6-digit pincode</span>
+          </small>
+        </div>
+
+        <div class="field">
           <label for="remarks">Remarks (optional)</label>
           <textarea id="remarks" rows="2" formControlName="remarks" placeholder="VIP Customer"></textarea>
         </div>

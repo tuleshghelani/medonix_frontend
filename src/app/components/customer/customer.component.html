@@ -66,6 +66,7 @@
               <th>GST</th>
               <th>DL Number</th>
               <th>Address</th>
+              <th>Pincode</th>
               <th>Remaining Payment</th>
               <th>Next Action Date</th>
               <th>Credit Days</th>
@@ -82,6 +83,7 @@
               <td>{{customer.gst}}</td>
               <td>{{customer.dlNumber || '-'}}</td>
               <td>{{customer.address || '-'}}</td>
+              <td>{{customer.pincode || '-'}}</td>
               <td>₹{{customer.remainingPaymentAmount | number:'1.2-2'}}</td>
               <td>{{ (customer.nextActionDate || null) | date:'medium' }}</td>
               <td>{{customer.validityDays ?? '-'}}</td>
@@ -105,7 +107,7 @@
               </td>
             </tr>
             <tr *ngIf="!customers?.length">
-              <td colspan="12" class="text-center">No customers found</td>
+              <td colspan="13" class="text-center">No customers found</td>
             </tr>
           </tbody>
         </table>
