@@ -1,61 +1,30 @@
 <div class="purchase-container">
   <app-loader [show]="isLoading"></app-loader>
-  
+
   <div class="search-section card">
     <h2>Search Purchases</h2>
     <form [formGroup]="searchForm" (ngSubmit)="onSearch()">
       <div class="search-controls">
         <div class="form-group">
-          <input 
-            type="text" 
-            formControlName="search" 
-            class="form-control" 
-            placeholder="Search by invoice number..."
-          >
-          <input 
-            type="text" 
-            formControlName="batchNumber" 
-            class="form-control" 
-            placeholder="Search by Batch Number..."
-          >
+          <input type="text" formControlName="search" class="form-control" placeholder="Search by invoice number...">
+          <input type="text" formControlName="batchNumber" class="form-control" placeholder="Search by Batch Number...">
         </div>
         <div class="form-group" *ngIf="canManagePurchases">
           <div class="product-select-group">
-            <app-searchable-select
-              formControlName="customerId"
-              [options]="customers"
-              labelKey="name"
-              valueKey="id"
+            <app-searchable-select formControlName="customerId" [options]="customers" labelKey="name" valueKey="id"
               [defaultOption]="{ label: 'All Customers', value: '' }"
-              [searchPlaceholder]="'Search customers...'"
-            ></app-searchable-select>
-            <button 
-              type="button" 
-              class="btn btn-sm btn-primary refresh"
-              style="margin-top: 3px;"
-              (click)="refreshCustomers()" 
-              [disabled]="isLoadingCustomers"
-              title="Refresh Customers"
-            >
+              [searchPlaceholder]="'Search customers...'"></app-searchable-select>
+            <button type="button" class="btn btn-sm btn-primary refresh" style="margin-top: 3px;"
+              (click)="refreshCustomers()" [disabled]="isLoadingCustomers" title="Refresh Customers">
               <i class="fas" [ngClass]="isLoadingCustomers ? 'fa-spinner fa-spin' : 'fa-sync-alt'"></i>
             </button>
           </div>
         </div>
         <div class="form-group">
-          <input 
-            type="date" 
-            formControlName="startDate" 
-            class="form-control" 
-            placeholder="Start Date"
-          >
+          <input type="date" formControlName="startDate" class="form-control" placeholder="Start Date">
         </div>
         <div class="form-group">
-          <input 
-            type="date" 
-            formControlName="endDate" 
-            class="form-control" 
-            placeholder="End Date"
-          >
+          <input type="date" formControlName="endDate" class="form-control" placeholder="End Date">
         </div>
         <div class="button-group">
           <button type="submit" class="search-btn btn btn-sm btn-primary">
@@ -68,7 +37,8 @@
       </div>
     </form>
   </div>
-    <button (click)="clearLocalStorage()" class="btn btn-sm btn-primary mb-2">Add Purchase</button>
+  <button *ngIf="canManagePurchases" (click)="clearLocalStorage()" class="btn btn-sm btn-primary mb-2">Add
+    Purchase</button>
   <div class="purchases-list card">
     <h2>Purchases</h2>
 
@@ -90,56 +60,31 @@
             <td>{{ startIndex + index + 1 }}</td>
             <td>{{ purchase.invoiceNumber }}</td>
             <td>{{ purchase.customerName }}</td>
-            <td>{{ purchase.purchaseDate |  date:'dd-MM-yyyy' }}</td>
+            <td>{{ purchase.purchaseDate | date:'dd-MM-yyyy' }}</td>
             <td>{{ purchase.totalPurchaseAmount ?? 0 }}</td>
             <td>
-              <span
-                class="status-chip"
-                [class.pass]="purchase.isQcPass"
-                [class.pending]="!purchase.isQcPass"
-              >
+              <span class="status-chip" [class.pass]="purchase.isQcPass" [class.pending]="!purchase.isQcPass">
                 {{ purchase.isQcPass ? 'Pass' : 'Pending' }}
               </span>
             </td>
             <td class="actions">
-              <button 
-                *ngIf="canManagePurchases"
-                class="btn-icon edit" 
-                (click)="editPurchase(purchase.id!)"
-                title="Edit Purchase"
-              >
+              <button *ngIf="canManagePurchases" class="btn-icon edit" (click)="editPurchase(purchase.id!)"
+                title="Edit Purchase">
                 <i class="fas fa-eye"></i>
               </button>
-              <button 
-                *ngIf="canManagePurchases"
-                class="btn-icon pdf" 
-                (click)="generatePdf(purchase.id!, purchase.invoiceNumber)"
-                title="Export PDF"
-              >
+              <button *ngIf="canManagePurchases" class="btn-icon pdf"
+                (click)="generatePdf(purchase.id!, purchase.invoiceNumber)" title="Export PDF">
                 <i class="fas fa-file-pdf"></i>
               </button>
-              <button 
-                *ngIf="canManagePurchases"
-                class="btn-icon add-return" 
-                (click)="openReturn(purchase.id!)"
-                title="Add Return"
-              >
+              <button *ngIf="canManagePurchases" class="btn-icon add-return" (click)="openReturn(purchase.id!)"
+                title="Add Return">
                 <i class="fas fa-undo"></i>
               </button>
-              <button 
-                *ngIf="canManagePurchases"
-                class="btn-icon qc" 
-                (click)="openQc(purchase.id!)"
-                title="Purchase QC"
-              >
+              <button *ngIf="canManagePurchases" class="btn-icon qc" (click)="openQc(purchase.id!)" title="Purchase QC">
                 <i class="fas fa-clipboard-check"></i>
               </button>
-              <button 
-                *ngIf="canManagePurchases"
-                class="btn-icon delete" 
-                (click)="deletePurchase(purchase.id!)"
-                title="Delete Purchase"
-              >
+              <button *ngIf="canManagePurchases" class="btn-icon delete" (click)="deletePurchase(purchase.id!)"
+                title="Delete Purchase">
                 <i class="fas fa-trash"></i>
               </button>
             </td>
@@ -147,21 +92,11 @@
         </tbody>
       </table>
     </div>
-    
-    <app-pagination
-      *ngIf="totalPages > 0"
-      [currentPage]="currentPage"
-      [pageSize]="pageSize"
-      [totalElements]="totalElements"
-      [pageSizeOptions]="pageSizeOptions"
-      (pageChange)="onPageChange($event)"
-      (pageSizeChange)="onPageSizeChange($event)"
-    ></app-pagination>
+
+    <app-pagination *ngIf="totalPages > 0" [currentPage]="currentPage" [pageSize]="pageSize"
+      [totalElements]="totalElements" [pageSizeOptions]="pageSizeOptions" (pageChange)="onPageChange($event)"
+      (pageSizeChange)="onPageSizeChange($event)"></app-pagination>
   </div>
 </div>
 
-<app-sale-modal 
-  *ngIf="selectedPurchase"
-  [purchase]="selectedPurchase"
-  (saleCreated)="loadPurchases()"
-></app-sale-modal>
+<app-sale-modal *ngIf="selectedPurchase" [purchase]="selectedPurchase" (saleCreated)="loadPurchases()"></app-sale-modal>

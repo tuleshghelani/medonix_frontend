@@ -43,8 +43,8 @@
             ],
             "scripts": [
               "node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"
-            ]
-            // ,"baseHref": "https://admin.medonixsurgitech.com/",
+            ],
+            // "baseHref": "https://admin.medonixsurgitech.com/",
             // "deployUrl": "https://admin.medonixsurgitech.com/"
           },
           "configurations": {
@@ -101,7 +101,7 @@
             "assets": [
               "src/favicon.ico",
               "src/assets",
-              "src/CNAME"  
+              "src/CNAME"
             ],
             "styles": [
               "node_modules/aos/dist/aos.css",

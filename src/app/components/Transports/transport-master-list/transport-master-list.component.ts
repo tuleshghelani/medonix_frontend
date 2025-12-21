@@ -87,13 +87,21 @@ export class TransportMasterListComponent implements OnInit {
     });
   }
 
-  onSearch(): void {
+  onSearch(event?: Event): void {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     this.currentPage = 0;
     this.pageSize = 10;
     this.loadData();
   }
 
-  reset(): void {
+  reset(event?: Event): void {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     this.searchForm.reset();
     this.currentPage = 0;
     this.pageSize = 10;
