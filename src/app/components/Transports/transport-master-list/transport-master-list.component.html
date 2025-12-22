@@ -89,7 +89,7 @@
                 [routerLink]="['/transport-master/edit']"
                 (click)="$event.preventDefault(); onEdit(t.id)"
                 title="Edit Transport Master"
-                aria-label="Edit transport master {{ t.name }}"
+                [attr.aria-label]="'Edit transport master ' + t.name"
                 (touchstart)="$event.preventDefault()"
                 (touchend)="$event.preventDefault(); onEdit(t.id)"
               >
@@ -99,7 +99,7 @@
                 class="btn-icon delete" 
                 (click)="delete(t.id)" 
                 title="Delete Transport Master"
-                aria-label="Delete transport master {{ t.name }}"
+                [attr.aria-label]="'Delete transport master ' + t.name"
                 (touchstart)="$event.preventDefault()"
                 (touchend)="$event.preventDefault(); delete(t.id)"
               >
