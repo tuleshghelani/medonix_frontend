@@ -47,10 +47,10 @@
        (touchend)="onDropdownPointerDown($event)"
        role="listbox"
        [attr.aria-label]="'Options list'">
-    <div class="options-container" [class.virtual-scroll]="virtualScroll">
+    <div class="options-container" [class.virtual-scroll]="virtualScroll" #optionsContainer>
       <div 
         class="option" 
-        *ngFor="let option of filteredOptions; let i = index"
+        *ngFor="let option of filteredOptions; let i = index; trackBy: trackByOptionId"
         (click)="selectOption(option, $event)"
         (touchstart)="selectOption(option, $event)"
         [class.selected]="isSelected(option)"

@@ -1,7 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input, Output, EventEmitter, forwardRef, ElementRef, HostListener, OnDestroy, ViewChild, AfterViewInit } from '@angular/core';
+import { Component, Input, Output, EventEmitter, forwardRef, ElementRef, HostListener, OnDestroy, ViewChild, AfterViewInit, OnInit, ChangeDetectionStrategy, ChangeDetectorRef, Renderer2, OnChanges, SimpleChanges } from '@angular/core';
 import { ControlValueAccessor, FormsModule, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+
+interface SelectOption {
+  [key: string]: any;
+}
 
 @Component({
   selector: 'app-searchable-select',
@@ -18,86 +22,140 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
   imports: [
     CommonModule,
     FormsModule
-  ]
+  ],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class SearchableSelectComponent implements ControlValueAccessor, OnDestroy, AfterViewInit {
-  @Input() options: any[] = [];
+export class SearchableSelectComponent implements ControlValueAccessor, OnInit, OnChanges, OnDestroy, AfterViewInit {
+  @Input() options: SelectOption[] = [];
   @Input() labelKey: string = 'name';
   @Input() valueKey: string = 'id';
   @Input() placeholder: string = 'Select an option';
   @Input() defaultOption: { label: string; value: any } | null = null;
   @Input() searchPlaceholder: string = 'Search...';
   @Input() multiple = false;
-  // New inputs
   @Input() allowClear = true;
-  @Input() focusWidthPx?: number; // Optional width applied on focus (in pixels)
-  @Input() maxHeight: string = '200px'; // Maximum height for dropdown
-  @Input() virtualScroll = false; // Enable virtual scrolling for large datasets
-  @Input() searchDebounceMs = 300; // Debounce search input
+  @Input() focusWidthPx?: number;
+  @Input() maxHeight: string = '200px';
+  @Input() virtualScroll = false;
+  @Input() searchDebounceMs = 300;
 
   @Output() selectionChange = new EventEmitter<any>();
 
-  @ViewChild('searchInput', { static: false }) searchInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('searchInput', { static: false }) searchInput!: ElementRef<HTMLDivElement>;
   @ViewChild('dropdown', { static: false }) dropdown!: ElementRef<HTMLDivElement>;
+  @ViewChild('optionsContainer', { static: false }) optionsContainer!: ElementRef<HTMLDivElement>;
 
   searchText: string = '';
   isOpen: boolean = false;
   selectedValue: any = '';
   selectedValues: any[] = [];
-  filteredOptions: any[] = [];
+  filteredOptions: SelectOption[] = [];
   highlightedIndex: number = -1;
   interactingWithDropdown = false;
-  isPlaceholderVisible: boolean = true; // Track if placeholder is being shown
+  isPlaceholderVisible: boolean = true;
 
-  onChange: any = () => {};
-  onTouch: any = () => {};
+  onChange: (value: any) => void = () => {};
+  onTouch: () => void = () => {};
 
-  private searchDebounceTimer: any;
-  private isFirstClick: boolean = true; // Track first click to clear placeholder
+  // Memory management
+  private searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private timeouts: ReturnType<typeof setTimeout>[] = [];
+  private clickOutsideListener: (() => void) | null = null;
+  private isFirstClick: boolean = true;
+  private sanitizedHtmlCache: Map<string, SafeHtml> = new Map();
+  private lastSearchText: string = '';
+  private lastFilteredOptions: SelectOption[] = [];
+  private originalStyles: Map<HTMLElement, { [key: string]: string }> = new Map();
 
   constructor(
     private elementRef: ElementRef,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private cdr: ChangeDetectorRef,
+    private renderer: Renderer2
   ) {}
 
-  ngOnInit() {
-    this.options = this.options.map(item => {
-      return {
-          ...item,
-          name: this.formatText(item.name)
-      };
+  ngOnInit(): void {
+    // Initialize filtered options without expensive formatting
+    // Formatting will be done lazily when displaying
+    this.filteredOptions = [...this.options];
+    this.lastFilteredOptions = [...this.options];
+    
+    // Set up click outside listener using Renderer2 for proper cleanup
+    this.clickOutsideListener = this.renderer.listen('document', 'click', (event: Event) => {
+      this.onClickOutside(event);
     });
-    this.filteredOptions = this.options;
   }
 
-  ngAfterViewInit() {
+  ngAfterViewInit(): void {
     // Set initial display text in contenteditable div
-    setTimeout(() => {
-      if (this.searchInput && !this.isOpen) {
+    const timeoutId = setTimeout(() => {
+      if (this.searchInput?.nativeElement && !this.isOpen) {
         this.searchInput.nativeElement.textContent = this.getDisplayText();
+        this.cdr.markForCheck();
       }
     }, 0);
+    this.timeouts.push(timeoutId);
   }
 
   ngOnDestroy(): void {
-    // Clean up references to prevent memory leaks
-    this.options = [];
-    this.filteredOptions = [];
-    this.selectedValues = [];
-    this.onChange = null;
-    this.onTouch = null;
+    // Clear all timeouts
+    this.timeouts.forEach(id => clearTimeout(id));
+    this.timeouts = [];
     
     // Clear debounce timer
     if (this.searchDebounceTimer) {
       clearTimeout(this.searchDebounceTimer);
+      this.searchDebounceTimer = null;
     }
+    
+    // Remove click outside listener
+    if (this.clickOutsideListener) {
+      this.clickOutsideListener();
+      this.clickOutsideListener = null;
+    }
+    
+    // Revert all style manipulations
+    this.revertAllStyles();
+    
+    // Clear all arrays and references
+    this.options = [];
+    this.filteredOptions = [];
+    this.selectedValues = [];
+    this.lastFilteredOptions = [];
+    
+    // Clear sanitization cache
+    this.sanitizedHtmlCache.clear();
+    
+    // Nullify callbacks
+    this.onChange = () => {};
+    this.onTouch = () => {};
+    
+    // Clear DOM references
+    if (this.searchInput) {
+      this.searchInput.nativeElement.textContent = '';
+    }
+  }
+  
+  private revertAllStyles(): void {
+    this.originalStyles.forEach((styles, element) => {
+      Object.keys(styles).forEach(prop => {
+        if (styles[prop]) {
+          (element.style as any)[prop] = styles[prop];
+        } else {
+          (element.style as any)[prop] = '';
+        }
+      });
+      // Remove custom classes
+      element.classList.remove('expanded', 'custom-width');
+    });
+    this.originalStyles.clear();
   }
   
   hasSelection(): boolean {
     return this.multiple ? this.selectedValues.length > 0 : !!this.selectedValue;
   }
   
-  onDropdownPointerDown(event?: Event) {
+  onDropdownPointerDown(event?: Event): void {
     // Prevent input blur from closing dropdown prematurely on mobile
     if (event) {
       event.preventDefault();
@@ -106,11 +164,10 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
     this.interactingWithDropdown = true;
   }
 
-  onInputClick(event: MouseEvent | TouchEvent) {
+  onInputClick(event: MouseEvent | TouchEvent): void {
     // Prevent form submission
-    if (event.type === 'touchstart') {
-      event.preventDefault();
-    }
+    event.preventDefault();
+    event.stopPropagation();
     
     // Clear placeholder text on first click
     if (this.isFirstClick || this.isPlaceholderVisible) {
@@ -120,20 +177,19 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
          (this.defaultOption && currentText === this.defaultOption.label));
       
       if (isPlaceholder) {
-        if (event.type === 'touchstart') {
-          event.preventDefault();
-        }
         this.searchText = '';
         this.isPlaceholderVisible = false;
         this.isFirstClick = false;
         
         // Clear the contenteditable div
-        setTimeout(() => {
-          if (this.searchInput) {
+        const timeoutId = setTimeout(() => {
+          if (this.searchInput?.nativeElement) {
             this.searchInput.nativeElement.textContent = '';
             this.searchInput.nativeElement.focus();
+            this.cdr.markForCheck();
           }
         }, 0);
+        this.timeouts.push(timeoutId);
       }
     }
   }
@@ -144,10 +200,11 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
       event.preventDefault();
       event.stopPropagation();
     }
-    const container = document.querySelector('.options-container');
+    
+    const container = this.optionsContainer?.nativeElement;
     if (!container) return;
 
-    const scrollAmount = 160; // Height of 4 options (40px each)
+    const scrollAmount = 160;
     const currentScroll = container.scrollTop;
     
     if (direction === 'up') {
@@ -166,6 +223,7 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
         this.filteredOptions.length - 1
       );
     }
+    this.cdr.markForCheck();
   }
 
   writeValue(value: any): void {
@@ -176,12 +234,12 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
       if (value) {
         const selectedOption = this.options.find(opt => opt[this.valueKey] === value);
         if (selectedOption) {
-          this.searchText = selectedOption[this.labelKey];
+          this.searchText = this.getOptionLabel(selectedOption);
           this.isPlaceholderVisible = false;
           this.isFirstClick = false;
           
           // Update the contenteditable div
-          if (this.searchInput) {
+          if (this.searchInput?.nativeElement) {
             this.searchInput.nativeElement.textContent = this.searchText;
           }
         }
@@ -191,11 +249,12 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
         this.searchText = '';
         
         // Update the contenteditable div with placeholder
-        if (this.searchInput) {
+        if (this.searchInput?.nativeElement) {
           this.searchInput.nativeElement.textContent = this.getDisplayText();
         }
       }
     }
+    this.cdr.markForCheck();
   }
 
   registerOnChange(fn: any): void {
@@ -206,7 +265,7 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
     this.onTouch = fn;
   }
 
-  toggleDropdown(event?: Event) {
+  toggleDropdown(event?: Event): void {
     if (event) {
       event.preventDefault();
       event.stopPropagation();
@@ -231,16 +290,19 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
       this.filterOptions();
       
       // Focus the search input when dropdown opens
-      setTimeout(() => {
-        if (this.searchInput) {
+      const timeoutId = setTimeout(() => {
+        if (this.searchInput?.nativeElement) {
           this.searchInput.nativeElement.textContent = this.searchText;
           this.searchInput.nativeElement.focus();
+          this.cdr.markForCheck();
         }
       }, 0);
+      this.timeouts.push(timeoutId);
     }
+    this.cdr.markForCheck();
   }
 
-  onFocus() {
+  onFocus(): void {
     // Clear placeholder text on first focus
     if (this.isFirstClick || this.isPlaceholderVisible) {
       const currentText = this.searchInput?.nativeElement?.textContent || this.getDisplayText();
@@ -255,12 +317,14 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
         this.isFirstClick = false;
         
         // Clear the contenteditable div
-        setTimeout(() => {
-          if (this.searchInput) {
+        const timeoutId = setTimeout(() => {
+          if (this.searchInput?.nativeElement) {
             this.searchInput.nativeElement.textContent = '';
+            this.cdr.markForCheck();
           }
         }, 0);
-      } else if (this.searchInput && this.searchText) {
+        this.timeouts.push(timeoutId);
+      } else if (this.searchInput?.nativeElement && this.searchText) {
         // Set the search text if it exists
         this.searchInput.nativeElement.textContent = this.searchText;
       }
@@ -272,50 +336,56 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
     
     // Apply custom width on focus if specified
     if (this.focusWidthPx) {
-      // Ensure we're setting the width on the correct element
-      const element = this.elementRef.nativeElement as HTMLElement;
-      
-      // Instead of absolute positioning, we'll expand the parent container
-      // Find the parent container and expand it
-      const parentContainer = element.closest('.select-group') as HTMLElement;
-      if (parentContainer) {
-        // Store original width to restore later
-        const originalMinWidth = parentContainer.style.minWidth;
-        const originalWidth = parentContainer.style.width;
-        
-        // Set data attributes to store original values
-        parentContainer.setAttribute('data-original-min-width', originalMinWidth || '');
-        parentContainer.setAttribute('data-original-width', originalWidth || '');
-        
-        // Expand the parent container
-        parentContainer.style.minWidth = `${this.focusWidthPx}px`;
-        parentContainer.style.width = `${this.focusWidthPx}px`;
-        parentContainer.style.transition = 'all 0.3s ease';
-        
-        // Add a class for additional CSS styling
-        parentContainer.classList.add('expanded');
-      }
-      
-      // Also apply to the component itself
+      this.applyFocusWidth();
+    }
+    this.cdr.markForCheck();
+  }
+  
+  private applyFocusWidth(): void {
+    const element = this.elementRef.nativeElement as HTMLElement;
+    
+    // Store and apply styles to parent container
+    const parentContainer = element.closest('.select-group') as HTMLElement;
+    if (parentContainer && !this.originalStyles.has(parentContainer)) {
+      this.originalStyles.set(parentContainer, {
+        minWidth: parentContainer.style.minWidth,
+        width: parentContainer.style.width
+      });
+      parentContainer.style.minWidth = `${this.focusWidthPx}px`;
+      parentContainer.style.width = `${this.focusWidthPx}px`;
+      parentContainer.style.transition = 'all 0.3s ease';
+      parentContainer.classList.add('expanded');
+    }
+    
+    // Store and apply styles to component element
+    if (!this.originalStyles.has(element)) {
+      this.originalStyles.set(element, {
+        width: element.style.width,
+        minWidth: element.style.minWidth,
+        maxWidth: element.style.maxWidth
+      });
       element.style.width = `${this.focusWidthPx}px`;
       element.style.minWidth = `${this.focusWidthPx}px`;
       element.style.maxWidth = `${this.focusWidthPx}px`;
-      
-      // Add a class for additional CSS styling
       element.classList.add('custom-width');
-      
-      // Also apply to the inner searchable-select div
-      const innerDiv = element.querySelector('.searchable-select') as HTMLElement;
-      if (innerDiv) {
-        innerDiv.style.width = `${this.focusWidthPx}px`;
-        innerDiv.style.minWidth = `${this.focusWidthPx}px`;
-        innerDiv.style.maxWidth = `${this.focusWidthPx}px`;
-      }
+    }
+    
+    // Store and apply styles to inner div
+    const innerDiv = element.querySelector('.searchable-select') as HTMLElement;
+    if (innerDiv && !this.originalStyles.has(innerDiv)) {
+      this.originalStyles.set(innerDiv, {
+        width: innerDiv.style.width,
+        minWidth: innerDiv.style.minWidth,
+        maxWidth: innerDiv.style.maxWidth
+      });
+      innerDiv.style.width = `${this.focusWidthPx}px`;
+      innerDiv.style.minWidth = `${this.focusWidthPx}px`;
+      innerDiv.style.maxWidth = `${this.focusWidthPx}px`;
     }
   }
 
-  onBlur() {
-    setTimeout(() => {
+  onBlur(): void {
+    const timeoutId = setTimeout(() => {
       if (this.interactingWithDropdown) {
         return;
       }
@@ -323,10 +393,10 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
         this.isOpen = false;
         this.highlightedIndex = -1;
         const selected = this.options.find(opt => opt[this.valueKey] === this.selectedValue);
-        this.searchText = selected ? selected[this.labelKey] : '';
+        this.searchText = selected ? this.getOptionLabel(selected) : '';
         
         // Update the contenteditable div with the display text
-        if (this.searchInput) {
+        if (this.searchInput?.nativeElement) {
           const displayText = this.getDisplayText();
           this.searchInput.nativeElement.textContent = displayText;
         }
@@ -339,51 +409,60 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
         
         // Reset width on blur
         if (this.focusWidthPx) {
-          const element = this.elementRef.nativeElement as HTMLElement;
-          
-          // Reset the parent container
-          const parentContainer = element.closest('.select-group') as HTMLElement;
-          if (parentContainer) {
-            // Restore original width values
-            const originalMinWidth = parentContainer.getAttribute('data-original-min-width') || '';
-            const originalWidth = parentContainer.getAttribute('data-original-width') || '';
-            
-            parentContainer.style.minWidth = originalMinWidth;
-            parentContainer.style.width = originalWidth;
-            
-            // Remove the custom class
-            parentContainer.classList.remove('expanded');
-          }
-          
-          // Reset styles on the component itself
-          element.style.width = '';
-          element.style.minWidth = '';
-          element.style.maxWidth = '';
-          
-          // Remove the custom class
-          element.classList.remove('custom-width');
-          
-          // Also reset the inner div
-          const innerDiv = element.querySelector('.searchable-select') as HTMLElement;
-          if (innerDiv) {
-            innerDiv.style.width = '';
-            innerDiv.style.minWidth = '';
-            innerDiv.style.maxWidth = '';
-          }
+          this.revertFocusWidth();
         }
+        this.cdr.markForCheck();
       }
     }, 200);
+    this.timeouts.push(timeoutId);
+  }
+  
+  private revertFocusWidth(): void {
+    const element = this.elementRef.nativeElement as HTMLElement;
+    
+    // Revert parent container styles
+    const parentContainer = element.closest('.select-group') as HTMLElement;
+    if (parentContainer && this.originalStyles.has(parentContainer)) {
+      const styles = this.originalStyles.get(parentContainer)!;
+      parentContainer.style.minWidth = styles['minWidth'] || '';
+      parentContainer.style.width = styles['width'] || '';
+      parentContainer.classList.remove('expanded');
+      this.originalStyles.delete(parentContainer);
+    }
+    
+    // Revert component element styles
+    if (this.originalStyles.has(element)) {
+      const styles = this.originalStyles.get(element)!;
+      element.style.width = styles['width'] || '';
+      element.style.minWidth = styles['minWidth'] || '';
+      element.style.maxWidth = styles['maxWidth'] || '';
+      element.classList.remove('custom-width');
+      this.originalStyles.delete(element);
+    }
+    
+    // Revert inner div styles
+    const innerDiv = element.querySelector('.searchable-select') as HTMLElement;
+    if (innerDiv && this.originalStyles.has(innerDiv)) {
+      const styles = this.originalStyles.get(innerDiv)!;
+      innerDiv.style.width = styles['width'] || '';
+      innerDiv.style.minWidth = styles['minWidth'] || '';
+      innerDiv.style.maxWidth = styles['maxWidth'] || '';
+      this.originalStyles.delete(innerDiv);
+    }
   }
 
-  onSearch(event: any) {
+  onSearch(event: Event): void {
     // Prevent form submission
-    if (event.type === 'keydown' && (event.key === 'Enter' || event.keyCode === 13)) {
+    const keyboardEvent = event as KeyboardEvent;
+    if (keyboardEvent.type === 'keydown' && (keyboardEvent.key === 'Enter' || keyboardEvent.keyCode === 13)) {
       event.preventDefault();
+      event.stopPropagation();
       return;
     }
     
     // Get the current text content from the contenteditable div
-    const value = (event.target.textContent || event.target.innerText || '').trim();
+    const target = event.target as HTMLElement;
+    const value = (target.textContent || target.innerText || '').trim();
     
     // If multiple selection and has selected values, don't update search text
     if (this.multiple && this.selectedValues.length > 0 && !this.isOpen) {
@@ -399,7 +478,7 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
     
     this.searchText = value;
     
-    // Implement search debouncing
+    // Implement search debouncing with caching
     if (this.searchDebounceTimer) {
       clearTimeout(this.searchDebounceTimer);
     }
@@ -407,21 +486,42 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
     this.searchDebounceTimer = setTimeout(() => {
       this.filterOptions();
       this.isOpen = true;
+      this.cdr.markForCheck();
     }, this.searchDebounceMs);
   }
 
-  filterOptions() {
-    this.filteredOptions = this.options.filter(option =>
-      option[this.labelKey].toLowerCase().includes(this.searchText.toLowerCase())
-    );
+  filterOptions(): void {
+    // Cache check - if search text hasn't changed, return cached results
+    if (this.searchText === this.lastSearchText && this.lastFilteredOptions.length > 0) {
+      this.filteredOptions = this.lastFilteredOptions;
+      this.highlightedIndex = this.filteredOptions.length > 0 ? 0 : -1;
+      return;
+    }
     
-    if(!this.filteredOptions.length){
-      this.filteredOptions = this.options;
-    };
+    const searchLower = this.searchText.toLowerCase().trim();
+    
+    if (!searchLower) {
+      this.filteredOptions = [...this.options];
+    } else {
+      this.filteredOptions = this.options.filter(option => {
+        const label = this.getOptionLabel(option);
+        return label.toLowerCase().includes(searchLower);
+      });
+      
+      // If no results, show all options
+      if (this.filteredOptions.length === 0) {
+        this.filteredOptions = [...this.options];
+      }
+    }
+    
+    // Cache results
+    this.lastSearchText = this.searchText;
+    this.lastFilteredOptions = [...this.filteredOptions];
     this.highlightedIndex = this.filteredOptions.length > 0 ? 0 : -1;
+    this.cdr.markForCheck();
   }
 
-  selectOption(option: any, event?: Event) {
+  selectOption(option: SelectOption, event?: Event): void {
     if (event) {
       event.preventDefault();
       event.stopPropagation();
@@ -440,24 +540,24 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
       this.onChange(this.selectedValues);
     } else {
       this.selectedValue = option[this.valueKey];
-      this.searchText = option[this.labelKey];
+      this.searchText = this.getOptionLabel(option);
       this.isPlaceholderVisible = false;
       this.isFirstClick = false;
       this.onChange(this.selectedValue);
       this.isOpen = false;
       
       // Update the contenteditable div with selected text
-      if (this.searchInput) {
+      if (this.searchInput?.nativeElement) {
         this.searchInput.nativeElement.textContent = this.searchText;
       }
     }
     this.onTouch();
     this.selectionChange.emit({ value: this.selectedValue });
     this.interactingWithDropdown = false;
+    this.cdr.markForCheck();
   }
 
-  // Clear selection
-  clearSelection(event: Event) {
+  clearSelection(event: Event): void {
     event.preventDefault();
     event.stopPropagation();
     if (this.multiple) {
@@ -469,16 +569,32 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
       this.isPlaceholderVisible = true;
       this.isFirstClick = true;
       this.onChange(null);
+      if (this.searchInput?.nativeElement) {
+        this.searchInput.nativeElement.textContent = this.getDisplayText();
+      }
     }
     this.onTouch();
     this.selectionChange.emit({ value: this.multiple ? [] : null });
+    this.cdr.markForCheck();
   }
 
-  isSelected(option: any): boolean {
+  isSelected(option: SelectOption): boolean {
     const value = option[this.valueKey];
     return this.multiple 
       ? this.selectedValues.includes(value)
       : this.selectedValue === value;
+  }
+  
+  trackByOptionId(index: number, option: SelectOption): any {
+    return option[this.valueKey] ?? index;
+  }
+  
+  getOptionLabel(option: SelectOption): string {
+    const label = option[this.labelKey];
+    if (typeof label === 'string') {
+      return this.formatText(label);
+    }
+    return String(label || '');
   }
 
   getSelectedLabel(): string {
@@ -499,6 +615,7 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
     // Prevent form submission on Enter
     if (event.key === 'Enter' && !this.isOpen) {
       event.preventDefault();
+      event.stopPropagation();
       return;
     }
     
@@ -506,7 +623,10 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         this.isOpen = true;
         this.highlightedIndex = 0;
+        this.filterOptions();
         event.preventDefault();
+        event.stopPropagation();
+        this.cdr.markForCheck();
       }
       return;
     }
@@ -518,42 +638,47 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
           this.filteredOptions.length - 1
         );
         event.preventDefault();
+        event.stopPropagation();
         this.scrollToHighlighted();
+        this.cdr.markForCheck();
         break;
 
       case 'ArrowUp':
         this.highlightedIndex = Math.max(this.highlightedIndex - 1, 0);
         event.preventDefault();
+        event.stopPropagation();
         this.scrollToHighlighted();
+        this.cdr.markForCheck();
         break;
 
       case 'Enter':
         if (this.highlightedIndex >= 0 && this.filteredOptions[this.highlightedIndex]) {
           this.selectOption(this.filteredOptions[this.highlightedIndex], event);
           (event.target as HTMLElement).blur();
-          event.preventDefault();
-          event.stopPropagation();
-        } else {
-          // Prevent form submission if no option is highlighted
-          event.preventDefault();
-          event.stopPropagation();
         }
+        // Always prevent form submission
+        event.preventDefault();
+        event.stopPropagation();
         break;
 
       case 'Escape':
         this.isOpen = false;
         this.highlightedIndex = -1;
         event.preventDefault();
+        event.stopPropagation();
+        this.cdr.markForCheck();
         break;
     }
   }
 
   private scrollToHighlighted(): void {
-    setTimeout(() => {
-      const container = document.querySelector('.options-container');
-      const highlighted = document.querySelector('.option.highlighted');
+    const timeoutId = setTimeout(() => {
+      const container = this.optionsContainer?.nativeElement;
+      if (!container) return;
       
-      if (container && highlighted) {
+      const highlighted = container.querySelector('.option.highlighted') as HTMLElement;
+      
+      if (highlighted) {
         const containerRect = container.getBoundingClientRect();
         const highlightedRect = highlighted.getBoundingClientRect();
 
@@ -563,31 +688,38 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
           container.scrollTop -= containerRect.top - highlightedRect.top;
         }
       }
-    });
+    }, 0);
+    this.timeouts.push(timeoutId);
   }
 
-  ngOnChanges(changes: any): void {
-    if (changes.options && !changes.options.firstChange) {
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['options'] && !changes['options'].firstChange) {
+      // Clear filter cache when options change
+      this.lastSearchText = '';
+      this.lastFilteredOptions = [];
+      
       if (!this.multiple && this.selectedValue) {
         const selectedOption = this.options.find(opt => opt[this.valueKey] === this.selectedValue);
         if (selectedOption) {
-          this.searchText = selectedOption[this.labelKey];
+          this.searchText = this.getOptionLabel(selectedOption);
         }
       }
+      this.filterOptions();
+      this.cdr.markForCheck();
     }
   }
 
-  @HostListener('document:click', ['$event'])
-  onClickOutside(event: Event) {
-    if (!this.elementRef.nativeElement.contains(event.target)) {
+  private onClickOutside(event: Event): void {
+    const target = event.target as Node;
+    if (!this.elementRef.nativeElement.contains(target)) {
       this.isOpen = false;
       this.interactingWithDropdown = false;
       if (!this.multiple) {
         const selected = this.options.find(opt => opt[this.valueKey] === this.selectedValue);
-        this.searchText = selected ? selected[this.labelKey] : '';
+        this.searchText = selected ? this.getOptionLabel(selected) : '';
         
         // Update the contenteditable div with display text
-        if (this.searchInput) {
+        if (this.searchInput?.nativeElement) {
           this.searchInput.nativeElement.textContent = this.getDisplayText();
         }
         
@@ -599,14 +731,29 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
         
         // Reset width when closing dropdown
         if (this.focusWidthPx) {
-          this.elementRef.nativeElement.style.width = '';
+          this.revertFocusWidth();
         }
       }
+      this.cdr.markForCheck();
     }
   }
 
   sanitizeHtml(html: string): SafeHtml {
-    return this.sanitizer.bypassSecurityTrustHtml(html);
+    // Cache sanitized HTML to avoid repeated sanitization
+    if (this.sanitizedHtmlCache.has(html)) {
+      return this.sanitizedHtmlCache.get(html)!;
+    }
+    
+    const sanitized = this.sanitizer.bypassSecurityTrustHtml(html);
+    // Limit cache size to prevent memory issues
+    if (this.sanitizedHtmlCache.size > 100) {
+      const firstKey = this.sanitizedHtmlCache.keys().next().value;
+      if (firstKey) {
+        this.sanitizedHtmlCache.delete(firstKey);
+      }
+    }
+    this.sanitizedHtmlCache.set(html, sanitized);
+    return sanitized;
   }
 
   getDisplayText(): string {
@@ -624,7 +771,7 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
       );
       
       if (selectedCount === 1) {
-        return selectedOptions[0][this.labelKey];
+        return this.getOptionLabel(selectedOptions[0]);
       }
       
       return `${selectedCount} items selected`;
@@ -638,7 +785,7 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnDestro
     }
     
     const selected = this.options.find(opt => opt[this.valueKey] === this.selectedValue);
-    return selected ? selected[this.labelKey] : this.placeholder;
+    return selected ? this.getOptionLabel(selected) : this.placeholder;
   }
 
   formatText(input: string): string {
