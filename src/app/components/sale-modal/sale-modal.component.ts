@@ -1,13 +1,14 @@
-import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Purchase } from '../../models/purchase.model';
 import { SaleService } from '../../services/sale.service';
 import { ToastrService } from 'ngx-toastr';
 import { ModalService } from '../../services/modal.service';
-import { map } from 'rxjs/operators';
+import { map, takeUntil } from 'rxjs/operators';
 import { SnackbarService } from '../../shared/services/snackbar.service';
 import { Sale } from '../../models/sale.model';
+import { Subject, Subscription } from 'rxjs';
 
 interface DiscountCalculation {
   quantity: number;
@@ -24,15 +25,19 @@ interface DiscountCalculation {
   templateUrl: './sale-modal.component.html',
   styleUrls: ['./sale-modal.component.scss']
 })
-export class SaleModalComponent implements OnChanges {
+export class SaleModalComponent implements OnChanges, OnDestroy {
   @Input() purchase!: Purchase;
   @Input() sales!: Sale;
   @Output() saleCreated = new EventEmitter<boolean>();
 
   saleForm!: FormGroup;
   loading = false;
+  private destroy$ = new Subject<void>();
+  private subscriptions: Subscription[] = [];
+  
   display$ = this.modalService.modalState$.pipe(
-    map(state => state.isOpen)
+    map(state => state.isOpen),
+    takeUntil(this.destroy$)
   );
 
   constructor(
@@ -68,9 +73,14 @@ export class SaleModalComponent implements OnChanges {
   private setupDiscountCalculation() {
     const fields = ['quantity', 'unitPrice', 'discount', 'discountAmount'];
     fields.forEach(field => {
-      this.saleForm.get(field)?.valueChanges.subscribe(() => {
-        this.calculateDiscount();
-      });
+      const sub = this.saleForm.get(field)?.valueChanges
+        .pipe(takeUntil(this.destroy$))
+        .subscribe(() => {
+          this.calculateDiscount();
+        });
+      if (sub) {
+        this.subscriptions.push(sub);
+      }
     });
   }
 
@@ -175,18 +185,21 @@ export class SaleModalComponent implements OnChanges {
 
         console.log('Sale form data being sent:', formData);
 
-        this.saleService.createSale(formData).subscribe({
-          next: (response) => {
-            this.snackbar.success('Sale created successfully');
-            this.saleCreated.emit(true);
-            this.loading = false;
-            this.close();
-          },
-          error: (error) => {
-            this.loading = false;
-            this.snackbar.error(error?.error?.message || 'Failed to create sale');
-          }
-        });
+        const sub = this.saleService.createSale(formData)
+          .pipe(takeUntil(this.destroy$))
+          .subscribe({
+            next: (response) => {
+              this.snackbar.success('Sale created successfully');
+              this.saleCreated.emit(true);
+              this.loading = false;
+              this.close();
+            },
+            error: (error) => {
+              this.loading = false;
+              this.snackbar.error(error?.error?.message || 'Failed to create sale');
+            }
+          });
+        this.subscriptions.push(sub);
 
       } catch (error) {
         this.loading = false;
@@ -204,6 +217,30 @@ export class SaleModalComponent implements OnChanges {
   ngOnChanges(changes: SimpleChanges) {
     if (changes['purchase'] && changes['purchase'].currentValue) {
       this.setupForm(changes['purchase'].currentValue);
+    }
+  }
+
+  ngOnDestroy(): void {
+    // Unsubscribe from all subscriptions
+    this.subscriptions.forEach(sub => {
+      if (sub && !sub.closed) {
+        sub.unsubscribe();
+      }
+    });
+    this.subscriptions = [];
+
+    // Complete destroy subject
+    this.destroy$.next();
+    this.destroy$.complete();
+
+    // Complete EventEmitter
+    if (this.saleCreated && typeof (this.saleCreated as any).complete === 'function') {
+      (this.saleCreated as any).complete();
+    }
+
+    // Reset form to release form subscriptions
+    if (this.saleForm) {
+      this.saleForm.reset();
     }
   }
 } 

@@ -1,14 +1,15 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { RouterLink, RouterModule } from '@angular/router';
 import { EmployeeOrderService } from '../../../services/employee-order.service';
 import { EmployeeOrder } from '../../../models/employee-order.model';
 import { LoaderComponent } from '../../../shared/components/loader/loader.component';
-import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select.component';
 import { SnackbarService } from '../../../shared/services/snackbar.service';
 import { DateUtils } from '../../../shared/utils/date-utils';
 import { PaginationComponent } from '../../../shared/components/pagination/pagination.component';
+import { Subject, Subscription } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 @Component({
   selector: 'app-employee-order-list',
@@ -19,14 +20,13 @@ import { PaginationComponent } from '../../../shared/components/pagination/pagin
     FormsModule,
     RouterModule,
     LoaderComponent,
-    SearchableSelectComponent,
     RouterLink,
     PaginationComponent
   ],
   templateUrl: './employee-order-list.component.html',
   styleUrls: ['./employee-order-list.component.scss']
 })
-export class EmployeeOrderListComponent implements OnInit {
+export class EmployeeOrderListComponent implements OnInit, OnDestroy {
   employeeOrders: EmployeeOrder[] = [];
   searchForm!: FormGroup;
   isLoading = false;
@@ -47,6 +47,9 @@ export class EmployeeOrderListComponent implements OnInit {
     { label: 'Completed', value: 'C' },
     { label: 'Inactive', value: 'I' }
   ];
+
+  private destroy$ = new Subject<void>();
+  private subscriptions: Subscription[] = [];
 
   constructor(
     private employeeOrderService: EmployeeOrderService,
@@ -82,21 +85,24 @@ export class EmployeeOrderListComponent implements OnInit {
       endDate: formValues.endDate ? this.dateUtils.formatDateForApi(formValues.endDate, true) : null
     };
 
-    this.employeeOrderService.searchEmployeeOrders(params).subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.employeeOrders = response.data.content;
-          this.totalPages = response.data.totalPages;
-          this.totalElements = response.data.totalElements;
-          this.updatePaginationIndexes();
+    const sub = this.employeeOrderService.searchEmployeeOrders(params)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.employeeOrders = response.data.content;
+            this.totalPages = response.data.totalPages;
+            this.totalElements = response.data.totalElements;
+            this.updatePaginationIndexes();
+          }
+          this.isLoading = false;
+        },
+        error: (error) => {
+          this.snackbar.error(error?.error?.message || 'Failed to load employee orders');
+          this.isLoading = false;
         }
-        this.isLoading = false;
-      },
-      error: (error) => {
-        this.snackbar.error(error?.error?.message || 'Failed to load employee orders');
-        this.isLoading = false;
-      }
-    });
+      });
+    this.subscriptions.push(sub);
   }
 
   private updatePaginationIndexes(): void {
@@ -129,22 +135,48 @@ export class EmployeeOrderListComponent implements OnInit {
   deleteEmployeeOrder(id: number): void {
     if (confirm('Are you sure you want to delete this employee order?')) {
       this.isLoading = true;
-      this.employeeOrderService.deleteEmployeeOrder(id).subscribe({
-        next: (response) => {
-          if (response.success) {
-            this.snackbar.success('Employee order deleted successfully');
-            this.loadEmployeeOrders();
+      const sub = this.employeeOrderService.deleteEmployeeOrder(id)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (response) => {
+            if (response.success) {
+              this.snackbar.success('Employee order deleted successfully');
+              this.loadEmployeeOrders();
+            }
+          },
+          error: (error) => {
+            this.snackbar.error(error.message || 'Failed to delete employee order');
+            this.isLoading = false;
           }
-        },
-        error: (error) => {
-          this.snackbar.error(error.message || 'Failed to delete employee order');
-          this.isLoading = false;
-        }
-      });
+        });
+      this.subscriptions.push(sub);
     }
   }
 
   getPageNumbers(): number[] {
     return Array.from({ length: this.totalPages }, (_, i) => i + 1);
+  }
+
+  ngOnDestroy(): void {
+    // Unsubscribe from all subscriptions
+    this.subscriptions.forEach(sub => {
+      if (sub && !sub.closed) {
+        sub.unsubscribe();
+      }
+    });
+    this.subscriptions = [];
+
+    // Complete destroy subject
+    this.destroy$.next();
+    this.destroy$.complete();
+
+    // Clear arrays
+    this.employeeOrders = [];
+    this.statusOptions = [];
+
+    // Reset form to release form subscriptions
+    if (this.searchForm) {
+      this.searchForm.reset();
+    }
   }
 } 

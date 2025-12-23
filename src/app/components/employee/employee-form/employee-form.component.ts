@@ -1,10 +1,12 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { EmployeeService } from '../../../services/employee.service';
 import { LoaderComponent } from '../../../shared/components/loader/loader.component';
 import { SnackbarService } from '../../../shared/services/snackbar.service';
+import { Subject, Subscription } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 @Component({
   selector: 'app-employee-form',
@@ -18,11 +20,14 @@ import { SnackbarService } from '../../../shared/services/snackbar.service';
   templateUrl: './employee-form.component.html',
   styleUrls: ['./employee-form.component.scss']
 })
-export class EmployeeFormComponent implements OnInit {
+export class EmployeeFormComponent implements OnInit, OnDestroy {
   employeeForm!: FormGroup;
   isLoading = false;
   isEditMode = false;
   employeeId?: number;
+
+  private destroy$ = new Subject<void>();
+  private subscriptions: Subscription[] = [];
 
   constructor(
     private fb: FormBuilder,
@@ -76,18 +81,21 @@ export class EmployeeFormComponent implements OnInit {
         ? this.employeeService.updateEmployee(this.employeeId!, formData)
         : this.employeeService.createEmployee(formData);
 
-      request.subscribe({
-        next: (response) => {
-          if (response.success) {
-            this.snackbar.success(response.message);
-            this.router.navigate(['/employee']);
+      const sub = request
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (response) => {
+            if (response.success) {
+              this.snackbar.success(response.message);
+              this.router.navigate(['/employee']);
+            }
+          },
+          error: (error) => {
+            this.snackbar.error(error.message || `Failed to ${this.isEditMode ? 'update' : 'create'} employee`);
+            this.isLoading = false;
           }
-        },
-        error: (error) => {
-          this.snackbar.error(error.message || `Failed to ${this.isEditMode ? 'update' : 'create'} employee`);
-          this.isLoading = false;
-        }
-      });
+        });
+      this.subscriptions.push(sub);
     } else {
       Object.keys(this.employeeForm.controls).forEach(key => {
         const control = this.employeeForm.get(key);
@@ -102,32 +110,35 @@ export class EmployeeFormComponent implements OnInit {
     if (!this.employeeId) return;
     
     this.isLoading = true;
-    this.employeeService.getEmployeeDetail(this.employeeId).subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.employeeForm.patchValue({
-            name: response.data.name,
-            mobileNumber: response.data.mobileNumber,
-            aadharNumber: response.data.aadharNumber,
-            email: response.data.email,
-            address: response.data.address,
-            designation: response.data.designation,
-            department: response.data.department,
-            status: response.data.status,
-            regularPay: response.data.regularPay,
-            overtimePay: response.data.overtimePay,
-            wageType: response.data.wageType || 'HOURLY',
-            regularHours: response.data.regularHours || 8,
-            startTime: response.data.startTime || '07:00'
-          });
+    const sub = this.employeeService.getEmployeeDetail(this.employeeId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.employeeForm.patchValue({
+              name: response.data.name,
+              mobileNumber: response.data.mobileNumber,
+              aadharNumber: response.data.aadharNumber,
+              email: response.data.email,
+              address: response.data.address,
+              designation: response.data.designation,
+              department: response.data.department,
+              status: response.data.status,
+              regularPay: response.data.regularPay,
+              overtimePay: response.data.overtimePay,
+              wageType: response.data.wageType || 'HOURLY',
+              regularHours: response.data.regularHours || 8,
+              startTime: response.data.startTime || '07:00'
+            });
+          }
+          this.isLoading = false;
+        },
+        error: (error) => {
+          this.snackbar.error(error?.error?.message || 'Failed to load employee details');
+          this.isLoading = false;
         }
-        this.isLoading = false;
-      },
-      error: (error) => {
-        this.snackbar.error(error?.error?.message || 'Failed to load employee details');
-        this.isLoading = false;
-      }
-    });
+      });
+    this.subscriptions.push(sub);
   }
 
   isFieldInvalid(fieldName: string): boolean {
@@ -147,5 +158,24 @@ export class EmployeeFormComponent implements OnInit {
       if (control.errors['min']) return `${fieldName} must be greater than 0`;
     }
     return '';
+  }
+
+  ngOnDestroy(): void {
+    // Unsubscribe from all subscriptions
+    this.subscriptions.forEach(sub => {
+      if (sub && !sub.closed) {
+        sub.unsubscribe();
+      }
+    });
+    this.subscriptions = [];
+
+    // Complete destroy subject
+    this.destroy$.next();
+    this.destroy$.complete();
+
+    // Reset form to release form subscriptions
+    if (this.employeeForm) {
+      this.employeeForm.reset();
+    }
   }
 } 

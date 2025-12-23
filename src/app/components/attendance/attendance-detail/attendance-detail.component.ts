@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LoaderComponent } from '../../../shared/components/loader/loader.component';
 import { RouterLink } from '@angular/router';
@@ -10,8 +10,8 @@ import { SnackbarService } from '../../../shared/services/snackbar.service';
 import { EncryptionService } from '../../../shared/services/encryption.service';
 import { FormsModule, ReactiveFormsModule, FormGroup, FormBuilder, Validators, FormControl } from '@angular/forms';
 import { ConfirmModalComponent } from '../../../shared/components/confirm-modal/confirm-modal.component';
-import { merge } from 'rxjs';
-import { debounceTime } from 'rxjs/operators';
+import { merge, Subject, Subscription } from 'rxjs';
+import { debounceTime, takeUntil } from 'rxjs/operators';
 import { CalendarViewComponent } from '../../../shared/components/calendar-view/calendar-view.component';
 
 @Component({
@@ -30,7 +30,7 @@ import { CalendarViewComponent } from '../../../shared/components/calendar-view/
     CalendarViewComponent
   ]
 })
-export class AttendanceDetailComponent implements OnInit {
+export class AttendanceDetailComponent implements OnInit, OnDestroy {
   employee: any;
   attendanceRecords: any[] = [];
   isLoading = false;
@@ -55,6 +55,9 @@ export class AttendanceDetailComponent implements OnInit {
   totalOvertimeHours!:number
   totalOvertimePay!:number
   totalOfTotalPay!:number
+
+  private destroy$ = new Subject<void>();
+  private subscriptions: Subscription[] = [];
 
   constructor(
     private employeeService: EmployeeService,
@@ -103,14 +106,18 @@ export class AttendanceDetailComponent implements OnInit {
     this.startDate.setValue(formattedFirstDay);
     this.endDate.setValue(formattedLastDay);
 
-    merge(this.startDate.valueChanges, this.endDate.valueChanges)
-      .pipe(debounceTime(300))
+    const dateSub = merge(this.startDate.valueChanges, this.endDate.valueChanges)
+      .pipe(
+        debounceTime(300),
+        takeUntil(this.destroy$)
+      )
       .subscribe(() => {
         if (this.startDate.value && this.endDate.value) {
           this.currentPage = 0;
           this.loadAttendanceRecords();
         }
       });
+    this.subscriptions.push(dateSub);
   }
 
   private formatDateForInput(date: Date): string {
@@ -135,24 +142,27 @@ export class AttendanceDetailComponent implements OnInit {
       endDate: this.formatDateForApi(this.endDate.value || '')
     };
 
-    this.attendanceService.searchAttendance(params).subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.attendanceRecords = response.data.content;
-          this.calculateTotalPayAndHours();
-          this.attendanceDates = this.attendanceRecords.map(record => 
-            this.formatDateForApi(record.startDateTime)
-          );
-          this.totalPages = response.data.totalPages;
-          this.totalElements = response.data.totalElements;
+    const sub = this.attendanceService.searchAttendance(params)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.attendanceRecords = response.data.content;
+            this.calculateTotalPayAndHours();
+            this.attendanceDates = this.attendanceRecords.map(record => 
+              this.formatDateForApi(record.startDateTime)
+            );
+            this.totalPages = response.data.totalPages;
+            this.totalElements = response.data.totalElements;
+          }
+          this.isLoading = false;
+        },
+        error: () => {
+          this.snackbar.error('Failed to load attendance records');
+          this.isLoading = false;
         }
-        this.isLoading = false;
-      },
-      error: () => {
-        this.snackbar.error('Failed to load attendance records');
-        this.isLoading = false;
-      }
-    });
+      });
+    this.subscriptions.push(sub);
   }
 
 calculateTotal(fieldName:any[]){
@@ -214,23 +224,26 @@ calculateTotalPayAndHours(){
 
   onConfirmDelete(): void {
     this.isLoading = true;
-    this.attendanceService.deleteAttendances(this.selectedAttendances).subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.snackbar.success('Records deleted successfully');
-          this.selectedAttendances = [];
-          this.selectAll = false;
-          this.loadAttendanceRecords();
+    const sub = this.attendanceService.deleteAttendances(this.selectedAttendances)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.snackbar.success('Records deleted successfully');
+            this.selectedAttendances = [];
+            this.selectAll = false;
+            this.loadAttendanceRecords();
+          }
+          this.showDeleteModal = false;
+          this.isLoading = false;
+        },
+        error: (error) => {
+          this.snackbar.error(error.message || 'Failed to delete records');
+          this.showDeleteModal = false;
+          this.isLoading = false;
         }
-        this.showDeleteModal = false;
-        this.isLoading = false;
-      },
-      error: (error) => {
-        this.snackbar.error(error.message || 'Failed to delete records');
-        this.showDeleteModal = false;
-        this.isLoading = false;
-      }
-    });
+      });
+    this.subscriptions.push(sub);
   }
 
   onCancelDelete(): void {
@@ -253,21 +266,24 @@ calculateTotalPayAndHours(){
       startDate: this.formatDateForApi(this.startDate.value)
     };
 
-    this.attendanceService.generatePdf(params).subscribe({
-      next: (response) => {
-        const url = window.URL.createObjectURL(response.blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = response.filename;
-        link.click();
-        window.URL.revokeObjectURL(url);
-        this.isLoading = false;
-      },
-      error: (error) => {
-        this.snackbar.error('Failed to download attendance report');
-        this.isLoading = false;
-      }
-    });
+    const sub = this.attendanceService.generatePdf(params)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          const url = window.URL.createObjectURL(response.blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = response.filename;
+          link.click();
+          window.URL.revokeObjectURL(url);
+          this.isLoading = false;
+        },
+        error: (error) => {
+          this.snackbar.error('Failed to download attendance report');
+          this.isLoading = false;
+        }
+      });
+    this.subscriptions.push(sub);
   }
 
   printAttendance(): void {
@@ -282,40 +298,68 @@ calculateTotalPayAndHours(){
       startDate: this.formatDateForApi(this.startDate.value)
     };
 
-    this.attendanceService.generatePdf(params).subscribe({
-      next: (response) => {
-        const blob = response.blob;
-        const url = window.URL.createObjectURL(blob);
-        
-        // Create an iframe for printing
-        const printFrame = document.createElement('iframe');
-        printFrame.style.display = 'none';
-        printFrame.src = url;
-        
-        document.body.appendChild(printFrame);
-        printFrame.onload = () => {
-          setTimeout(() => {
-            try {
-              printFrame.contentWindow?.print();
-              // Only set loading to false after print dialog is shown
-              this.isLoading = false;
-            } catch (error) {
-              this.snackbar.error('Failed to open print dialog');
-              this.isLoading = false;
-            }
-          }, 1000);
+    const sub = this.attendanceService.generatePdf(params)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          const blob = response.blob;
+          const url = window.URL.createObjectURL(blob);
+          
+          // Create an iframe for printing
+          const printFrame = document.createElement('iframe');
+          printFrame.style.display = 'none';
+          printFrame.src = url;
+          
+          document.body.appendChild(printFrame);
+          printFrame.onload = () => {
+            setTimeout(() => {
+              try {
+                printFrame.contentWindow?.print();
+                // Only set loading to false after print dialog is shown
+                this.isLoading = false;
+              } catch (error) {
+                this.snackbar.error('Failed to open print dialog');
+                this.isLoading = false;
+              }
+            }, 1000);
 
-          // Cleanup after longer delay
-          // setTimeout(() => {
-          //   document.body.removeChild(printFrame);
-          //   window.URL.revokeObjectURL(url);
-          // }, 5000);
-        };
-      },
-      error: (error) => {
-        this.snackbar.error('Failed to generate attendance report');
-        this.isLoading = false;
+            // Cleanup after longer delay
+            setTimeout(() => {
+              if (document.body.contains(printFrame)) {
+                document.body.removeChild(printFrame);
+              }
+              window.URL.revokeObjectURL(url);
+            }, 5000);
+          };
+        },
+        error: (error) => {
+          this.snackbar.error('Failed to generate attendance report');
+          this.isLoading = false;
+        }
+      });
+    this.subscriptions.push(sub);
+  }
+
+  ngOnDestroy(): void {
+    // Unsubscribe from all subscriptions
+    this.subscriptions.forEach(sub => {
+      if (sub && !sub.closed) {
+        sub.unsubscribe();
       }
     });
+    this.subscriptions = [];
+
+    // Complete destroy subject
+    this.destroy$.next();
+    this.destroy$.complete();
+
+    // Clear arrays
+    this.attendanceRecords = [];
+    this.attendanceDates = [];
+    this.selectedAttendances = [];
+
+    // Reset form controls
+    this.startDate.reset();
+    this.endDate.reset();
   }
 }

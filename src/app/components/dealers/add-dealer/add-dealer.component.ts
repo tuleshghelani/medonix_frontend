@@ -1,18 +1,23 @@
-import { Component, OnInit, Inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, Inject } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { DealersService, RegisterDealerRequest } from '../../../services/dealers.service';
 import { ToastrService } from 'ngx-toastr';
 import { Title } from '@angular/platform-browser';
 import { Meta } from '@angular/platform-browser';
+import { Subject, Subscription } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 @Component({
   selector: 'app-add-dealer',
   templateUrl: './add-dealer.component.html',
   styleUrl: './add-dealer.component.scss'
 })
-export class AddDealerComponent implements OnInit {
+export class AddDealerComponent implements OnInit, OnDestroy {
   form!: FormGroup;
   isSubmitting = false;
+
+  private destroy$ = new Subject<void>();
+  private subscriptions: Subscription[] = [];
 
   constructor(
     private formBuilder: FormBuilder,
@@ -52,22 +57,44 @@ export class AddDealerComponent implements OnInit {
     const payload: RegisterDealerRequest = this.form.value as RegisterDealerRequest;
     this.isSubmitting = true;
 
-    this.dealersService.registerDealer(payload).subscribe({
-      next: (response) => {
-        if (response?.success) {
-          this.toastr.success('Dealer registered successfully. Pending for approval.', 'Success');
-          this.form.reset();
-        } else {
-          this.toastr.info(response?.message || 'Request submitted.');
+    const sub = this.dealersService.registerDealer(payload)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response?.success) {
+            this.toastr.success('Dealer registered successfully. Pending for approval.', 'Success');
+            this.form.reset();
+          } else {
+            this.toastr.info(response?.message || 'Request submitted.');
+          }
+        },
+        error: (err) => {
+          const message = err?.error?.message || 'Failed to register dealer. Please try again.';
+          this.toastr.error(message, 'Error');
+        },
+        complete: () => {
+          this.isSubmitting = false;
         }
-      },
-      error: (err) => {
-        const message = err?.error?.message || 'Failed to register dealer. Please try again.';
-        this.toastr.error(message, 'Error');
-      },
-      complete: () => {
-        this.isSubmitting = false;
+      });
+    this.subscriptions.push(sub);
+  }
+
+  ngOnDestroy(): void {
+    // Unsubscribe from all subscriptions
+    this.subscriptions.forEach(sub => {
+      if (sub && !sub.closed) {
+        sub.unsubscribe();
       }
     });
+    this.subscriptions = [];
+
+    // Complete destroy subject
+    this.destroy$.next();
+    this.destroy$.complete();
+
+    // Reset form to release form subscriptions
+    if (this.form) {
+      this.form.reset();
+    }
   }
 }

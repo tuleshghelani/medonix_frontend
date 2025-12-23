@@ -7,10 +7,12 @@ import { FormsModule } from '@angular/forms';
 import { LoaderComponent } from '../../../shared/components/loader/loader.component';
 import { SnackbarService } from '../../../shared/services/snackbar.service';
 import { PaginationComponent } from '../../../shared/components/pagination/pagination.component';
-import { Component } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select.component';
 import { EncryptionService } from '../../../shared/services/encryption.service';
+import { Subject, Subscription } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 
 
@@ -31,7 +33,7 @@ import { EncryptionService } from '../../../shared/services/encryption.service';
     SearchableSelectComponent
   ]
 })
-export class AttendanceListComponent {
+export class AttendanceListComponent implements OnInit, OnDestroy {
   employees: Employee[] = [];
   searchForm!: FormGroup;
   isLoading = false;
@@ -44,6 +46,9 @@ export class AttendanceListComponent {
   totalElements = 0;
   startIndex = 0;
   endIndex = 0;
+
+  private destroy$ = new Subject<void>();
+  private subscriptions: Subscription[] = [];
 
   constructor(
     private employeeService: EmployeeService,
@@ -75,21 +80,24 @@ export class AttendanceListComponent {
       size: this.pageSize
     };
 
-    this.employeeService.searchEmployees(params).subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.employees = response.data.content;
-          this.totalPages = response.data.totalPages;
-          this.totalElements = response.data.totalElements;
-          this.updatePaginationIndexes();
+    const sub = this.employeeService.searchEmployees(params)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.employees = response.data.content;
+            this.totalPages = response.data.totalPages;
+            this.totalElements = response.data.totalElements;
+            this.updatePaginationIndexes();
+          }
+          this.isLoading = false;
+        },
+        error: () => {
+          this.snackbar.error('Failed to load employees');
+          this.isLoading = false;
         }
-        this.isLoading = false;
-      },
-      error: () => {
-        this.snackbar.error('Failed to load employees');
-        this.isLoading = false;
-      }
-    });
+      });
+    this.subscriptions.push(sub);
   }
 
   onSearch(): void {
@@ -114,18 +122,21 @@ export class AttendanceListComponent {
   deleteEmployee(id: number): void {
     if (confirm('Are you sure you want to delete this employee?')) {
       this.isLoading = true;
-      this.employeeService.deleteEmployee(id).subscribe({
-        next: (response) => {
-          if (response.success) {
-            this.snackbar.success('Employee deleted successfully');
-            this.loadEmployees();
+      const sub = this.employeeService.deleteEmployee(id)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (response) => {
+            if (response.success) {
+              this.snackbar.success('Employee deleted successfully');
+              this.loadEmployees();
+            }
+          },
+          error: (error) => {
+            this.snackbar.error(error?.error?.message || 'Failed to delete employee');
+            this.isLoading = false;
           }
-        },
-        error: (error) => {
-          this.snackbar.error(error?.error?.message || 'Failed to delete employee');
-          this.isLoading = false;
-        }
-      });
+        });
+      this.subscriptions.push(sub);
     }
   }
 
@@ -143,20 +154,45 @@ export class AttendanceListComponent {
 
   viewAttendanceDetails(employeeId: number): void {
     this.isLoading = true;
-    this.employeeService.getEmployeeDetail(employeeId).subscribe({
-      next: (response) => {
-        if (response.success) {
-          const encryptedData = this.encryptionService.encrypt(JSON.stringify(response.data));
-          localStorage.setItem('selectedEmployee', encryptedData);
-          this.router.navigate(['/attendance/details']);
+    const sub = this.employeeService.getEmployeeDetail(employeeId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            const encryptedData = this.encryptionService.encrypt(JSON.stringify(response.data));
+            localStorage.setItem('selectedEmployee', encryptedData);
+            this.router.navigate(['/attendance/details']);
+          }
+          this.isLoading = false;
+        },
+        error: (error) => {
+          this.snackbar.error(error.message || 'Failed to load employee details');
+          this.isLoading = false;
         }
-        this.isLoading = false;
-      },
-      error: (error) => {
-        this.snackbar.error(error.message || 'Failed to load employee details');
-        this.isLoading = false;
+      });
+    this.subscriptions.push(sub);
+  }
+
+  ngOnDestroy(): void {
+    // Unsubscribe from all subscriptions
+    this.subscriptions.forEach(sub => {
+      if (sub && !sub.closed) {
+        sub.unsubscribe();
       }
     });
+    this.subscriptions = [];
+
+    // Complete destroy subject
+    this.destroy$.next();
+    this.destroy$.complete();
+
+    // Clear arrays
+    this.employees = [];
+
+    // Reset form to release form subscriptions
+    if (this.searchForm) {
+      this.searchForm.reset();
+    }
   }
 
 }

@@ -328,6 +328,9 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
         }
       }, 0);
       this.timeouts.push(timeoutId);
+      
+      // Adjust dropdown position for mobile viewport
+      this.adjustDropdownPosition();
     }
     this.cdr.markForCheck();
   }
@@ -368,7 +371,50 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
     if (this.focusWidthPx) {
       this.applyFocusWidth();
     }
+    
+    // Adjust dropdown position for mobile viewport
+    this.adjustDropdownPosition();
+    
     this.cdr.markForCheck();
+  }
+  
+  private adjustDropdownPosition(): void {
+    // Wait for dropdown to render
+    const timeoutId = setTimeout(() => {
+      if (!this.dropdown?.nativeElement || !this.isOpen) return;
+      
+      const dropdown = this.dropdown.nativeElement.querySelector('.select-dropdown') as HTMLElement;
+      if (!dropdown) return;
+      
+      const isMobile = window.innerWidth <= 768;
+      if (isMobile) {
+        // On mobile, use fixed positioning (handled by CSS)
+        // Just ensure it's visible
+        const viewportHeight = window.innerHeight;
+        const maxHeight = Math.min(parseInt(this.maxHeight) || 200, viewportHeight * 0.6);
+        dropdown.style.maxHeight = `${maxHeight}px`;
+      } else {
+        // On desktop, check if dropdown would go off-screen
+        const rect = this.elementRef.nativeElement.getBoundingClientRect();
+        const dropdownRect = dropdown.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const spaceBelow = viewportHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        
+        // If not enough space below but enough above, position above
+        if (spaceBelow < dropdownRect.height && spaceAbove > dropdownRect.height) {
+          dropdown.style.top = 'auto';
+          dropdown.style.bottom = 'calc(100% + 6px)';
+          dropdown.style.transform = 'translateY(100%)';
+        } else {
+          dropdown.style.top = 'calc(100% + 6px)';
+          dropdown.style.bottom = 'auto';
+          dropdown.style.transform = 'none';
+        }
+      }
+      this.cdr.markForCheck();
+    }, 0);
+    this.timeouts.push(timeoutId);
   }
   
   private applyFocusWidth(): void {

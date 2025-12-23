@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AttendanceService } from '../../../services/attendance.service';
@@ -8,6 +8,8 @@ import { DateUtils } from '../../../shared/utils/date-utils';
 import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select.component';
 import { LoaderComponent } from '../../../shared/components/loader/loader.component';
 import { CommonModule } from '@angular/common';
+import { Subject, Subscription } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 @Component({
   selector: 'app-create-attendance',
@@ -25,11 +27,14 @@ import { CommonModule } from '@angular/common';
   ] 
 
 })
-export class CreateAttendanceComponent implements OnInit {
+export class CreateAttendanceComponent implements OnInit, OnDestroy {
   attendanceForm!: FormGroup;
   employees: any[] = [];
   isLoading = false;
   isLoadingEmployees = false;
+
+  private destroy$ = new Subject<void>();
+  private subscriptions: Subscription[] = [];
 
   constructor(
     private fb: FormBuilder,
@@ -59,9 +64,14 @@ export class CreateAttendanceComponent implements OnInit {
     });
 
     // Subscribe to start date changes to update end date validation
-    this.attendanceForm.get('startDateTime')?.valueChanges.subscribe(() => {
-      this.attendanceForm.get('endDateTime')?.updateValueAndValidity();
-    });
+    const startDateSub = this.attendanceForm.get('startDateTime')?.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.attendanceForm.get('endDateTime')?.updateValueAndValidity();
+      });
+    if (startDateSub) {
+      this.subscriptions.push(startDateSub);
+    }
   }
 
   
@@ -109,18 +119,21 @@ export class CreateAttendanceComponent implements OnInit {
 
   loadEmployees(): void {
     this.isLoadingEmployees = true;
-    this.employeeService.getAllEmployees().subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.employees = response.data;
+    const sub = this.employeeService.getAllEmployees()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.employees = response.data;
+          }
+          this.isLoadingEmployees = false;
+        },
+        error: () => {
+          this.snackbar.error('Failed to load employees');
+          this.isLoadingEmployees = false;
         }
-        this.isLoadingEmployees = false;
-      },
-      error: () => {
-        this.snackbar.error('Failed to load employees');
-        this.isLoadingEmployees = false;
-      }
-    });
+      });
+    this.subscriptions.push(sub);
   }
 
   selectAllEmployees(): void {
@@ -143,39 +156,45 @@ export class CreateAttendanceComponent implements OnInit {
       formData.startDateTime = this.dateUtils.formatDateTimeForApi(formData.startDateTime);
       formData.endDateTime = this.dateUtils.formatDateTimeForApi(formData.endDateTime);
 
-      this.attendanceService.createAttendance(formData).subscribe({
-        next: (response) => {
-          if (response.success) {
-            this.snackbar.success('Attendance created successfully');
-            // this.router.navigate(['/attendance']);
+      const sub = this.attendanceService.createAttendance(formData)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (response) => {
+            if (response.success) {
+              this.snackbar.success('Attendance created successfully');
+              // this.router.navigate(['/attendance']);
+            }
+            this.isLoading = false;
+            this.attendanceForm.reset();
+            this.initializeForm();
+          },
+          error: (error) => {
+            this.snackbar.error(error?.error?.message || 'Failed to create attendance');
+            this.isLoading = false;
           }
-          this.isLoading = false;
-          this.attendanceForm.reset();
-          this.initializeForm();
-        },
-        error: (error) => {
-          this.snackbar.error(error?.error?.message || 'Failed to create attendance');
-          this.isLoading = false;
-        }
-      });
+        });
+      this.subscriptions.push(sub);
     }
   }
 
   refreshEmployees(): void {
     this.isLoadingEmployees = true;
-    this.employeeService.refreshEmployees().subscribe({
-      next: (response) => {
-        if (response.success) {
-          this.employees = response.data;
-          this.snackbar.success('Employees refreshed successfully');
+    const sub = this.employeeService.refreshEmployees()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.employees = response.data;
+            this.snackbar.success('Employees refreshed successfully');
+          }
+          this.isLoadingEmployees = false;
+        },
+        error: () => {
+          this.snackbar.error('Failed to refresh employees');
+          this.isLoadingEmployees = false;
         }
-        this.isLoadingEmployees = false;
-      },
-      error: () => {
-        this.snackbar.error('Failed to refresh employees');
-        this.isLoadingEmployees = false;
-      }
-    });
+      });
+    this.subscriptions.push(sub);
   }
 
   getMaxEndDateTime(): string {
@@ -192,5 +211,27 @@ export class CreateAttendanceComponent implements OnInit {
   isFieldInvalid(fieldName: string): boolean {
     const field = this.attendanceForm.get(fieldName);
     return field ? (field.invalid && (field.dirty || field.touched)) : false;
+  }
+
+  ngOnDestroy(): void {
+    // Unsubscribe from all subscriptions
+    this.subscriptions.forEach(sub => {
+      if (sub && !sub.closed) {
+        sub.unsubscribe();
+      }
+    });
+    this.subscriptions = [];
+
+    // Complete destroy subject
+    this.destroy$.next();
+    this.destroy$.complete();
+
+    // Clear arrays
+    this.employees = [];
+
+    // Reset form to release form subscriptions
+    if (this.attendanceForm) {
+      this.attendanceForm.reset();
+    }
   }
 }

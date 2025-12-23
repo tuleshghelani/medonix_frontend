@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
@@ -6,6 +6,8 @@ import { LoaderComponent } from '../../../shared/components/loader/loader.compon
 import { SnackbarService } from '../../../shared/services/snackbar.service';
 import { TransportMaster, TransportMasterService } from '../../../services/transport-master.service';
 import { EncryptionService } from '../../../shared/services/encryption.service';
+import { Subject, Subscription } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 @Component({
   selector: 'app-add-transport-master',
@@ -19,11 +21,14 @@ import { EncryptionService } from '../../../shared/services/encryption.service';
   templateUrl: './add-transport.component.html',
   styleUrls: ['./add-transport.component.scss']
 })
-export class AddTransportComponent implements OnInit {
+export class AddTransportComponent implements OnInit, OnDestroy {
   form!: FormGroup;
   isLoading = false;
   isEditMode = false;
   transportId?: number;
+
+  private destroy$ = new Subject<void>();
+  private subscriptions: Subscription[] = [];
 
   constructor(
     private fb: FormBuilder,
@@ -98,45 +103,70 @@ export class AddTransportComponent implements OnInit {
       ...this.form.value
     };
     const request$ = this.isEditMode ? this.service.update(payload) : this.service.create(payload);
-    request$.subscribe({
-      next: (response) => {
-        if (response?.success === false) {
-          this.snackbar.error(response?.message || 'Operation failed');
+    const sub = request$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response?.success === false) {
+            this.snackbar.error(response?.message || 'Operation failed');
+            this.isLoading = false;
+            return;
+          }
+          this.snackbar.success(`Transport ${this.isEditMode ? 'updated' : 'created'} successfully`);
+          localStorage.removeItem('transportMasterId');
+          this.router.navigate(['/transport-master']);
+        },
+        error: (error) => {
+          this.snackbar.error(error?.error?.message || `Failed to ${this.isEditMode ? 'update' : 'create'} transport`);
           this.isLoading = false;
-          return;
         }
-        this.snackbar.success(`Transport ${this.isEditMode ? 'updated' : 'created'} successfully`);
-        localStorage.removeItem('transportMasterId');
-        this.router.navigate(['/transport-master']);
-      },
-      error: (error) => {
-        this.snackbar.error(error?.error?.message || `Failed to ${this.isEditMode ? 'update' : 'create'} transport`);
-        this.isLoading = false;
-      }
-    });
+      });
+    this.subscriptions.push(sub);
   }
 
   private loadDetails(id: number): void {
     this.isLoading = true;
-    this.service.details(id).subscribe({
-      next: (res) => {
-        const data = res?.data || res;
-        if (data) {
-          this.form.patchValue({
-            name: data.name,
-            mobile: data.mobile,
-            gst: data.gst,
-            remarks: data.remarks,
-            status: data.status
-          });
+    const sub = this.service.details(id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res) => {
+          const data = res?.data || res;
+          if (data) {
+            this.form.patchValue({
+              name: data.name,
+              mobile: data.mobile,
+              gst: data.gst,
+              remarks: data.remarks,
+              status: data.status
+            });
+          }
+          this.isLoading = false;
+        },
+        error: () => {
+          this.snackbar.error('Failed to load transport details');
+          this.isLoading = false;
         }
-        this.isLoading = false;
-      },
-      error: () => {
-        this.snackbar.error('Failed to load transport details');
-        this.isLoading = false;
+      });
+    this.subscriptions.push(sub);
+  }
+
+  ngOnDestroy(): void {
+    // Unsubscribe from all subscriptions
+    this.subscriptions.forEach(sub => {
+      if (sub && !sub.closed) {
+        sub.unsubscribe();
       }
     });
+    this.subscriptions = [];
+
+    // Complete destroy subject
+    this.destroy$.next();
+    this.destroy$.complete();
+
+    // Reset form to release form subscriptions
+    if (this.form) {
+      this.form.reset();
+    }
   }
 }
 

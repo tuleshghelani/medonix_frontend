@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink, RouterModule } from '@angular/router';
@@ -8,6 +8,8 @@ import { PaginationComponent } from '../../../shared/components/pagination/pagin
 import { TransportMasterSearchRequest, TransportMasterService } from '../../../services/transport-master.service';
 import { Router } from '@angular/router';
 import { EncryptionService } from '../../../shared/services/encryption.service';
+import { Subject, Subscription } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 @Component({
   selector: 'app-transport-master-list',
@@ -23,7 +25,7 @@ import { EncryptionService } from '../../../shared/services/encryption.service';
   templateUrl: './transport-master-list.component.html',
   styleUrls: ['./transport-master-list.component.scss']
 })
-export class TransportMasterListComponent implements OnInit {
+export class TransportMasterListComponent implements OnInit, OnDestroy {
   searchForm!: FormGroup;
   isLoading = false;
   transports: any[] = [];
@@ -34,6 +36,9 @@ export class TransportMasterListComponent implements OnInit {
   totalElements = 0;
   startIndex = 0;
   endIndex = 0;
+
+  private destroy$ = new Subject<void>();
+  private subscriptions: Subscription[] = [];
 
   constructor(
     private fb: FormBuilder,
@@ -60,31 +65,34 @@ export class TransportMasterListComponent implements OnInit {
       sortBy: 'id',
       sortDir: 'desc'
     };
-    this.service.search(payload as TransportMasterSearchRequest).subscribe({
-      next: (response) => {
-        if (response?.data?.content) {
-          this.transports = response.data.content;
-          this.totalPages = response.data.totalPages;
-          this.totalElements = response.data.totalElements;
-          this.updateIndexes();
-        } else if (Array.isArray(response?.data)) {
-          this.transports = response.data;
-          this.totalPages = 1;
-          this.totalElements = response.data.length;
-          this.updateIndexes();
-        } else {
-          this.transports = [];
-          this.totalPages = 0;
-          this.totalElements = 0;
-          this.updateIndexes();
+    const sub = this.service.search(payload as TransportMasterSearchRequest)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response?.data?.content) {
+            this.transports = response.data.content;
+            this.totalPages = response.data.totalPages;
+            this.totalElements = response.data.totalElements;
+            this.updateIndexes();
+          } else if (Array.isArray(response?.data)) {
+            this.transports = response.data;
+            this.totalPages = 1;
+            this.totalElements = response.data.length;
+            this.updateIndexes();
+          } else {
+            this.transports = [];
+            this.totalPages = 0;
+            this.totalElements = 0;
+            this.updateIndexes();
+          }
+          this.isLoading = false;
+        },
+        error: () => {
+          this.snackbar.error('Failed to load transports');
+          this.isLoading = false;
         }
-        this.isLoading = false;
-      },
-      error: () => {
-        this.snackbar.error('Failed to load transports');
-        this.isLoading = false;
-      }
-    });
+      });
+    this.subscriptions.push(sub);
   }
 
   onSearch(event?: Event): void {
@@ -122,16 +130,19 @@ export class TransportMasterListComponent implements OnInit {
   delete(id: number): void {
     if (!confirm('Delete this transport?')) return;
     this.isLoading = true;
-    this.service.delete(id).subscribe({
-      next: () => {
-        this.snackbar.success('Transport deleted');
-        this.loadData();
-      },
-      error: () => {
-        this.snackbar.error('Failed to delete transport');
-        this.isLoading = false;
-      }
-    });
+    const sub = this.service.delete(id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.snackbar.success('Transport deleted');
+          this.loadData();
+        },
+        error: () => {
+          this.snackbar.error('Failed to delete transport');
+          this.isLoading = false;
+        }
+      });
+    this.subscriptions.push(sub);
   }
 
   private updateIndexes(): void {
@@ -148,6 +159,28 @@ export class TransportMasterListComponent implements OnInit {
   goToCreateTransport(): void {
     localStorage.removeItem('transportMasterId');
     this.router.navigate(['/transport-master/create']);
+  }
+
+  ngOnDestroy(): void {
+    // Unsubscribe from all subscriptions
+    this.subscriptions.forEach(sub => {
+      if (sub && !sub.closed) {
+        sub.unsubscribe();
+      }
+    });
+    this.subscriptions = [];
+
+    // Complete destroy subject
+    this.destroy$.next();
+    this.destroy$.complete();
+
+    // Clear arrays
+    this.transports = [];
+
+    // Reset form to release form subscriptions
+    if (this.searchForm) {
+      this.searchForm.reset();
+    }
   }
 }
 

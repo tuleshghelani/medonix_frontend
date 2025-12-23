@@ -1,9 +1,11 @@
-import { Component, Input, Output, EventEmitter, Inject, HostListener } from '@angular/core';
+import { Component, Input, Output, EventEmitter, Inject, HostListener, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule } from '@angular/forms';
 import { PolyCarbonateType, Product, ProductMainType } from '../../../models/product.model';
 import { ProductCalculationService } from '../../../services/product-calculation.service';
 import { DialogRef, DIALOG_DATA } from '@angular/cdk/dialog';
+import { Subject, Subscription } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 @Component({
   selector: 'app-product-mm-calculation-dialog',
@@ -12,7 +14,7 @@ import { DialogRef, DIALOG_DATA } from '@angular/cdk/dialog';
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule]
 })
-export class ProductMMCalculationDialogComponent {
+export class ProductMMCalculationDialogComponent implements OnDestroy {
   product: Product;
   
   calculationForm!: FormGroup;
@@ -24,6 +26,9 @@ export class ProductMMCalculationDialogComponent {
     totalSqFeet: 0,
     totalWeight: 0
   };
+
+  private destroy$ = new Subject<void>();
+  private subscriptions: Subscription[] = [];
 
   constructor(
     private fb: FormBuilder,
@@ -62,7 +67,10 @@ export class ProductMMCalculationDialogComponent {
       weight: [{value: 0, disabled: true}]
     });
 
-    row.valueChanges.subscribe(() => this.calculateRow(this.calculationsArray.length - 1));
+    const sub = row.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => this.calculateRow(this.calculationsArray.length - 1));
+    this.subscriptions.push(sub);
     this.calculationsArray.push(row);
   }
 
@@ -161,7 +169,10 @@ export class ProductMMCalculationDialogComponent {
         weight: [{value: calc.weight || 0, disabled: true}]
       });
 
-      row.valueChanges.subscribe(() => this.calculateRow(this.calculationsArray.length - 1));
+      const sub = row.valueChanges
+        .pipe(takeUntil(this.destroy$))
+        .subscribe(() => this.calculateRow(this.calculationsArray.length - 1));
+      this.subscriptions.push(sub);
       this.calculationsArray.push(row);
     });
     
@@ -195,5 +206,25 @@ export class ProductMMCalculationDialogComponent {
 
   closeDialog(): void {
     this.dialogRef.close();
+  }
+
+  ngOnDestroy(): void {
+    // Unsubscribe from all subscriptions
+    this.subscriptions.forEach(sub => {
+      if (sub && !sub.closed) {
+        sub.unsubscribe();
+      }
+    });
+    this.subscriptions = [];
+
+    // Complete destroy subject
+    this.destroy$.next();
+    this.destroy$.complete();
+
+    // Clear form array
+    if (this.calculationForm) {
+      this.calculationsArray.clear();
+      this.calculationForm.reset();
+    }
   }
 }

@@ -31,7 +31,7 @@ import { PaginationComponent } from '../../../shared/components/pagination/pagin
     PaginationComponent
   ]
 })
-export class AddCustomerPriceComponent {
+export class AddCustomerPriceComponent implements OnInit, OnDestroy {
   quotationForm!: FormGroup;
   products: any[] = [];
   loading = false;

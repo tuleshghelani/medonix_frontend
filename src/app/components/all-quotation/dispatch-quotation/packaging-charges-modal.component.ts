@@ -1,7 +1,8 @@
-import { Component, EventEmitter, Input, Output, OnChanges } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnChanges, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { trigger, transition, style, animate } from '@angular/animations';
+import { Subject } from 'rxjs';
 
 @Component({
   selector: 'app-packaging-charges-modal',
@@ -79,7 +80,7 @@ import { trigger, transition, style, animate } from '@angular/animations';
     ])
   ]
 })
-export class PackagingChargesModalComponent implements OnChanges {
+export class PackagingChargesModalComponent implements OnChanges, OnDestroy {
   @Input() show = false;
   @Input() defaultCharges: number = 0;
   @Input() requireInvoiceNumber: boolean = false;
@@ -89,6 +90,8 @@ export class PackagingChargesModalComponent implements OnChanges {
 
   chargesForm: FormGroup;
   isLoading = false;
+
+  private destroy$ = new Subject<void>();
 
   constructor(private fb: FormBuilder) {
     this.chargesForm = this.fb.group({
@@ -140,6 +143,25 @@ export class PackagingChargesModalComponent implements OnChanges {
       }
     } else {
       this.chargesForm.markAllAsTouched();
+    }
+  }
+
+  ngOnDestroy(): void {
+    // Complete destroy subject
+    this.destroy$.next();
+    this.destroy$.complete();
+
+    // Complete EventEmitters
+    if (this.confirm && typeof (this.confirm as any).complete === 'function') {
+      (this.confirm as any).complete();
+    }
+    if (this.cancel && typeof (this.cancel as any).complete === 'function') {
+      (this.cancel as any).complete();
+    }
+
+    // Reset form to release form subscriptions
+    if (this.chargesForm) {
+      this.chargesForm.reset();
     }
   }
 }
