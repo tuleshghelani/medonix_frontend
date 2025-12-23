@@ -159,7 +159,14 @@
       
       &.virtual-scroll {
         // Styles for virtual scroll implementation
-        overflow-y: overlay;
+        overflow-y: auto;
+        position: relative;
+      }
+      
+      .virtual-scroll-spacer {
+        width: 100%;
+        pointer-events: none;
+        flex-shrink: 0;
       }
       
       .option {

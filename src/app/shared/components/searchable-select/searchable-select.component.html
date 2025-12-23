@@ -47,14 +47,23 @@
        (touchend)="onDropdownPointerDown($event)"
        role="listbox"
        [attr.aria-label]="'Options list'">
-    <div class="options-container" [class.virtual-scroll]="virtualScroll" #optionsContainer>
+    <div class="options-container" 
+         [class.virtual-scroll]="virtualScroll && filteredOptions.length > initialDisplayLimit" 
+         #optionsContainer
+         (scroll)="onOptionsContainerScroll($event)">
+      <!-- Virtual scroll spacer for items before visible range -->
+      <div *ngIf="virtualScroll && filteredOptions.length > initialDisplayLimit && offsetY > 0" 
+           class="virtual-scroll-spacer" 
+           [style.height.px]="offsetY"></div>
+      
+      <!-- Only render visible items -->
       <div 
         class="option" 
-        *ngFor="let option of filteredOptions; let i = index; trackBy: trackByOptionId"
+        *ngFor="let option of displayedOptions; let i = index; trackBy: trackByOptionId"
         (click)="selectOption(option, $event)"
         (touchstart)="selectOption(option, $event)"
         [class.selected]="isSelected(option)"
-        [class.highlighted]="i === highlightedIndex"
+        [class.highlighted]="(virtualScroll && filteredOptions.length > initialDisplayLimit ? startIndex + i : i) === highlightedIndex"
         role="option"
         [attr.aria-selected]="isSelected(option)"
       >
@@ -65,6 +74,12 @@
           <span [innerHTML]="sanitizeHtml(option[labelKey])"></span>
         </div>
       </div>
+      
+      <!-- Virtual scroll spacer for items after visible range -->
+      <div *ngIf="virtualScroll && filteredOptions.length > initialDisplayLimit" 
+           class="virtual-scroll-spacer" 
+           [style.height.px]="totalHeight - offsetY - (displayedOptions.length * virtualScrollItemHeight)"></div>
+      
       <div class="no-results" *ngIf="filteredOptions.length === 0">
         No results found
       </div>

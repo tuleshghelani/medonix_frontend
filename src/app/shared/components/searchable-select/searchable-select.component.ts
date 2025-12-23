@@ -36,8 +36,11 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
   @Input() allowClear = true;
   @Input() focusWidthPx?: number;
   @Input() maxHeight: string = '200px';
-  @Input() virtualScroll = false;
+  @Input() virtualScroll = true; // Default to true for performance
   @Input() searchDebounceMs = 300;
+  @Input() initialDisplayLimit: number = 100; // Limit initial display for large lists
+  @Input() virtualScrollItemHeight: number = 40; // Height of each option item in pixels
+  @Input() virtualScrollBuffer: number = 5; // Number of items to render outside viewport
 
   @Output() selectionChange = new EventEmitter<any>();
 
@@ -50,9 +53,19 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
   selectedValue: any = '';
   selectedValues: any[] = [];
   filteredOptions: SelectOption[] = [];
+  displayedOptions: SelectOption[] = []; // Only visible items for virtual scrolling
   highlightedIndex: number = -1;
   interactingWithDropdown = false;
   isPlaceholderVisible: boolean = true;
+  
+  // Virtual scrolling properties
+  scrollTop: number = 0;
+  containerHeight: number = 200;
+  startIndex: number = 0;
+  endIndex: number = 0;
+  totalHeight: number = 0;
+  offsetY: number = 0;
+  private scrollListener?: () => void;
 
   onChange: (value: any) => void = () => {};
   onTouch: () => void = () => {};
@@ -66,6 +79,8 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
   private lastSearchText: string = '';
   private lastFilteredOptions: SelectOption[] = [];
   private originalStyles: Map<HTMLElement, { [key: string]: string }> = new Map();
+  private labelCache: Map<SelectOption, string> = new Map();
+  private animationFrameId: number | null = null;
 
   constructor(
     private elementRef: ElementRef,
@@ -75,15 +90,47 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
   ) {}
 
   ngOnInit(): void {
-    // Initialize filtered options without expensive formatting
-    // Formatting will be done lazily when displaying
-    this.filteredOptions = [...this.options];
-    this.lastFilteredOptions = [...this.options];
+    // Don't initialize all options at once for large lists
+    // Only process them when needed
+    this.filteredOptions = [];
+    this.displayedOptions = [];
     
     // Set up click outside listener using Renderer2 for proper cleanup
     this.clickOutsideListener = this.renderer.listen('document', 'click', (event: Event) => {
       this.onClickOutside(event);
     });
+    
+    // Pre-cache labels for all options (do this asynchronously)
+    if (this.options.length > 0) {
+      requestAnimationFrame(() => {
+        this.preCacheLabels();
+      });
+    }
+  }
+  
+  private preCacheLabels(): void {
+    // Cache labels for a batch of options per frame to avoid blocking
+    const batchSize = 100;
+    let processed = 0;
+    
+    const processBatch = () => {
+      const end = Math.min(processed + batchSize, this.options.length);
+      for (let i = processed; i < end; i++) {
+        const option = this.options[i];
+        if (!this.labelCache.has(option)) {
+          this.labelCache.set(option, this.getOptionLabel(option));
+        }
+      }
+      processed = end;
+      
+      if (processed < this.options.length) {
+        this.animationFrameId = requestAnimationFrame(processBatch);
+      }
+    };
+    
+    if (this.options.length > 0) {
+      this.animationFrameId = requestAnimationFrame(processBatch);
+    }
   }
 
   ngAfterViewInit(): void {
@@ -101,6 +148,18 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
     // Close dropdown first to prevent any pending operations
     this.isOpen = false;
     this.interactingWithDropdown = false;
+    
+    // Cancel any pending animation frames
+    if (this.animationFrameId !== null) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+    
+    // Remove scroll listener
+    if (this.scrollListener) {
+      this.scrollListener();
+      this.scrollListener = undefined;
+    }
     
     // Clear all timeouts
     this.timeouts.forEach(id => clearTimeout(id));
@@ -124,11 +183,13 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
     // Clear all arrays and references
     this.options = [];
     this.filteredOptions = [];
+    this.displayedOptions = [];
     this.selectedValues = [];
     this.lastFilteredOptions = [];
     
     // Clear all caches aggressively
     this.sanitizedHtmlCache.clear();
+    this.labelCache.clear();
     this.originalStyles.clear();
     
     // Clear all string properties
@@ -317,20 +378,33 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
         }
       }
       
-      this.filterOptions();
-      
-      // Focus the search input when dropdown opens
-      const timeoutId = setTimeout(() => {
-        if (this.searchInput?.nativeElement) {
-          this.searchInput.nativeElement.textContent = this.searchText;
-          this.searchInput.nativeElement.focus();
-          this.cdr.markForCheck();
+      // Use requestAnimationFrame to avoid blocking UI
+      requestAnimationFrame(() => {
+        this.filterOptions();
+        
+        // Focus the search input when dropdown opens
+        setTimeout(() => {
+          if (this.searchInput?.nativeElement) {
+            this.searchInput.nativeElement.textContent = this.searchText;
+            this.searchInput.nativeElement.focus();
+            this.cdr.markForCheck();
+          }
+        }, 0);
+        
+        // Adjust dropdown position for mobile viewport
+        this.adjustDropdownPosition();
+        
+        // Setup virtual scrolling if enabled
+        if (this.virtualScroll && this.filteredOptions.length > this.initialDisplayLimit) {
+          this.setupVirtualScroll();
         }
-      }, 0);
-      this.timeouts.push(timeoutId);
-      
-      // Adjust dropdown position for mobile viewport
-      this.adjustDropdownPosition();
+      });
+    } else {
+      // Cleanup virtual scroll when closing
+      if (this.scrollListener) {
+        this.scrollListener();
+        this.scrollListener = undefined;
+      }
     }
     this.cdr.markForCheck();
   }
@@ -364,16 +438,25 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
     }
     
     this.isOpen = true;
-    this.filterOptions();
     this.highlightedIndex = -1;
     
-    // Apply custom width on focus if specified
-    if (this.focusWidthPx) {
-      this.applyFocusWidth();
-    }
-    
-    // Adjust dropdown position for mobile viewport
-    this.adjustDropdownPosition();
+    // Use requestAnimationFrame to avoid blocking UI
+    requestAnimationFrame(() => {
+      this.filterOptions();
+      
+      // Apply custom width on focus if specified
+      if (this.focusWidthPx) {
+        this.applyFocusWidth();
+      }
+      
+      // Adjust dropdown position for mobile viewport
+      this.adjustDropdownPosition();
+      
+      // Setup virtual scrolling if enabled
+      if (this.virtualScroll && this.filteredOptions.length > this.initialDisplayLimit) {
+        this.setupVirtualScroll();
+      }
+    });
     
     this.cdr.markForCheck();
   }
@@ -412,6 +495,12 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
           dropdown.style.transform = 'none';
         }
       }
+      
+      // Setup virtual scrolling after dropdown is positioned
+      if (this.virtualScroll && this.filteredOptions.length > this.initialDisplayLimit) {
+        this.setupVirtualScroll();
+      }
+      
       this.cdr.markForCheck();
     }, 0);
     this.timeouts.push(timeoutId);
@@ -570,6 +659,7 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
     // Cache check - if search text hasn't changed, return cached results
     if (this.searchText === this.lastSearchText && this.lastFilteredOptions.length > 0) {
       this.filteredOptions = this.lastFilteredOptions;
+      this.updateDisplayedOptions();
       this.highlightedIndex = this.filteredOptions.length > 0 ? 0 : -1;
       return;
     }
@@ -577,24 +667,128 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
     const searchLower = this.searchText.toLowerCase().trim();
     
     if (!searchLower) {
+      // Show all options (virtual scrolling will handle display)
       this.filteredOptions = [...this.options];
     } else {
-      this.filteredOptions = this.options.filter(option => {
-        const label = this.getOptionLabel(option);
-        return label.toLowerCase().includes(searchLower);
-      });
+      // Optimize filtering with cached labels
+      const results: SelectOption[] = [];
       
-      // If no results, show all options
-      if (this.filteredOptions.length === 0) {
-        this.filteredOptions = [...this.options];
+      // Use more efficient filtering
+      for (const option of this.options) {
+        const label = this.getCachedLabel(option).toLowerCase();
+        
+        // Fast path: exact match at start (prioritize these)
+        if (label.startsWith(searchLower)) {
+          results.push(option);
+          continue;
+        }
+        
+        // Fast path: contains match
+        if (label.includes(searchLower)) {
+          results.push(option);
+        }
       }
+      
+      this.filteredOptions = results.length > 0 ? results : [];
     }
     
     // Cache results
     this.lastSearchText = this.searchText;
     this.lastFilteredOptions = [...this.filteredOptions];
     this.highlightedIndex = this.filteredOptions.length > 0 ? 0 : -1;
+    
+    // Update displayed options based on virtual scrolling
+    // This will limit what's rendered in the DOM
+    this.updateDisplayedOptions();
+    
     this.cdr.markForCheck();
+  }
+  
+  private getCachedLabel(option: SelectOption): string {
+    if (this.labelCache.has(option)) {
+      return this.labelCache.get(option)!;
+    }
+    const label = this.getOptionLabel(option);
+    this.labelCache.set(option, label);
+    return label;
+  }
+  
+  private updateDisplayedOptions(): void {
+    if (!this.virtualScroll || this.filteredOptions.length <= this.initialDisplayLimit) {
+      // Don't use virtual scrolling for small lists
+      this.displayedOptions = this.filteredOptions;
+      this.totalHeight = this.filteredOptions.length * this.virtualScrollItemHeight;
+      this.offsetY = 0;
+      return;
+    }
+    
+    // Calculate visible range
+    const container = this.optionsContainer?.nativeElement;
+    if (!container) {
+      this.displayedOptions = this.filteredOptions.slice(0, this.initialDisplayLimit);
+      return;
+    }
+    
+    this.containerHeight = container.clientHeight || parseInt(this.maxHeight) || 200;
+    const visibleCount = Math.ceil(this.containerHeight / this.virtualScrollItemHeight);
+    
+    this.startIndex = Math.max(0, Math.floor(this.scrollTop / this.virtualScrollItemHeight) - this.virtualScrollBuffer);
+    this.endIndex = Math.min(
+      this.filteredOptions.length,
+      this.startIndex + visibleCount + (this.virtualScrollBuffer * 2)
+    );
+    
+    this.displayedOptions = this.filteredOptions.slice(this.startIndex, this.endIndex);
+    this.totalHeight = this.filteredOptions.length * this.virtualScrollItemHeight;
+    this.offsetY = this.startIndex * this.virtualScrollItemHeight;
+  }
+  
+  private setupVirtualScroll(): void {
+    const container = this.optionsContainer?.nativeElement;
+    if (!container || !this.virtualScroll || this.filteredOptions.length <= this.initialDisplayLimit) {
+      return;
+    }
+    
+    // Remove existing listener
+    if (this.scrollListener) {
+      this.scrollListener();
+    }
+    
+    // Setup scroll listener with requestAnimationFrame for better performance
+    this.scrollListener = this.renderer.listen(container, 'scroll', () => {
+      this.scrollTop = container.scrollTop;
+      if (this.animationFrameId !== null) {
+        cancelAnimationFrame(this.animationFrameId);
+      }
+      this.animationFrameId = requestAnimationFrame(() => {
+        this.updateDisplayedOptions();
+        this.cdr.markForCheck();
+        this.animationFrameId = null;
+      });
+    });
+    
+    // Initial update
+    this.scrollTop = 0;
+    this.updateDisplayedOptions();
+    this.cdr.markForCheck();
+  }
+  
+  onOptionsContainerScroll(event: Event): void {
+    // This method is called from template, but setupVirtualScroll handles scroll via renderer
+    // Keep this as a fallback or remove if not needed
+    const container = event.target as HTMLElement;
+    this.scrollTop = container.scrollTop;
+    
+    if (this.virtualScroll && this.filteredOptions.length > this.initialDisplayLimit) {
+      if (this.animationFrameId !== null) {
+        cancelAnimationFrame(this.animationFrameId);
+      }
+      this.animationFrameId = requestAnimationFrame(() => {
+        this.updateDisplayedOptions();
+        this.cdr.markForCheck();
+        this.animationFrameId = null;
+      });
+    }
   }
 
   selectOption(option: SelectOption, event?: Event): void {
@@ -666,11 +860,22 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
   }
   
   getOptionLabel(option: SelectOption): string {
-    const label = option[this.labelKey];
-    if (typeof label === 'string') {
-      return this.formatText(label);
+    // Check cache first
+    if (this.labelCache.has(option)) {
+      return this.labelCache.get(option)!;
     }
-    return String(label || '');
+    
+    const label = option[this.labelKey];
+    let result: string;
+    if (typeof label === 'string') {
+      result = this.formatText(label);
+    } else {
+      result = String(label || '');
+    }
+    
+    // Cache the result
+    this.labelCache.set(option, result);
+    return result;
   }
 
   getSelectedLabel(): string {
@@ -699,10 +904,12 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         this.isOpen = true;
         this.highlightedIndex = 0;
-        this.filterOptions();
+        requestAnimationFrame(() => {
+          this.filterOptions();
+          this.cdr.markForCheck();
+        });
         event.preventDefault();
         event.stopPropagation();
-        this.cdr.markForCheck();
       }
       return;
     }
@@ -716,7 +923,6 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
         event.preventDefault();
         event.stopPropagation();
         this.scrollToHighlighted();
-        this.cdr.markForCheck();
         break;
 
       case 'ArrowUp':
@@ -724,7 +930,6 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
         event.preventDefault();
         event.stopPropagation();
         this.scrollToHighlighted();
-        this.cdr.markForCheck();
         break;
 
       case 'Enter':
@@ -748,10 +953,22 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
   }
 
   private scrollToHighlighted(): void {
-    const timeoutId = setTimeout(() => {
+    requestAnimationFrame(() => {
       const container = this.optionsContainer?.nativeElement;
       if (!container) return;
       
+      // If using virtual scrolling, calculate scroll position based on highlighted index
+      if (this.virtualScroll && this.filteredOptions.length > this.initialDisplayLimit) {
+        const targetScrollTop = this.highlightedIndex * this.virtualScrollItemHeight;
+        const maxScroll = this.totalHeight - this.containerHeight;
+        container.scrollTop = Math.min(targetScrollTop, maxScroll);
+        this.scrollTop = container.scrollTop;
+        this.updateDisplayedOptions();
+        this.cdr.markForCheck();
+        return;
+      }
+      
+      // Fallback to DOM-based scrolling for small lists
       const highlighted = container.querySelector('.option.highlighted') as HTMLElement;
       
       if (highlighted) {
@@ -764,8 +981,8 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
           container.scrollTop -= containerRect.top - highlightedRect.top;
         }
       }
-    }, 0);
-    this.timeouts.push(timeoutId);
+      this.cdr.markForCheck();
+    });
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -773,6 +990,14 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
       // Clear filter cache when options change
       this.lastSearchText = '';
       this.lastFilteredOptions = [];
+      this.labelCache.clear(); // Clear label cache when options change
+      
+      // Pre-cache labels asynchronously for new options
+      if (this.options.length > 0) {
+        requestAnimationFrame(() => {
+          this.preCacheLabels();
+        });
+      }
       
       if (!this.multiple && this.selectedValue) {
         const selectedOption = this.options.find(opt => opt[this.valueKey] === this.selectedValue);
@@ -780,8 +1005,11 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
           this.searchText = this.getOptionLabel(selectedOption);
         }
       }
-      this.filterOptions();
-      this.cdr.markForCheck();
+      
+      requestAnimationFrame(() => {
+        this.filterOptions();
+        this.cdr.markForCheck();
+      });
     }
   }
 
