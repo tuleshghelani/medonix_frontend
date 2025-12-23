@@ -98,6 +98,10 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
   }
 
   ngOnDestroy(): void {
+    // Close dropdown first to prevent any pending operations
+    this.isOpen = false;
+    this.interactingWithDropdown = false;
+    
     // Clear all timeouts
     this.timeouts.forEach(id => clearTimeout(id));
     this.timeouts = [];
@@ -123,17 +127,43 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
     this.selectedValues = [];
     this.lastFilteredOptions = [];
     
-    // Clear sanitization cache
+    // Clear all caches aggressively
     this.sanitizedHtmlCache.clear();
+    this.originalStyles.clear();
+    
+    // Clear all string properties
+    this.searchText = '';
+    this.lastSearchText = '';
+    
+    // Reset all state completely
+    this.isPlaceholderVisible = true;
+    this.isFirstClick = true;
+    this.highlightedIndex = -1;
+    this.selectedValue = null;
+    this.selectedValues = [];
     
     // Nullify callbacks
     this.onChange = () => {};
     this.onTouch = () => {};
     
     // Clear DOM references
-    if (this.searchInput) {
+    if (this.searchInput?.nativeElement) {
       this.searchInput.nativeElement.textContent = '';
     }
+    
+    // Detach change detector to prevent any lingering change detection cycles
+    this.cdr.detach();
+    
+    // Complete EventEmitter to remove all subscribers and prevent memory leaks
+    if (this.selectionChange && typeof (this.selectionChange as any).complete === 'function') {
+      (this.selectionChange as any).complete();
+    }
+    
+    // Clear ViewChild references to help garbage collection
+    // Using type assertion to allow undefined assignment
+    (this as any).searchInput = undefined;
+    (this as any).dropdown = undefined;
+    (this as any).optionsContainer = undefined;
   }
   
   private revertAllStyles(): void {
