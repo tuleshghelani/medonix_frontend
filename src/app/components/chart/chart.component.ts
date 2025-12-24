@@ -308,7 +308,7 @@ export class ChartComponent implements OnInit, AfterViewInit, OnDestroy {
 
     try {
       this.chartInstance = new Chart(ctx, config);
-      console.log('Chart initialized successfully');
+      // console.log('Chart initialized successfully');
     } catch (error) {
       console.error('Error initializing chart:', error);
       this.snackbar.error('Failed to render chart');

@@ -135,7 +135,7 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
         debounceTime(100)
       )
       .subscribe(newValue => {
-        console.log('Quotation discount percentage changed to:', newValue);
+        // console.log('Quotation discount percentage changed to:', newValue);
         this.itemsFormArray.controls.forEach((_, index) => {
           this.calculateItemPrice(index);
         });
@@ -192,7 +192,7 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
 
 
   createCalculationGroup(item: any, calculationType: string): FormGroup {
-    console.log('createCalculationGroup item : ', item);
+    // console.log('createCalculationGroup item : ', item);
     return this.fb.group({
       mm: [item.mm, calculationType === 'MM' ? Validators.required : null],
       feet: [item.feet],
@@ -298,12 +298,12 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
         distinctUntilChanged()
       )
       .subscribe(productId => {
-        console.log('Product ID changed to:', productId);
+        // console.log('Product ID changed to:', productId);
         const selectedProduct = this.products.find(p => p.id === productId);
-        console.log('selectedProduct >>>', selectedProduct);
+        // console.log('selectedProduct >>>', selectedProduct);
         
         if (selectedProduct) {
-          console.log(`Product tax percentage: ${selectedProduct.taxPercentage !== undefined ? selectedProduct.taxPercentage : 'not specified, using default 18'}%`);
+          // console.log(`Product tax percentage: ${selectedProduct.taxPercentage !== undefined ? selectedProduct.taxPercentage : 'not specified, using default 18'}%`);
           this.fetchProductPrice(index, selectedProduct);
         }
       });
@@ -336,8 +336,8 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
 
     const quotationDiscountPercentage = Number(Number(this.quotationForm.get('quotationDiscountPercentage')?.value || 0).toFixed(2));
 
-    console.log(`Tax percentage used for calculation: ${values.taxPercentage}%`);
-    console.log(`Quotation discount percentage on tax only: ${quotationDiscountPercentage}%`);
+    // console.log(`Tax percentage used for calculation: ${values.taxPercentage}%`);
+    // console.log(`Quotation discount percentage on tax only: ${quotationDiscountPercentage}%`);
 
     // Calculate base price (quantity × unit price)
     const basePrice = Number((values.quantity * values.unitPrice).toFixed(2));
@@ -365,7 +365,7 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
       finalPrice: finalPrice
     }, { emitEvent: false });
 
-    console.log(`Item ${index} calculated:`, {
+    /*console.log(`Item ${index} calculated:`, {
       quantity: values.quantity,
       unitPrice: values.unitPrice,
       basePrice,
@@ -375,7 +375,7 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
       quotationDiscountAmount,
       netTaxAmount: finalTaxAmount,
       finalPrice
-    });
+    });*/
 
     this.calculateTotalAmount();
     
@@ -631,14 +631,14 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
   }
 
   private fetchProductPrice(index: number, selectedProduct: any): void {
-    console.log('Fetching price for product:', selectedProduct.name);
+    // console.log('Fetching price for product:', selectedProduct.name);
     
     const itemGroup = this.itemsFormArray.at(index);
     
     const taxPercentage = selectedProduct.taxPercentage !== undefined ? 
                         selectedProduct.taxPercentage : 18;
     
-    console.log(`Setting tax percentage for ${selectedProduct.name}: ${taxPercentage}%`);
+    // console.log(`Setting tax percentage for ${selectedProduct.name}: ${taxPercentage}%`);
     
     itemGroup.patchValue({
       productType: selectedProduct.type,
@@ -768,7 +768,7 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
           if (response) {
             this.quotationId = parseInt(quotationId);
             this.isEdit = true;
-            console.log('edit response >>',response.data)
+            // console.log('edit response >>',response.data)
             this.populateForm(response.data);
           }
           this.isLoading = false;
@@ -789,7 +789,7 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
   async populateForm(data: any) {
     if (!data) return;
 
-    console.log('Populating form with data:', data);
+    // console.log('Populating form with data:', data);
 
     while (this.itemsFormArray.length) {
       this.itemsFormArray.removeAt(0);
@@ -818,7 +818,7 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
           ? product.taxPercentage 
           : (item.taxPercentage ?? 18);
 
-        console.log(`Loaded item ${item.productId} with tax percentage: ${taxPercentage}%`);
+        // console.log(`Loaded item ${item.productId} with tax percentage: ${taxPercentage}%`);
         
         const itemGroup = this.fb.group({
           id: [item.id || null],
@@ -885,7 +885,7 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
     const quotationDiscountPercentageControl = this.quotationForm.get('quotationDiscountPercentage');
     const quotationDiscountPercentage = Number(quotationDiscountPercentageControl?.value || 0);
     
-    console.log('Explicitly getting quotationDiscountPercentage:', quotationDiscountPercentage);
+    // console.log('Explicitly getting quotationDiscountPercentage:', quotationDiscountPercentage);
     
     const items = this.itemsFormArray.controls.map((control) => {
       return {
@@ -922,7 +922,7 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
       items: items
     };
     
-    console.log('Final form data to be submitted:', finalFormData);
+    // console.log('Final form data to be submitted:', finalFormData);
     
     return finalFormData;
   }
@@ -957,7 +957,7 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
   }
 
   onQuotationDiscountPercentageChange(event: any): void {
-    console.log('Quotation discount percentage changed to:', event.target.value);
+    // console.log('Quotation discount percentage changed to:', event.target.value);
     
     const newValue = Number(event.target.value || 0);
     

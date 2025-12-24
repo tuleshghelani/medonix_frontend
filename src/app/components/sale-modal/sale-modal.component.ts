@@ -127,7 +127,7 @@ export class SaleModalComponent implements OnChanges, OnDestroy {
       otherExpenses: 0,
     });
 
-    console.log('Form values after patch:', this.saleForm.value);
+    // console.log('Form values after patch:', this.saleForm.value);
 
     this.saleForm.get('quantity')?.setValidators([
       Validators.required,
@@ -183,7 +183,7 @@ export class SaleModalComponent implements OnChanges, OnDestroy {
           }).replace(/\//g, '-').replace(',', '');
         }
 
-        console.log('Sale form data being sent:', formData);
+        // console.log('Sale form data being sent:', formData);
 
         const sub = this.saleService.createSale(formData)
           .pipe(takeUntil(this.destroy$))

@@ -131,7 +131,7 @@ export class AuthService {
 
     const rolesString = this.encryptionService.decrypt(encryptedRoles);
     // Handle the string format "[ADMIN, STAFF_ADMIN]"
-    console.log(rolesString);
+    // console.log(rolesString);
     return rolesString
       .replace('[', '')
       .replace(']', '')

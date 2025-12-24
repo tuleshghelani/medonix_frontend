@@ -130,7 +130,7 @@ export class DataCenterComponent implements OnInit, OnDestroy {
               next: (response) => {
                   this.snackbar.success('Data deleted successfully');
                   this.resetForm();
-                  console.log(this.selectedTypes);
+                  // console.log(this.selectedTypes);
                   this.ngOnInit();
                   this.isLoading = false;
               },
