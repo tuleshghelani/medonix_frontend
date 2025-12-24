@@ -1,8 +1,8 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, ValidatorFn, AbstractControl, ValidationErrors } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-import { Subject, takeUntil, Subscription } from 'rxjs';
+import { Subject, takeUntil, Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 import { formatDate } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 
@@ -37,7 +37,8 @@ interface ProductForm {
     SearchableSelectComponent
   ],
   templateUrl: './add-purchase.component.html',
-  styleUrls: ['./add-purchase.component.scss']
+  styleUrls: ['./add-purchase.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AddPurchaseComponent implements OnInit, OnDestroy {
   purchaseForm!: FormGroup;
@@ -49,9 +50,22 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
   isEdit = false;
   private destroy$ = new Subject<void>();
   private productSubscriptions: Subscription[] = [];
+  
+  // Memory optimization: cached totals to avoid recalculating in template
+  totalAmount: number = 0;
+  totalTaxAmount: number = 0;
+  grandTotal: number = 0;
+  
+  // Memory optimization: Map for O(1) product lookups instead of O(n) find()
+  private productMap: Map<any, any> = new Map();
 
   get productsFormArray() {
     return this.purchaseForm.get('products') as FormArray;
+  }
+  
+  // Memory optimization: trackBy function for ngFor to avoid DOM recreation
+  trackByProductIndex(index: number, item: any): number {
+    return index;
   }
 
   constructor(
@@ -62,7 +76,8 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
     private snackbar: SnackbarService,
     private http: HttpClient,
     private router: Router,
-    private encryptionService: EncryptionService
+    private encryptionService: EncryptionService,
+    private cdr: ChangeDetectorRef
   ) {
     this.initForm();
   }
@@ -93,9 +108,10 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
 
-    // Clear arrays to release memory
+    // Clear arrays and maps to release memory
     this.products = [];
     this.customers = [];
+    this.productMap.clear();
 
     // Reset form to release form subscriptions
     if (this.purchaseForm) {
@@ -112,6 +128,18 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
       packagingAndForwadingCharges: [0, [Validators.required, Validators.min(0)]],
       products: this.fb.array([])
     });
+
+    // Listen to packaging charges changes to update grandTotal
+    this.purchaseForm.get('packagingAndForwadingCharges')?.valueChanges
+      .pipe(
+        takeUntil(this.destroy$),
+        debounceTime(150)
+      )
+      .subscribe(() => {
+        const packagingCharges = Number(this.purchaseForm.get('packagingAndForwadingCharges')?.value || 0);
+        this.grandTotal = this.totalAmount + this.totalTaxAmount + packagingCharges;
+        this.cdr.markForCheck();
+      });
 
     // Add initial product form group
     this.addProduct();
@@ -162,10 +190,14 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
   private setupProductCalculations(group: FormGroup, index: number) {
     // Listen to product selection to get tax percentage and purchaseAmount
     const productIdSubscription = group.get('productId')?.valueChanges
-      .pipe(takeUntil(this.destroy$))
+      .pipe(
+        takeUntil(this.destroy$),
+        distinctUntilChanged() // Only trigger when productId actually changes
+      )
       .subscribe((productId) => {
         if (productId) {
-          const selectedProduct = this.products.find(p => p.id === productId);
+          // Memory optimization: O(1) lookup via Map instead of O(n) find()
+          const selectedProduct = this.productMap.get(productId);
           if (selectedProduct) {
             const taxPercentage = selectedProduct.taxPercentage || 0;
             const unitPrice = selectedProduct.purchaseAmount || 0;
@@ -175,9 +207,12 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
         }
       });
 
-    // Listen to quantity and unitPrice changes
+    // Listen to quantity and unitPrice changes with debouncing
     const valueSubscription = group.valueChanges
-      .pipe(takeUntil(this.destroy$))
+      .pipe(
+        takeUntil(this.destroy$),
+        debounceTime(150) // Batch rapid changes to reduce calculation overhead
+      )
       .subscribe(() => {
         this.calculateProductPrice(index);
       });
@@ -230,14 +265,25 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
         next: (response) => {
           if (response.success) {
             this.products = response.data;
+            this.buildProductMap();
           }
           this.isLoadingProducts = false;
+          this.cdr.markForCheck();
         },
         error: (error) => {
           this.snackbar.error('Failed to load products');
           this.isLoadingProducts = false;
+          this.cdr.markForCheck();
         }
       });
+  }
+
+  // Memory optimization: build Map for O(1) product lookups
+  private buildProductMap(): void {
+    this.productMap.clear();
+    for (const product of this.products) {
+      this.productMap.set(product.id, product);
+    }
   }
 
   refreshProducts(): void {
@@ -248,13 +294,16 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
         next: (response) => {
           if (response.success) {
             this.products = response.data;
+            this.buildProductMap();
             this.snackbar.success('Products refreshed successfully');
           }
           this.isLoadingProducts = false;
+          this.cdr.markForCheck();
         },
         error: (error) => {
           this.snackbar.error('Failed to refresh products');
           this.isLoadingProducts = false;
+          this.cdr.markForCheck();
         }
       });
   }
@@ -269,10 +318,12 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
             this.customers = response.data;
           }
           this.isLoadingCustomers = false;
+          this.cdr.markForCheck();
         },
         error: (error) => {
           this.snackbar.error('Failed to load customers');
           this.isLoadingCustomers = false;
+          this.cdr.markForCheck();
         }
       });
   }
@@ -288,10 +339,12 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
           }
           this.snackbar.success('Customers refreshed successfully');
           this.isLoadingCustomers = false;
+          this.cdr.markForCheck();
         },
         error: (error) => {
           this.snackbar.error('Failed to load customers');
           this.isLoadingCustomers = false;
+          this.cdr.markForCheck();
         }
       });
   }
@@ -412,17 +465,24 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
   }
 
   private calculateTotalAmount(): void {
-    const totalPrice = this.productsFormArray.controls
+    // Memory optimization: calculate once and cache in properties
+    this.totalAmount = this.productsFormArray.controls
       .reduce((sum, group: any) => sum + (group.get('price').value || 0), 0);
     
-    const totalTaxAmount = this.productsFormArray.controls
+    this.totalTaxAmount = this.productsFormArray.controls
       .reduce((sum, group: any) => sum + (group.get('taxAmount').value || 0), 0);
+    
+    const packagingCharges = Number(this.purchaseForm.get('packagingAndForwadingCharges')?.value || 0);
+    this.grandTotal = this.totalAmount + this.totalTaxAmount + packagingCharges;
       
     this.purchaseForm.patchValue({ 
-      price: totalPrice,
-      taxAmount: totalTaxAmount,
-      totalAmount: totalPrice + totalTaxAmount 
+      price: this.totalAmount,
+      taxAmount: this.totalTaxAmount,
+      totalAmount: this.totalAmount + this.totalTaxAmount 
     }, { emitEvent: false });
+    
+    // Trigger change detection for OnPush
+    this.cdr.markForCheck();
   }
 
   private noDoubleQuotesValidator(): ValidatorFn {

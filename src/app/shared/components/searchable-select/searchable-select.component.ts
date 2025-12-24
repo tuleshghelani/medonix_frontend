@@ -35,12 +35,12 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
   @Input() multiple = false;
   @Input() allowClear = true;
   @Input() focusWidthPx?: number;
-  @Input() maxHeight: string = '200px';
+  @Input() maxHeight: string = '300px';
   @Input() virtualScroll = true; // Default to true for performance
   @Input() searchDebounceMs = 300;
   @Input() initialDisplayLimit: number = 100; // Limit initial display for large lists
   @Input() virtualScrollItemHeight: number = 40; // Height of each option item in pixels
-  @Input() virtualScrollBuffer: number = 5; // Number of items to render outside viewport
+  @Input() virtualScrollBuffer: number = 25; // Number of items to render outside viewport (increased for smoother scrolling)
 
   @Output() selectionChange = new EventEmitter<any>();
 
@@ -66,6 +66,8 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
   totalHeight: number = 0;
   offsetY: number = 0;
   private scrollListener?: () => void;
+  private isUpdatingScroll: boolean = false;
+  private lastScrollTop: number = 0;
 
   onChange: (value: any) => void = () => {};
   onTouch: () => void = () => {};
@@ -729,14 +731,27 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
       return;
     }
     
-    this.containerHeight = container.clientHeight || parseInt(this.maxHeight) || 200;
+    // Use actual container height with fallback, ensure minimum height
+    this.containerHeight = Math.max(container.clientHeight || parseInt(this.maxHeight) || 300, 200);
     const visibleCount = Math.ceil(this.containerHeight / this.virtualScrollItemHeight);
     
-    this.startIndex = Math.max(0, Math.floor(this.scrollTop / this.virtualScrollItemHeight) - this.virtualScrollBuffer);
+    // Calculate start/end with larger buffer to prevent white background
+    const rawStartIndex = Math.floor(this.scrollTop / this.virtualScrollItemHeight);
+    this.startIndex = Math.max(0, rawStartIndex - this.virtualScrollBuffer);
+    
+    // Ensure we always render enough items to fill the viewport plus buffer
+    const minItems = visibleCount + (this.virtualScrollBuffer * 3);
     this.endIndex = Math.min(
       this.filteredOptions.length,
-      this.startIndex + visibleCount + (this.virtualScrollBuffer * 2)
+      this.startIndex + minItems
     );
+    
+    // Ensure we always have items to display
+    if (this.endIndex - this.startIndex < visibleCount && this.filteredOptions.length > 0) {
+      // Adjust startIndex if we're near the end
+      this.startIndex = Math.max(0, this.filteredOptions.length - minItems);
+      this.endIndex = this.filteredOptions.length;
+    }
     
     this.displayedOptions = this.filteredOptions.slice(this.startIndex, this.endIndex);
     this.totalHeight = this.filteredOptions.length * this.virtualScrollItemHeight;
@@ -756,37 +771,77 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
     
     // Setup scroll listener with requestAnimationFrame for better performance
     this.scrollListener = this.renderer.listen(container, 'scroll', () => {
-      this.scrollTop = container.scrollTop;
+      // Prevent feedback loop - ignore scroll events triggered by DOM updates
+      if (this.isUpdatingScroll) {
+        return;
+      }
+      
+      const newScrollTop = container.scrollTop;
+      
+      // Only update if scroll position changed significantly (more than 5px)
+      // This prevents micro-movements from triggering updates
+      if (Math.abs(newScrollTop - this.lastScrollTop) < 5) {
+        return;
+      }
+      
+      this.scrollTop = newScrollTop;
+      this.lastScrollTop = newScrollTop;
+      
       if (this.animationFrameId !== null) {
         cancelAnimationFrame(this.animationFrameId);
       }
+      
       this.animationFrameId = requestAnimationFrame(() => {
+        this.isUpdatingScroll = true;
         this.updateDisplayedOptions();
         this.cdr.markForCheck();
-        this.animationFrameId = null;
+        
+        // Reset flag after a short delay to allow DOM to settle
+        setTimeout(() => {
+          this.isUpdatingScroll = false;
+          this.animationFrameId = null;
+        }, 50);
       });
     });
     
     // Initial update
     this.scrollTop = 0;
+    this.lastScrollTop = 0;
     this.updateDisplayedOptions();
     this.cdr.markForCheck();
   }
   
   onOptionsContainerScroll(event: Event): void {
-    // This method is called from template, but setupVirtualScroll handles scroll via renderer
-    // Keep this as a fallback or remove if not needed
+    // Prevent feedback loop - ignore scroll events triggered by DOM updates
+    if (this.isUpdatingScroll) {
+      return;
+    }
+    
     const container = event.target as HTMLElement;
-    this.scrollTop = container.scrollTop;
+    const newScrollTop = container.scrollTop;
+    
+    // Only update if scroll position changed significantly (more than 5px)
+    if (Math.abs(newScrollTop - this.lastScrollTop) < 5) {
+      return;
+    }
+    
+    this.scrollTop = newScrollTop;
+    this.lastScrollTop = newScrollTop;
     
     if (this.virtualScroll && this.filteredOptions.length > this.initialDisplayLimit) {
       if (this.animationFrameId !== null) {
         cancelAnimationFrame(this.animationFrameId);
       }
       this.animationFrameId = requestAnimationFrame(() => {
+        this.isUpdatingScroll = true;
         this.updateDisplayedOptions();
         this.cdr.markForCheck();
-        this.animationFrameId = null;
+        
+        // Reset flag after a short delay to allow DOM to settle
+        setTimeout(() => {
+          this.isUpdatingScroll = false;
+          this.animationFrameId = null;
+        }, 50);
       });
     }
   }
@@ -999,10 +1054,22 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
         });
       }
       
+      // Update display text if value was set before options loaded
       if (!this.multiple && this.selectedValue) {
         const selectedOption = this.options.find(opt => opt[this.valueKey] === this.selectedValue);
         if (selectedOption) {
           this.searchText = this.getOptionLabel(selectedOption);
+          this.isPlaceholderVisible = false;
+          this.isFirstClick = false;
+          
+          // Update the contenteditable div to show the selected product name
+          const timeoutId = setTimeout(() => {
+            if (this.searchInput?.nativeElement) {
+              this.searchInput.nativeElement.textContent = this.searchText;
+              this.cdr.markForCheck();
+            }
+          }, 0);
+          this.timeouts.push(timeoutId);
         }
       }
       
