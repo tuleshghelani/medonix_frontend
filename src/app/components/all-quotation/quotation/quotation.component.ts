@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { QuotationService } from '../../../services/quotation.service';
 import { CustomerService } from '../../../services/customer.service';
@@ -33,7 +33,8 @@ import { takeUntil } from 'rxjs/operators';
     PaginationComponent
   ],
   templateUrl: './quotation.component.html',
-  styleUrl: './quotation.component.scss'
+  styleUrl: './quotation.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class QuotationComponent implements OnInit, OnDestroy {
   quotations: any[] = [];
@@ -69,7 +70,8 @@ export class QuotationComponent implements OnInit, OnDestroy {
     private dateUtils: DateUtils,
     private encryptionService: EncryptionService,
     private router: Router,
-    private authService: AuthService
+    private authService: AuthService,
+    private cdr: ChangeDetectorRef
   ) {
     this.initializeForm();
     this.statusOptions = Object.entries(QuotationStatus).map(([key, value]) => ({ label: value, value: key }));
@@ -118,10 +120,12 @@ export class QuotationComponent implements OnInit, OnDestroy {
           this.startIndex = this.currentPage * this.pageSize;
           this.endIndex = Math.min((this.currentPage + 1) * this.pageSize, this.totalElements);
           this.isLoading = false;
+          this.cdr.markForCheck();
         },
         error: (error: any) => {
           this.snackbar.error(error.message || 'Failed to load quotations');
           this.isLoading = false;
+          this.cdr.markForCheck();
         }
       });
   }
@@ -160,6 +164,7 @@ export class QuotationComponent implements OnInit, OnDestroy {
           error: (error) => {
             this.snackbar.error(error?.error?.message || 'Failed to delete quotation');
             this.isLoading = false;
+            this.cdr.markForCheck();
           }
         });
     }
@@ -178,10 +183,12 @@ export class QuotationComponent implements OnInit, OnDestroy {
             this.customers = response.data;
           }
           this.isLoadingCustomers = false;
+          this.cdr.markForCheck();
         },
         error: (error) => {
           this.snackbar.error('Failed to load customers');
           this.isLoadingCustomers = false;
+          this.cdr.markForCheck();
         }
       });
   }
@@ -200,10 +207,12 @@ export class QuotationComponent implements OnInit, OnDestroy {
             this.snackbar.success('Customers refreshed successfully');
           }
           this.isLoadingCustomers = false;
+          this.cdr.markForCheck();
         },
         error: (error) => {
           this.snackbar.error('Failed to refresh customers');
           this.isLoadingCustomers = false;
+          this.cdr.markForCheck();
         }
       });
   }
@@ -330,10 +339,12 @@ export class QuotationComponent implements OnInit, OnDestroy {
           quotation.status = newStatus;
           this.snackbar.success('Status updated successfully');
           quotation.isUpdating = false;
+          this.cdr.markForCheck();
         },
         error: (error: any) => {
           this.snackbar.error(error?.error?.message || 'Failed to update status');
           quotation.isUpdating = false;
+          this.cdr.markForCheck();
         }
       });
   }

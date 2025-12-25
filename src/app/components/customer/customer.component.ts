@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
@@ -18,7 +18,8 @@ import { takeUntil } from 'rxjs/operators';
   styleUrls: ['./customer.component.scss'],
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterModule, 
-    CustomerModalComponent, PaginationComponent]
+    CustomerModalComponent, PaginationComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class CustomerComponent implements OnInit, OnDestroy {
   customers: Customer[] = [];
@@ -42,7 +43,8 @@ export class CustomerComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private toastr: ToastrService,
     public modalService: ModalService,
-    private router: Router
+    private router: Router,
+    private cdr: ChangeDetectorRef
   ) {
     this.initializeForm();
   }
@@ -132,10 +134,12 @@ export class CustomerComponent implements OnInit, OnDestroy {
             this.totalElements = response.data.totalElements;
           }
           this.isLoading = false;
+          this.cdr.markForCheck();
         },
         error: () => {
           this.toastr.error('Failed to load customers');
           this.isLoading = false;
+          this.cdr.markForCheck();
         }
       });
   }
@@ -169,6 +173,7 @@ export class CustomerComponent implements OnInit, OnDestroy {
         if (!state.isOpen) {
           // When modal closes, reload customers
           // this.loadCustomers();
+          this.cdr.markForCheck();
         }
       });
   }

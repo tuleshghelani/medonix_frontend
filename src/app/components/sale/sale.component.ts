@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { SaleService } from '../../services/sale.service';
@@ -37,7 +37,8 @@ import { takeUntil } from 'rxjs/operators';
     RoundPipe
   ],
   templateUrl: './sale.component.html',
-  styleUrl: './sale.component.scss'
+  styleUrl: './sale.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SaleComponent implements OnInit, OnDestroy {
   sales: Sale[] = [];
@@ -71,7 +72,8 @@ export class SaleComponent implements OnInit, OnDestroy {
     private cacheService: CacheService,
     private encryptionService: EncryptionService,
     private router: Router,
-    private authService: AuthService
+    private authService: AuthService,
+    private cdr: ChangeDetectorRef
   ) {
     this.initializeForm();
   }
@@ -144,10 +146,12 @@ export class SaleComponent implements OnInit, OnDestroy {
           this.startIndex = this.currentPage * this.pageSize;
           this.endIndex = Math.min((this.currentPage + 1) * this.pageSize, this.totalElements);
           this.isLoading = false;
+          this.cdr.markForCheck();
         },
         error: () => {
           this.snackbar.error('Failed to load sales');
           this.isLoading = false;
+          this.cdr.markForCheck();
         }
       });
   }
@@ -176,11 +180,13 @@ export class SaleComponent implements OnInit, OnDestroy {
             } else {
               this.snackbar.error(response.message || 'Failed to delete sale');
               this.isLoading = false;
+              this.cdr.markForCheck();
             }
           },
           error: (error) => {
             this.snackbar.error(error?.error?.message || 'Failed to delete sale');
             this.isLoading = false;
+            this.cdr.markForCheck();
           }
         });
     }
@@ -209,10 +215,12 @@ export class SaleComponent implements OnInit, OnDestroy {
             this.customers = response.data;
           }
           this.isLoadingCustomers = false;
+          this.cdr.markForCheck();
         },
         error: (error) => {
           this.snackbar.error('Failed to load customers');
           this.isLoadingCustomers = false;
+          this.cdr.markForCheck();
         }
       });
   }
@@ -231,10 +239,12 @@ export class SaleComponent implements OnInit, OnDestroy {
             this.snackbar.success('Customers refreshed successfully');
           }
           this.isLoadingCustomers = false;
+          this.cdr.markForCheck();
         },
         error: (error) => {
           this.snackbar.error('Failed to refresh customers');
           this.isLoadingCustomers = false;
+          this.cdr.markForCheck();
         }
       });
   }
@@ -297,10 +307,12 @@ export class SaleComponent implements OnInit, OnDestroy {
           this.startIndex = this.currentPage * this.pageSize;
           this.endIndex = Math.min((this.currentPage + 1) * this.pageSize, this.totalElements);
           this.isLoading = false;
+          this.cdr.markForCheck();
         },
         error: (error) => {
           this.snackbar.error(error.message || 'Failed to load sales');
           this.isLoading = false;
+          this.cdr.markForCheck();
         }
       });
   }

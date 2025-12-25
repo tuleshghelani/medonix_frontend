@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { PurchaseService } from '../../../services/purchase.service';
@@ -38,7 +38,8 @@ import { takeUntil } from 'rxjs/operators';
     RoundPipe
   ],
   templateUrl: './purchase.component.html',
-  styleUrls: ['./purchase.component.scss']
+  styleUrls: ['./purchase.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class PurchaseComponent implements OnInit, OnDestroy {
   purchases: Purchase[] = [];
@@ -72,7 +73,8 @@ export class PurchaseComponent implements OnInit, OnDestroy {
     private cacheService: CacheService,
     private encryptionService: EncryptionService,
     private router: Router,
-    private authService: AuthService
+    private authService: AuthService,
+    private cdr: ChangeDetectorRef
   ) {
     this.initializeForm();
   }
@@ -115,10 +117,12 @@ export class PurchaseComponent implements OnInit, OnDestroy {
           this.startIndex = this.currentPage * this.pageSize;
           this.endIndex = Math.min((this.currentPage + 1) * this.pageSize, this.totalElements);
           this.isLoading = false;
+          this.cdr.markForCheck();
         },
         error: (error) => {
           this.snackbar.error(error.message || 'Failed to load purchases');
           this.isLoading = false;
+          this.cdr.markForCheck();
         }
       });
   }
@@ -157,6 +161,7 @@ export class PurchaseComponent implements OnInit, OnDestroy {
           error: (error) => {
             this.snackbar.error(error?.error?.message || 'Failed to delete purchase');
             this.isLoading = false;
+            this.cdr.markForCheck();
           }
         });
     }
@@ -175,10 +180,12 @@ export class PurchaseComponent implements OnInit, OnDestroy {
             this.customers = response.data;
           }
           this.isLoadingCustomers = false;
+          this.cdr.markForCheck();
         },
         error: (error) => {
           this.snackbar.error('Failed to load customers');
           this.isLoadingCustomers = false;
+          this.cdr.markForCheck();
         }
       });
   }
@@ -197,10 +204,12 @@ export class PurchaseComponent implements OnInit, OnDestroy {
             this.snackbar.success('Customers refreshed successfully');
           }
           this.isLoadingCustomers = false;
+          this.cdr.markForCheck();
         },
         error: (error) => {
           this.snackbar.error('Failed to refresh customers');
           this.isLoadingCustomers = false;
+          this.cdr.markForCheck();
         }
       });
   }
