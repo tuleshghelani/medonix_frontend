@@ -124,7 +124,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let product of productsFormArray.controls; let i=index" [formGroupName]="i">
+              <tr *ngFor="let product of productsFormArray.controls; let i=index; trackBy: trackByProductIndex" [formGroupName]="i">
                 <td>
                   <div class="form-field-container">
                     <div class="select-group">

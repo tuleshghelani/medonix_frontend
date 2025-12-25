@@ -96,11 +96,6 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
     // Only process them when needed
     this.filteredOptions = [];
     this.displayedOptions = [];
-    
-    // Set up click outside listener using Renderer2 for proper cleanup
-    this.clickOutsideListener = this.renderer.listen('document', 'click', (event: Event) => {
-      this.onClickOutside(event);
-    });
   }
 
   ngAfterViewInit(): void {
@@ -347,6 +342,13 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
           this.isFirstClick = false;
         }
       }
+
+      // Attach click outside listener when opening
+      if (!this.clickOutsideListener) {
+        this.clickOutsideListener = this.renderer.listen('document', 'click', (event: Event) => {
+          this.onClickOutside(event);
+        });
+      }
       
       // Use requestAnimationFrame to avoid blocking UI
       requestAnimationFrame(() => {
@@ -374,6 +376,12 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
       if (this.scrollListener) {
         this.scrollListener();
         this.scrollListener = undefined;
+      }
+      
+      // Remove click outside listener when closing
+      if (this.clickOutsideListener) {
+        this.clickOutsideListener();
+        this.clickOutsideListener = null;
       }
     }
     this.cdr.markForCheck();
@@ -409,6 +417,13 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
     
     this.isOpen = true;
     this.highlightedIndex = -1;
+
+    // Attach click outside listener when opening
+    if (!this.clickOutsideListener) {
+      this.clickOutsideListener = this.renderer.listen('document', 'click', (event: Event) => {
+        this.onClickOutside(event);
+      });
+    }
     
     // Use requestAnimationFrame to avoid blocking UI
     requestAnimationFrame(() => {

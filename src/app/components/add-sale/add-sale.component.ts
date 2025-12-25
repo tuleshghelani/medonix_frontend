@@ -62,6 +62,9 @@ export class AddSaleComponent implements OnInit, OnDestroy {
     return this.saleForm.get('products') as FormArray;
   }
 
+  trackByProductIndex(index: number, item: any): any {
+    return item;
+  }
   constructor(
     private fb: FormBuilder,
     private productService: ProductService,
@@ -155,33 +158,27 @@ export class AddSaleComponent implements OnInit, OnDestroy {
 
   addProduct() {
     const productGroup = this.createProductFormGroup();
-    this.setupProductCalculations(productGroup, this.productsFormArray.length);
+    const subscription = this.setupProductCalculations(productGroup);
+    this.productSubscriptions.push(subscription);
     this.productsFormArray.push(productGroup);
   }
 
   removeProduct(index: number): void {
     if (this.productsFormArray.length === 1) return;
     
-    // Unsubscribe from the removed product's subscription
+    // Unsubscribe from the removed product's subscription bundle
     if (this.productSubscriptions[index]) {
       this.productSubscriptions[index].unsubscribe();
       this.productSubscriptions.splice(index, 1);
     }
     
     this.productsFormArray.removeAt(index);
-    
-    // Resubscribe remaining products with correct indices
-    this.productsFormArray.controls.forEach((control, newIndex) => {
-      if (this.productSubscriptions[newIndex]) {
-        this.productSubscriptions[newIndex].unsubscribe();
-      }
-      this.setupProductCalculations(control as FormGroup, newIndex);
-    });
-
     this.calculateTotalAmount();
   }
 
-  private setupProductCalculations(group: FormGroup, index: number) {
+  private setupProductCalculations(group: FormGroup): Subscription {
+    const subscription = new Subscription();
+
     // Listen to product selection to get tax percentage
     const productIdSubscription = group.get('productId')?.valueChanges
       .pipe(
@@ -194,10 +191,14 @@ export class AddSaleComponent implements OnInit, OnDestroy {
           if (selectedProduct) {
             const taxPercentage = selectedProduct.taxPercentage || 0;
             group.patchValue({ taxPercentage }, { emitEvent: false });
-            this.calculateProductPrice(index);
+            this.calculateProductPrice(group);
           }
         }
       });
+    
+    if (productIdSubscription) {
+      subscription.add(productIdSubscription);
+    }
 
     // Listen to quantity and unitPrice changes
     const valueSubscription = group.valueChanges
@@ -206,14 +207,15 @@ export class AddSaleComponent implements OnInit, OnDestroy {
         debounceTime(150)
       )
       .subscribe(() => {
-        this.calculateProductPrice(index);
+        this.calculateProductPrice(group);
       });
     
-    this.productSubscriptions[index] = valueSubscription;
+    subscription.add(valueSubscription);
+    
+    return subscription;
   }
 
-  private calculateProductPrice(index: number): void {
-    const group = this.productsFormArray.at(index) as FormGroup;
+  private calculateProductPrice(group: FormGroup): void {
     if (!group) return;
 
     const quantity = Number(group.get('quantity')?.value || 0);
@@ -551,9 +553,11 @@ export class AddSaleComponent implements OnInit, OnDestroy {
     this.productsFormArray.clear();
 
     // Populate products
-    data.items.forEach((item: any, index: number) => {
+    data.items.forEach((item: any) => {
       const productGroup = this.createProductFormGroup();
-      this.setupProductCalculations(productGroup, index);
+      const subscription = this.setupProductCalculations(productGroup);
+      this.productSubscriptions.push(subscription);
+      
       productGroup.patchValue({
         id: item.id, // Store item ID for updates
         productId: item.productId,

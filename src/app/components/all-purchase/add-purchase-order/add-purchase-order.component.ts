@@ -64,6 +64,10 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
     return this.purchaseOrderForm.get('products') as FormArray;
   }
 
+  trackByProductIndex(index: number, item: any): any {
+    return item;
+  }
+
   constructor(
     private fb: FormBuilder,
     private productService: ProductService,
@@ -154,29 +158,21 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
 
   addProduct() {
     const productGroup = this.createProductFormGroup();
-    this.setupProductCalculations(productGroup, this.productsFormArray.length);
+    const subscription = this.setupProductCalculations(productGroup);
+    this.productSubscriptions.push(subscription);
     this.productsFormArray.push(productGroup);
   }
 
   removeProduct(index: number): void {
     if (this.productsFormArray.length === 1) return;
     
-    // Unsubscribe from the removed product's subscription
+    // Unsubscribe from the removed product's subscription bundle
     if (this.productSubscriptions[index]) {
       this.productSubscriptions[index].unsubscribe();
       this.productSubscriptions.splice(index, 1);
     }
     
     this.productsFormArray.removeAt(index);
-    
-    // Resubscribe remaining products with correct indices
-    this.productsFormArray.controls.forEach((control, newIndex) => {
-      if (this.productSubscriptions[newIndex]) {
-        this.productSubscriptions[newIndex].unsubscribe();
-      }
-      this.setupProductCalculations(control as FormGroup, newIndex);
-    });
-
     this.calculateTotalAmount();
     this.cdr.markForCheck();
   }
@@ -189,7 +185,9 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
     }
   }
 
-  private setupProductCalculations(group: FormGroup, index: number) {
+  private setupProductCalculations(group: FormGroup): Subscription {
+    const compositeSubscription = new Subscription();
+
     // Listen to product selection to get tax percentage and purchaseAmount
     const productIdSubscription = group.get('productId')?.valueChanges
       .pipe(
@@ -204,7 +202,7 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
             const taxPercentage = selectedProduct.taxPercentage || 0;
             const unitPrice = selectedProduct.purchaseAmount || 0;
             group.patchValue({ taxPercentage, unitPrice }, { emitEvent: false });
-            this.calculateProductPrice(index);
+            this.calculateProductPrice(group);
           }
         }
       });
@@ -224,10 +222,9 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
         debounceTime(150)
       )
       .subscribe(() => {
-        this.calculateProductPrice(index);
+        this.calculateProductPrice(group);
       });
     
-    const compositeSubscription = new Subscription();
     if (productIdSubscription) {
       compositeSubscription.add(productIdSubscription);
     }
@@ -235,11 +232,11 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
       compositeSubscription.add(quantitySubscription);
     }
     compositeSubscription.add(valueSubscription);
-    this.productSubscriptions[index] = compositeSubscription;
+    
+    return compositeSubscription;
   }
 
-  private calculateProductPrice(index: number): void {
-    const group = this.productsFormArray.at(index) as FormGroup;
+  private calculateProductPrice(group: FormGroup): void {
     if (!group) return;
 
     const quantity = Number(group.get('quantity')?.value || 0);
@@ -559,9 +556,10 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
 
     // Populate products - handle both 'products' and 'items' from API response
     const productsArray = data.products || data.items || [];
-    productsArray.forEach((item: any, index: number) => {
+    productsArray.forEach((item: any) => {
       const productGroup = this.createProductFormGroup();
-      this.setupProductCalculations(productGroup, index);
+      const subscription = this.setupProductCalculations(productGroup);
+      this.productSubscriptions.push(subscription);
       
       // Calculate price and tax if not provided
       const quantity = Number(item.quantity || 0);

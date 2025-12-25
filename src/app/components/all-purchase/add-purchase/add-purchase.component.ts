@@ -64,8 +64,8 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
   }
   
   // Memory optimization: trackBy function for ngFor to avoid DOM recreation
-  trackByProductIndex(index: number, item: any): number {
-    return index;
+  trackByProductIndex(index: number, item: any): any {
+    return item;
   }
 
   constructor(
@@ -161,33 +161,27 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
 
   addProduct() {
     const productGroup = this.createProductFormGroup();
-    this.setupProductCalculations(productGroup, this.productsFormArray.length);
+    const subscription = this.setupProductCalculations(productGroup);
+    this.productSubscriptions.push(subscription);
     this.productsFormArray.push(productGroup);
   }
 
   removeProduct(index: number): void {
     if (this.productsFormArray.length === 1) return;
     
-    // Unsubscribe from the removed product's subscription
+    // Unsubscribe from the removed product's subscription bundle
     if (this.productSubscriptions[index]) {
       this.productSubscriptions[index].unsubscribe();
       this.productSubscriptions.splice(index, 1);
     }
     
     this.productsFormArray.removeAt(index);
-    
-    // Resubscribe remaining products with correct indices
-    this.productsFormArray.controls.forEach((control, newIndex) => {
-      if (this.productSubscriptions[newIndex]) {
-        this.productSubscriptions[newIndex].unsubscribe();
-      }
-      this.setupProductCalculations(control as FormGroup, newIndex);
-    });
-
     this.calculateTotalAmount();
   }
 
-  private setupProductCalculations(group: FormGroup, index: number) {
+  private setupProductCalculations(group: FormGroup): Subscription {
+    const subscription = new Subscription();
+
     // Listen to product selection to get tax percentage and purchaseAmount
     const productIdSubscription = group.get('productId')?.valueChanges
       .pipe(
@@ -202,10 +196,14 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
             const taxPercentage = selectedProduct.taxPercentage || 0;
             const unitPrice = selectedProduct.purchaseAmount || 0;
             group.patchValue({ taxPercentage, unitPrice }, { emitEvent: false });
-            this.calculateProductPrice(index);
+            this.calculateProductPrice(group);
           }
         }
       });
+    
+    if (productIdSubscription) {
+      subscription.add(productIdSubscription);
+    }
 
     // Listen to quantity and unitPrice changes with debouncing
     const valueSubscription = group.valueChanges
@@ -214,14 +212,15 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
         debounceTime(150) // Batch rapid changes to reduce calculation overhead
       )
       .subscribe(() => {
-        this.calculateProductPrice(index);
+        this.calculateProductPrice(group);
       });
     
-    this.productSubscriptions[index] = valueSubscription;
+    subscription.add(valueSubscription);
+    
+    return subscription;
   }
 
-  private calculateProductPrice(index: number): void {
-    const group = this.productsFormArray.at(index) as FormGroup;
+  private calculateProductPrice(group: FormGroup): void {
     if (!group) return;
 
     const quantity = Number(group.get('quantity')?.value || 0);
@@ -539,9 +538,11 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
     this.productsFormArray.clear();
 
     // Populate products
-    data.items.forEach((item: any, index: number) => {
+    data.items.forEach((item: any) => {
       const productGroup = this.createProductFormGroup();
-      this.setupProductCalculations(productGroup, index);
+      const subscription = this.setupProductCalculations(productGroup);
+      this.productSubscriptions.push(subscription);
+      
       productGroup.patchValue({
         id: item.id, // Store item ID for updates
         productId: item.productId,

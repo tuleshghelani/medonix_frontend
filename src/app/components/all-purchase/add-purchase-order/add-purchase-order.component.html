@@ -131,7 +131,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let product of productsFormArray.controls; let i=index" [formGroupName]="i">
+              <tr *ngFor="let product of productsFormArray.controls; let i=index; trackBy: trackByProductIndex" [formGroupName]="i">
                 <td class="select-col" *ngIf="!purchaseId">
                   <div *ngIf="isEdit && productsFormArray.at(i).get('id')?.value && !productsFormArray.at(i).get('purchaseId')?.value">
                     <input 

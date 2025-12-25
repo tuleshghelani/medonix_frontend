@@ -65,6 +65,10 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
     return this.quotationForm.get('items') as FormArray;
   }
 
+  trackByItemIndex(index: number, item: any): any {
+    return item;
+  }
+
   constructor(
     private fb: FormBuilder,
     private quotationService: QuotationService,
@@ -90,7 +94,7 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
     this.setupCustomerNameSync();
     this.setupCustomerChangeListener();
     this.checkForEdit();
-    this.setupItemSubscriptions();
+    this.checkForEdit();
   }
 
   ngOnDestroy() {
@@ -246,14 +250,14 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
       quotationItemStatus: null
     });
     
+    // Add to form array first so indexing (if needed anywhere else) is correct
     this.itemsFormArray.push(itemGroup);
-    const newIndex = this.itemsFormArray.length - 1;
     
-    this.setupItemCalculations(itemGroup, newIndex);
+    // Setup logic returning subscription
+    const subscription = this.setupItemCalculations(itemGroup);
+    this.itemSubscriptions.push(subscription);
     
-    this.subscribeToItemChanges(this.itemsFormArray.at(newIndex), newIndex);
-    
-    this.calculateItemPrice(newIndex, isInitializing);
+    this.calculateItemPrice(itemGroup, isInitializing);
     this.calculateTotalAmount();
   }
 
@@ -281,20 +285,15 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
       }
     });
     this.isLoadingPrices = newLoadingPrices;
-    
-    this.itemsFormArray.controls.forEach((control, newIndex) => {
-      if (this.itemSubscriptions[newIndex]) {
-        this.itemSubscriptions[newIndex].unsubscribe();
-      }
-      this.subscribeToItemChanges(control, newIndex);
-    });
 
     this.calculateTotalAmount();
     this.cdr.detectChanges();
   }
 
-  private setupItemCalculations(group: FormGroup, index: number) {
-    group.get('productId')?.valueChanges
+  private setupItemCalculations(group: FormGroup): Subscription {
+    const subscription = new Subscription();
+
+    const productIdSub = group.get('productId')?.valueChanges
       .pipe(
         takeUntil(this.destroy$),
         filter(productId => !!productId),
@@ -302,46 +301,45 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
         distinctUntilChanged()
       )
       .subscribe(productId => {
-        // console.log('Product ID changed to:', productId);
         const selectedProduct = this.productMap.get(productId);
-        // console.log('selectedProduct >>>', selectedProduct);
-        
         if (selectedProduct) {
-          // console.log(`Product tax percentage: ${selectedProduct.taxPercentage !== undefined ? selectedProduct.taxPercentage : 'not specified, using default 18'}%`);
-          this.fetchProductPrice(index, selectedProduct);
+          this.fetchProductPrice(group, selectedProduct);
         }
       });
+    
+    if (productIdSub) subscription.add(productIdSub);
 
-    // Handle quantity changes directly
-    group.get('quantity')?.valueChanges
-      .pipe(takeUntil(this.destroy$), debounceTime(50))
-      .subscribe(() => this.calculateItemPrice(index));
-
-    // Recalculate when unit price changes
-    group.get('unitPrice')?.valueChanges
-      .pipe(takeUntil(this.destroy$), debounceTime(50))
-      .subscribe(() => this.calculateItemPrice(index));
-
-    // Recalculate when tax percentage changes (e.g., after product select)
-    group.get('taxPercentage')?.valueChanges
-      .pipe(takeUntil(this.destroy$), debounceTime(50))
-      .subscribe(() => this.calculateItemPrice(index));
+    // Consolidated valueChanges subscription
+    const valueSub = group.valueChanges
+      .pipe(takeUntil(this.destroy$), debounceTime(100))
+      .subscribe(() => {
+        this.calculateItemPrice(group);
+      });
+      
+    subscription.add(valueSub);
+    
+    return subscription;
   }
 
 
-  calculateItemPrice(index: number, skipChangeDetection = false): void {
-    const group = this.itemsFormArray.at(index) as FormGroup;
+  calculateItemPrice(group: FormGroup | number, skipChangeDetection = false): void {
+    // Support legacy calls with index if any
+    let groupControl: FormGroup;
+    if (typeof group === 'number') {
+      groupControl = this.itemsFormArray.at(group) as FormGroup;
+    } else {
+      groupControl = group;
+    }
+    
+    if (!groupControl) return;
     
     const values = {
-      quantity: Number(Number(group.get('quantity')?.value || 0).toFixed(3)),
-      unitPrice: Number(Number(group.get('unitPrice')?.value || 0).toFixed(2)),
-      taxPercentage: Number(group.get('taxPercentage')?.value ?? 18)
+      quantity: Number(Number(groupControl.get('quantity')?.value || 0).toFixed(3)),
+      unitPrice: Number(Number(groupControl.get('unitPrice')?.value || 0).toFixed(2)),
+      taxPercentage: Number(groupControl.get('taxPercentage')?.value ?? 18)
     };
 
     const quotationDiscountPercentage = Number(Number(this.quotationForm.get('quotationDiscountPercentage')?.value || 0).toFixed(2));
-
-    // console.log(`Tax percentage used for calculation: ${values.taxPercentage}%`);
-    // console.log(`Quotation discount percentage on tax only: ${quotationDiscountPercentage}%`);
 
     // Calculate base price (quantity × unit price)
     const basePrice = Number((values.quantity * values.unitPrice).toFixed(2));
@@ -350,36 +348,21 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
     const grossTaxAmount = Number(((basePrice * values.taxPercentage) / 100).toFixed(2));
     
     // Calculate quotation discount amount as a percentage of tax amount
-    // Example: tax=100, quotationDiscountPercentage=60 => discount=60, netTax=40
     const quotationDiscountAmount = Number(((grossTaxAmount * quotationDiscountPercentage) / 100).toFixed(2));
     
-    // Calculate net tax amount (gross tax amount - quotation discount amount)
+    // Calculate net tax amount
     const netTaxAmount = Number((grossTaxAmount - quotationDiscountAmount).toFixed(2));
-    
-    // Ensure net tax is not negative
     const finalTaxAmount = Math.max(0, netTaxAmount);
     
-    // Calculate final price (base price + final tax amount)
+    // Calculate final price
     const finalPrice = Number((basePrice + finalTaxAmount).toFixed(2));
 
-    group.patchValue({
+    groupControl.patchValue({
       price: basePrice,
       quotationDiscountAmount: quotationDiscountAmount,
       taxAmount: finalTaxAmount,
       finalPrice: finalPrice
     }, { emitEvent: false });
-
-    /*console.log(`Item ${index} calculated:`, {
-      quantity: values.quantity,
-      unitPrice: values.unitPrice,
-      basePrice,
-      taxPercentage: values.taxPercentage,
-      grossTaxAmount,
-      quotationDiscountPercentage,
-      quotationDiscountAmount,
-      netTaxAmount: finalTaxAmount,
-      finalPrice
-    });*/
 
     this.calculateTotalAmount();
     
@@ -641,32 +624,18 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
 
     const itemGroup = this.itemsFormArray.at(index);
     
-    const oldSub = this.itemSubscriptions[index];
-    if (oldSub) {
-      oldSub.unsubscribe();
-      this.itemSubscriptions[index] = new Subscription(); 
-    }
-    
     itemGroup.patchValue({
       productId: selectedProduct.id
     }, { emitEvent: true });
-    
-    if (!this.itemSubscriptions[index]) {
-      this.subscribeToItemChanges(itemGroup, index);
-    }
   }
 
-  private fetchProductPrice(index: number, selectedProduct: any): void {
-    // console.log('Fetching price for product:', selectedProduct.name);
-    
-    const itemGroup = this.itemsFormArray.at(index);
+  private fetchProductPrice(group: FormGroup, selectedProduct: any): void {
+    const index = this.itemsFormArray.controls.indexOf(group);
     
     const taxPercentage = selectedProduct.taxPercentage !== undefined ? 
                         selectedProduct.taxPercentage : 18;
     
-    // console.log(`Setting tax percentage for ${selectedProduct.name}: ${taxPercentage}%`);
-    
-    itemGroup.patchValue({
+    group.patchValue({
       productType: selectedProduct.type,
       taxPercentage: taxPercentage,
       quantity: selectedProduct.quantity || 1
@@ -676,32 +645,35 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
     
     if (customerId) {
       // Fetch customer price from API
-      this.fetchCustomerPrice(index, selectedProduct.id, customerId);
+      this.fetchCustomerPrice(group, selectedProduct.id, customerId, index);
     } else {
       // If no customer selected, use product saleAmount
-      itemGroup.patchValue({
+      group.patchValue({
         unitPrice: (selectedProduct.saleAmount ?? selectedProduct.sale_amount ?? 0)
       }, { emitEvent: true });
-      this.calculateItemPrice(index);
+      this.calculateItemPrice(group);
     }
   }
 
-  private fetchCustomerPrice(index: number, productId: number, customerId: number): void {
-    this.isLoadingPrices[index] = true;
+  private fetchCustomerPrice(group: FormGroup, productId: number, customerId: number, index: number): void {
+    if (index >= 0) {
+      this.isLoadingPrices[index] = true;
+    }
     
     const cacheKey = `${customerId}-${productId}`;
     
     // Check cache first
     if (this.productPriceCache.has(cacheKey)) {
       const cachedPrice = this.productPriceCache.get(cacheKey)!;
-      const itemGroup = this.itemsFormArray.at(index);
       
-      itemGroup.patchValue({
+      group.patchValue({
         unitPrice: cachedPrice
       }, { emitEvent: true });
       
-      this.isLoadingPrices[index] = false;
-      this.calculateItemPrice(index);
+      if (index >= 0) {
+        this.isLoadingPrices[index] = false;
+      }
+      this.calculateItemPrice(group);
       this.cdr.detectChanges();
       return;
     }
@@ -715,7 +687,9 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
-          this.isLoadingPrices[index] = false;
+          if (index >= 0) {
+            this.isLoadingPrices[index] = false;
+          }
           this.cdr.detectChanges();
         })
       )
@@ -727,37 +701,33 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
             // Cache the price
             this.productPriceCache.set(cacheKey, price);
             
-            const itemGroup = this.itemsFormArray.at(index);
-            itemGroup.patchValue({
+            group.patchValue({
               unitPrice: price
             }, { emitEvent: true });
 
-            this.calculateItemPrice(index);
+            this.calculateItemPrice(group);
           } else {
-            // Fallback to product saleAmount if API fails
-            this.setFallbackPrice(index);
+            this.setFallbackPrice(group);
           }
         },
         error: (error) => {
           console.error('Error fetching customer price:', error);
-          // Fallback to product saleAmount if API fails
-          this.setFallbackPrice(index);
+          this.setFallbackPrice(group);
         }
       });
   }
 
-  private setFallbackPrice(index: number): void {
-    const itemGroup = this.itemsFormArray.at(index);
-    const productId = itemGroup.get('productId')?.value;
+  private setFallbackPrice(group: FormGroup): void {
+    const productId = group.get('productId')?.value;
     const selectedProduct = this.productMap.get(productId);
     
     if (selectedProduct) {
       const unitPrice = selectedProduct.saleAmount ?? selectedProduct.sale_amount ?? 0;
-      itemGroup.patchValue({
+      group.patchValue({
         unitPrice: unitPrice
       }, { emitEvent: true });
 
-      this.calculateItemPrice(index);
+      this.calculateItemPrice(group);
       this.cdr.detectChanges();
     }
   }
@@ -864,10 +834,9 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
           quotationItemStatus: [item.quotationItemStatus || null]
         });
         
-        this.setupItemCalculations(itemGroup, this.itemsFormArray.length);
         this.itemsFormArray.push(itemGroup);
-        // Ensure valueChanges subscription so edits to unitPrice, etc. recalc totals
-        this.subscribeToItemChanges(itemGroup, this.itemsFormArray.length - 1);
+        const subscription = this.setupItemCalculations(itemGroup);
+        this.itemSubscriptions.push(subscription);
       });
     }
     
@@ -955,26 +924,7 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
     return finalFormData;
   }
 
-  private setupItemSubscriptions(): void {
-    this.itemsFormArray.controls.forEach((control, index) => {
-      this.subscribeToItemChanges(control, index);
-    });
-  }
 
-  private subscribeToItemChanges(control: AbstractControl, index: number): void {
-    if (this.itemSubscriptions[index]) {
-      this.itemSubscriptions[index].unsubscribe();
-    }
-    
-    const subscription = control.valueChanges.pipe(
-      takeUntil(this.destroy$),
-      debounceTime(100),
-    ).subscribe(() => {
-      this.calculateItemPrice(index);
-    });
-    
-    this.itemSubscriptions[index] = subscription;
-  }
 
   private setupCustomerChangeListener(): void {
     this.quotationForm.get('customerId')?.valueChanges
@@ -991,8 +941,8 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
     
     this.quotationForm.get('quotationDiscountPercentage')?.setValue(newValue, { emitEvent: false });
     
-    this.itemsFormArray.controls.forEach((_, index) => {
-      this.calculateItemPrice(index);
+    this.itemsFormArray.controls.forEach((group: AbstractControl) => {
+      this.calculateItemPrice(group as FormGroup);
     });
     
     this.calculateTotalAmount();
