@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormControl, AbstractControl, ValidatorFn, ValidationErrors, FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
@@ -13,9 +13,9 @@ import { QuotationService } from '../../../services/quotation.service';
 import { PriceService } from '../../../services/price.service';
 import { SearchableSelectComponent } from "../../../shared/components/searchable-select/searchable-select.component";
 import { MatDialogModule } from '@angular/material/dialog';
-import { SaleModalComponent } from '../../sale-modal/sale-modal.component';
+
 import { LoaderComponent } from '../../../shared/components/loader/loader.component';
-import { PaginationComponent } from '../../../shared/components/pagination/pagination.component';
+
 import { TransportMaster, TransportMasterService } from '../../../services/transport-master.service';
 import { QuotationItemStatus } from '../../../models/quotation.model copy';
 
@@ -28,7 +28,8 @@ import { QuotationItemStatus } from '../../../models/quotation.model copy';
     CommonModule, 
     ReactiveFormsModule, 
     FormsModule, 
-    RouterModule, MatDialogModule, SaleModalComponent, LoaderComponent, PaginationComponent]
+    RouterModule, MatDialogModule, LoaderComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AddQuotationComponent implements OnInit, OnDestroy {
   quotationForm!: FormGroup;
@@ -56,6 +57,8 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
   };
   private itemSubscriptions: Subscription[] = [];
   private productPriceCache: Map<string, number> = new Map();
+  // Memory optimization: Map for O(1) product lookups
+  private productMap: Map<any, any> = new Map();
   isLoadingPrices: { [key: number]: boolean } = {};
 
   get itemsFormArray() {
@@ -98,6 +101,7 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
 
     // Clear Map to help with garbage collection
     this.productPriceCache.clear();
+    this.productMap.clear();
 
     // Clear arrays
     this.products = [];
@@ -299,7 +303,7 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
       )
       .subscribe(productId => {
         // console.log('Product ID changed to:', productId);
-        const selectedProduct = this.products.find(p => p.id === productId);
+        const selectedProduct = this.productMap.get(productId);
         // console.log('selectedProduct >>>', selectedProduct);
         
         if (selectedProduct) {
@@ -399,14 +403,25 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
       next: (response) => {
         if (response.success) {
           this.products = response.data;
+          this.buildProductMap();
         }
         this.isLoadingProducts = false;
+        this.cdr.markForCheck();
       },
       error: (error) => {
         this.snackbar.error('Failed to load products');
         this.isLoadingProducts = false;
+        this.cdr.markForCheck();
       }
     });
+  }
+
+  // Memory optimization: build Map for O(1) product lookups
+  private buildProductMap(): void {
+    this.productMap.clear();
+    for (const product of this.products) {
+      this.productMap.set(product.id, product);
+    }
   }
 
   private loadTransports(): void {
@@ -419,10 +434,12 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
           this.transports = response.data || response.transports || [];
         }
         this.isLoadingTransports = false;
+        this.cdr.markForCheck();
       },
       error: () => {
         this.snackbar.error('Failed to load transports');
         this.isLoadingTransports = false;
+        this.cdr.markForCheck();
       }
     });
   }
@@ -438,10 +455,12 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
           this.snackbar.success('Transports refreshed successfully');
         }
         this.isLoadingTransports = false;
+        this.cdr.markForCheck();
       },
       error: () => {
         this.snackbar.error('Failed to refresh transports');
         this.isLoadingTransports = false;
+        this.cdr.markForCheck();
       }
     });
   }
@@ -454,13 +473,16 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
       next: (response) => {
         if (response.success) {
           this.products = response.data;
+          this.buildProductMap();
           this.snackbar.success('Products refreshed successfully');
         }
         this.isLoadingProducts = false;
+        this.cdr.markForCheck();
       },
       error: (error) => {
         this.snackbar.error('Failed to refresh products');
         this.isLoadingProducts = false;
+        this.cdr.markForCheck();
       }
     });
   }
@@ -475,10 +497,12 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
           this.customers = response.data;
         }
         this.isLoadingCustomers = false;
+        this.cdr.markForCheck();
       },
       error: (error) => {
         this.snackbar.error('Failed to load customers');
         this.isLoadingCustomers = false;
+        this.cdr.markForCheck();
       }
     });
   }
@@ -494,10 +518,12 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
           this.snackbar.success('Customers refreshed successfully');
         }
         this.isLoadingCustomers = false;
+        this.cdr.markForCheck();
       },
       error: (error) => {
         this.snackbar.error('Failed to refresh customers');
         this.isLoadingCustomers = false;
+        this.cdr.markForCheck();
       }
     });
   }
@@ -607,7 +633,7 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
   }
 
   onProductSelect(index: number, event: any): void {
-    const selectedProduct = this.products.find(p => p.id === event.value);
+    const selectedProduct = this.productMap.get(event.value);
     if (!selectedProduct) {
       console.warn('No product found with ID:', event.value);
       return;
@@ -723,7 +749,7 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
   private setFallbackPrice(index: number): void {
     const itemGroup = this.itemsFormArray.at(index);
     const productId = itemGroup.get('productId')?.value;
-    const selectedProduct = this.products.find(p => p.id === productId);
+    const selectedProduct = this.productMap.get(productId);
     
     if (selectedProduct) {
       const unitPrice = selectedProduct.saleAmount ?? selectedProduct.sale_amount ?? 0;
@@ -772,12 +798,14 @@ export class AddQuotationComponent implements OnInit, OnDestroy {
             this.populateForm(response.data);
           }
           this.isLoading = false;
+          this.cdr.markForCheck();
         },
         error: (error) => {
           console.error('Error loading quotation details:', error);
           this.snackbar.error('Failed to load quotation details');
           this.isLoading = false;
           localStorage.removeItem('editQuotationId');
+          this.cdr.markForCheck();
         }
       });
     } catch (error) {

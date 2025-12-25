@@ -28,7 +28,7 @@
             type="button" 
             class="btn btn-sm btn-primary refresh" 
             (click)="refreshProducts()"
-            (touchstart)="$event.preventDefault()"
+
             [disabled]="isLoadingProducts" 
             title="Refresh Products"
           >
@@ -53,7 +53,7 @@
             class="btn btn-sm btn-primary refresh"
             style="margin-top: 3px;"
             (click)="refreshCustomers()"
-            (touchstart)="$event.preventDefault()"
+
             [disabled]="isLoadingCustomers"
             title="Refresh Customers"
           >
@@ -64,8 +64,8 @@
     </form>
 
     <div class="buttons">
-      <button type="button" class="btn btn-secondary" (click)="resetForm()" (touchstart)="$event.preventDefault()">Reset</button>
-      <button type="button" class="btn btn-primary" (click)="onSubmit($event)" [disabled]="loading" (touchstart)="$event.preventDefault()">
+      <button type="button" class="btn btn-secondary" (click)="resetForm()">Reset</button>
+      <button type="button" class="btn btn-primary" (click)="onSubmit($event)" [disabled]="loading">
         {{ loading ? 'Searching...' : 'Search' }}
       </button>
     </div>
@@ -112,7 +112,7 @@
               <button 
                 class="btn-icon edit" 
                 (click)="editPurchaseOrder(item.orderId)"
-                (touchstart)="$event.preventDefault()"
+    
                 title="Open purchase order"
               >
                 <i class="fas fa-external-link-alt"></i>
@@ -140,7 +140,7 @@
           class="page-button" 
           [disabled]="currentPage === 0"
           (click)="onPageChange(currentPage - 1)"
-          (touchstart)="$event.preventDefault()"
+
         >
           Previous
         </button>
@@ -150,7 +150,7 @@
           *ngFor="let page of getPageNumbers()" 
           [class.active]="page === currentPage"
           (click)="onPageChange(page)"
-          (touchstart)="$event.preventDefault()"
+
         >
           {{ page + 1 }}
         </button>
@@ -159,7 +159,7 @@
           class="page-button" 
           [disabled]="currentPage === totalPages - 1"
           (click)="onPageChange(currentPage + 1)"
-          (touchstart)="$event.preventDefault()"
+
         >
           Next
         </button>

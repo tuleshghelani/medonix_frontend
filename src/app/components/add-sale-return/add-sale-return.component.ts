@@ -1,8 +1,8 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, Input, OnDestroy, OnInit, Output, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, Validators, ReactiveFormsModule, ValidatorFn, AbstractControl, ValidationErrors } from '@angular/forms';
 import { Router, RouterModule, ActivatedRoute } from '@angular/router';
-import { Subject, takeUntil, Subscription } from 'rxjs';
+import { Subject, takeUntil, Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 import { formatDate } from '@angular/common';
 
 import { SaleService } from '../../services/sale.service';
@@ -29,7 +29,8 @@ interface ProductForm {
   selector: 'app-add-sale-return',
   templateUrl: './add-sale-return.component.html',
   styleUrls: ['./add-sale-return.component.scss'],
-  standalone: false
+  standalone: false,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AddSaleReturnComponent implements OnInit, OnDestroy {
   returnForm!: FormGroup;
@@ -42,6 +43,14 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
   saleReturnId: number | null = null;
   private destroy$ = new Subject<void>();
   private productSubscriptions: Subscription[] = [];
+  
+  // Memory optimization: Map for O(1) product lookups instead of O(n) find()
+  private productMap: Map<any, any> = new Map();
+  
+  // Memory optimization: cached totals to avoid recalculating in template
+  totalAmount: number = 0;
+  totalTaxAmount: number = 0;
+  grandTotal: number = 0;
 
   get productsFormArray() {
     return this.returnForm.get('products') as FormArray;
@@ -55,7 +64,8 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
     private productService: ProductService,
     private customerService: CustomerService,
     private snackbar: SnackbarService,
-    private encryptionService: EncryptionService
+    private encryptionService: EncryptionService,
+    private cdr: ChangeDetectorRef
   ) {
     this.initForm();
   }
@@ -98,9 +108,13 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
     
     // Listen to packaging charges changes to update display
     this.returnForm.get('packagingAndForwadingCharges')?.valueChanges
-      .pipe(takeUntil(this.destroy$))
+      .pipe(
+        takeUntil(this.destroy$),
+        debounceTime(150)
+      )
       .subscribe(() => {
-        // Trigger change detection for grand total
+        this.calculateTotalAmount();
+        this.cdr.markForCheck();
       });
   }
 
@@ -120,6 +134,7 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
     // Clear arrays to release memory
     this.products = [];
     this.customers = [];
+    this.productMap.clear();
 
     // Reset form to release form subscriptions
     if (this.returnForm) {
@@ -188,10 +203,13 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
   private setupProductCalculations(group: FormGroup, index: number): void {
     // Listen to product selection to get tax percentage
     const productIdSubscription = group.get('productId')?.valueChanges
-      .pipe(takeUntil(this.destroy$))
+      .pipe(
+        takeUntil(this.destroy$),
+        distinctUntilChanged()
+      )
       .subscribe((productId) => {
         if (productId) {
-          const selectedProduct = this.products.find(p => p.id === productId);
+          const selectedProduct = this.productMap.get(productId);
           if (selectedProduct) {
             const taxPercentage = selectedProduct.taxPercentage || 0;
             group.patchValue({ taxPercentage }, { emitEvent: false });
@@ -202,7 +220,10 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
 
     // Listen to quantity and unitPrice changes
     const valueSubscription = group.valueChanges
-      .pipe(takeUntil(this.destroy$))
+      .pipe(
+        takeUntil(this.destroy$),
+        debounceTime(150)
+      )
       .subscribe(() => {
         this.calculateProductPrice(index);
       });
@@ -264,14 +285,25 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
       next: (response: any) => {
         if (response?.success && response.data) {
           this.products = response.data.content || response.data;
+          this.buildProductMap();
         }
         this.isLoadingProducts = false;
+        this.cdr.markForCheck();
       },
       error: () => {
         this.snackbar.error('Failed to load products');
         this.isLoadingProducts = false;
+        this.cdr.markForCheck();
       }
     });
+  }
+
+  // Memory optimization: build Map for O(1) product lookups
+  private buildProductMap(): void {
+    this.productMap.clear();
+    for (const product of this.products) {
+      this.productMap.set(product.id, product);
+    }
   }
 
   refreshProducts(): void {
@@ -280,13 +312,16 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
       next: (response: any) => {
         if (response?.success) {
           this.products = response.data;
+          this.buildProductMap();
           this.snackbar.success('Products refreshed successfully');
         }
         this.isLoadingProducts = false;
+        this.cdr.markForCheck();
       },
       error: () => {
         this.snackbar.error('Failed to refresh products');
         this.isLoadingProducts = false;
+        this.cdr.markForCheck();
       }
     });
   }
@@ -299,10 +334,12 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
           this.customers = response.data;
         }
         this.isLoadingCustomers = false;
+        this.cdr.markForCheck();
       },
       error: () => {
         this.snackbar.error('Failed to load customers');
         this.isLoadingCustomers = false;
+        this.cdr.markForCheck();
       }
     });
   }
@@ -316,10 +353,12 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
           this.snackbar.success('Customers refreshed successfully');
         }
         this.isLoadingCustomers = false;
+        this.cdr.markForCheck();
       },
       error: () => {
         this.snackbar.error('Failed to load customers');
         this.isLoadingCustomers = false;
+        this.cdr.markForCheck();
       }
     });
   }
@@ -373,11 +412,13 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
             this.snackbar.error(response?.message || `Failed to ${this.isEdit ? 'update' : 'create'} sale return`);
           }
           this.loading = false;
+          this.cdr.markForCheck();
         },
         error: (error: any) => {
           const message = error?.error?.message || `Failed to ${this.isEdit ? 'update' : 'create'} sale return`;
           this.snackbar.error(message);
           this.loading = false;
+          this.cdr.markForCheck();
         }
       });
     } else {
@@ -442,16 +483,22 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
   }
 
   private calculateTotalAmount(): void {
-    const totalPrice = this.productsFormArray.controls
+    // Memory optimization: calculate once and cache in properties
+    this.totalAmount = this.productsFormArray.controls
       .reduce((sum, group: any) => sum + (group.get('price').value || 0), 0);
     
-    const totalTaxAmount = this.productsFormArray.controls
+    this.totalTaxAmount = this.productsFormArray.controls
       .reduce((sum, group: any) => sum + (group.get('taxAmount').value || 0), 0);
       
+    const packagingCharges = Number(this.returnForm.get('packagingAndForwadingCharges')?.value || 0);
+    this.grandTotal = this.totalAmount + this.totalTaxAmount + packagingCharges;
+
     this.returnForm.patchValue({ 
-      price: totalPrice,
-      taxAmount: totalTaxAmount
+      price: this.totalAmount,
+      taxAmount: this.totalTaxAmount
     }, { emitEvent: false });
+    
+    this.cdr.markForCheck();
   }
 
   private noDoubleQuotesValidator(): ValidatorFn {
@@ -481,10 +528,12 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
           this.snackbar.error('Failed to load sale return details');
         }
         this.loading = false;
+        this.cdr.markForCheck();
       },
       error: (error: any) => {
         this.snackbar.error(error?.error?.message || 'Failed to load sale return details');
         this.loading = false;
+        this.cdr.markForCheck();
       }
     });
   }
