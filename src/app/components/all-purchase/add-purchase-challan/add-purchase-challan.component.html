@@ -34,7 +34,7 @@
                 (click)="refreshCustomers()" 
                 [disabled]="isLoadingCustomers"
                 title="Refresh Customers"
-                (touchstart)="$event.preventDefault()"
+
               >
                 <i class="fas" [ngClass]="isLoadingCustomers ? 'fa-spinner fa-spin' : 'fa-sync-alt'"></i>
               </button>
@@ -124,7 +124,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let product of productsFormArray.controls; let i=index" [formGroupName]="i">
+              <tr *ngFor="let product of productsFormArray.controls; let i=index; trackBy: trackByProductIndex" [formGroupName]="i">
                 <td>
                   <div class="form-field-container">
                     <div class="select-group">
@@ -144,7 +144,7 @@
                         (click)="refreshProducts()"
                         [disabled]="isLoadingProducts" 
                         title="Refresh Products"
-                        (touchstart)="$event.preventDefault()"
+
                       >
                         <i class="fas" [ngClass]="isLoadingProducts ? 'fa-spinner fa-spin' : 'fa-sync-alt'"></i>
                       </button>
@@ -258,11 +258,11 @@
         </div>
         <div class="summary-item">
           <span>Total Price:</span>
-          <strong>₹{{ getTotalAmount() | number:'1.2-2' }}</strong>
+          <strong>₹{{ totalAmount | number:'1.2-2' }}</strong>
         </div>
         <div class="summary-item">
           <span>Total Tax Amount:</span>
-          <strong>₹{{ getTotalTaxAmount() | number:'1.2-2' }}</strong>
+          <strong>₹{{ totalTaxAmount | number:'1.2-2' }}</strong>
         </div>
         <div class="summary-item">
           <span>Packaging & Forwarding Charges:</span>
@@ -270,7 +270,7 @@
         </div>
         <div class="summary-item total">
           <span>Grand Total:</span>
-          <strong>₹{{ getGrandTotal() | number:'1.2-2' }}</strong>
+          <strong>₹{{ grandTotal | number:'1.2-2' }}</strong>
         </div>
       </div>
 

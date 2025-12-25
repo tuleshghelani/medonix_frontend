@@ -1,8 +1,8 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, ValidatorFn, AbstractControl, ValidationErrors } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-import { Subject, takeUntil, Subscription } from 'rxjs';
+import { Subject, takeUntil, Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 import { formatDate } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 
@@ -39,7 +39,8 @@ interface ProductForm {
     PackagingChargesModalComponent
   ],
   templateUrl: './add-purchase-order.component.html',
-  styleUrls: ['./add-purchase-order.component.scss']
+  styleUrls: ['./add-purchase-order.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
   purchaseOrderForm!: FormGroup;
@@ -54,9 +55,17 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
   private selectedItemIds = new Set<number>();
   showPackagingChargesModal = false;
   purchaseId?: number;
+  productMap = new Map<number, any>();
+  totalAmount = 0;
+  totalTaxAmount = 0;
+  grandTotal = 0;
 
   get productsFormArray() {
     return this.purchaseOrderForm.get('products') as FormArray;
+  }
+
+  trackByProductIndex(index: number, item: any): any {
+    return item;
   }
 
   constructor(
@@ -67,7 +76,8 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
     private snackbar: SnackbarService,
     private http: HttpClient,
     private router: Router,
-    private encryptionService: EncryptionService
+    private encryptionService: EncryptionService,
+    private cdr: ChangeDetectorRef
   ) {
     this.initForm();
   }
@@ -107,6 +117,7 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
     if (this.purchaseOrderForm) {
       this.purchaseOrderForm.reset();
     }
+    this.productMap.clear();
   }
 
   private initForm() {
@@ -118,6 +129,13 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
       packagingAndForwadingCharges: [0, [Validators.required, Validators.min(0)]],
       products: this.fb.array([])
     });
+
+    this.purchaseOrderForm.get('packagingAndForwadingCharges')?.valueChanges
+      .pipe(takeUntil(this.destroy$), debounceTime(300))
+      .subscribe(() => {
+        this.calculateTotalAmount();
+        this.cdr.markForCheck();
+      });
 
     // Add initial product form group
     this.addProduct();
@@ -140,44 +158,51 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
 
   addProduct() {
     const productGroup = this.createProductFormGroup();
-    this.setupProductCalculations(productGroup, this.productsFormArray.length);
+    const subscription = this.setupProductCalculations(productGroup);
+    this.productSubscriptions.push(subscription);
     this.productsFormArray.push(productGroup);
   }
 
   removeProduct(index: number): void {
     if (this.productsFormArray.length === 1) return;
     
-    // Unsubscribe from the removed product's subscription
+    // Unsubscribe from the removed product's subscription bundle
     if (this.productSubscriptions[index]) {
       this.productSubscriptions[index].unsubscribe();
       this.productSubscriptions.splice(index, 1);
     }
     
     this.productsFormArray.removeAt(index);
-    
-    // Resubscribe remaining products with correct indices
-    this.productsFormArray.controls.forEach((control, newIndex) => {
-      if (this.productSubscriptions[newIndex]) {
-        this.productSubscriptions[newIndex].unsubscribe();
-      }
-      this.setupProductCalculations(control as FormGroup, newIndex);
-    });
-
     this.calculateTotalAmount();
+    this.cdr.markForCheck();
   }
 
-  private setupProductCalculations(group: FormGroup, index: number) {
+  // Memory optimization: build Map for O(1) product lookups
+  private buildProductMap(): void {
+    this.productMap.clear();
+    for (const product of this.products) {
+      this.productMap.set(product.id, product);
+    }
+  }
+
+  private setupProductCalculations(group: FormGroup): Subscription {
+    const compositeSubscription = new Subscription();
+
     // Listen to product selection to get tax percentage and purchaseAmount
     const productIdSubscription = group.get('productId')?.valueChanges
-      .pipe(takeUntil(this.destroy$))
+      .pipe(
+        takeUntil(this.destroy$),
+        debounceTime(150),
+        distinctUntilChanged()
+      )
       .subscribe((productId) => {
         if (productId) {
-          const selectedProduct = this.products.find(p => p.id === productId);
+          const selectedProduct = this.productMap.get(productId);
           if (selectedProduct) {
             const taxPercentage = selectedProduct.taxPercentage || 0;
             const unitPrice = selectedProduct.purchaseAmount || 0;
             group.patchValue({ taxPercentage, unitPrice }, { emitEvent: false });
-            this.calculateProductPrice(index);
+            this.calculateProductPrice(group);
           }
         }
       });
@@ -192,12 +217,14 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
 
     // Listen to quantity and unitPrice changes
     const valueSubscription = group.valueChanges
-      .pipe(takeUntil(this.destroy$))
+      .pipe(
+        takeUntil(this.destroy$),
+        debounceTime(150)
+      )
       .subscribe(() => {
-        this.calculateProductPrice(index);
+        this.calculateProductPrice(group);
       });
     
-    const compositeSubscription = new Subscription();
     if (productIdSubscription) {
       compositeSubscription.add(productIdSubscription);
     }
@@ -205,11 +232,11 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
       compositeSubscription.add(quantitySubscription);
     }
     compositeSubscription.add(valueSubscription);
-    this.productSubscriptions[index] = compositeSubscription;
+    
+    return compositeSubscription;
   }
 
-  private calculateProductPrice(index: number): void {
-    const group = this.productsFormArray.at(index) as FormGroup;
+  private calculateProductPrice(group: FormGroup): void {
     if (!group) return;
 
     const quantity = Number(group.get('quantity')?.value || 0);
@@ -228,6 +255,7 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
     }, { emitEvent: false });
 
     this.calculateTotalAmount();
+    this.cdr.markForCheck();
   }
 
   getTotalAmount(): number {
@@ -253,12 +281,15 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
         next: (response) => {
           if (response.success) {
             this.products = response.data;
+            this.buildProductMap();
           }
           this.isLoadingProducts = false;
+          this.cdr.markForCheck();
         },
         error: (error) => {
           this.snackbar.error('Failed to load products');
           this.isLoadingProducts = false;
+          this.cdr.markForCheck();
         }
       });
   }
@@ -271,13 +302,16 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
         next: (response) => {
           if (response.success) {
             this.products = response.data;
+            this.buildProductMap();
             this.snackbar.success('Products refreshed successfully');
           }
           this.isLoadingProducts = false;
+          this.cdr.markForCheck();
         },
         error: (error) => {
           this.snackbar.error('Failed to refresh products');
           this.isLoadingProducts = false;
+          this.cdr.markForCheck();
         }
       });
   }
@@ -292,10 +326,12 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
             this.customers = response.data;
           }
           this.isLoadingCustomers = false;
+          this.cdr.markForCheck();
         },
         error: (error) => {
           this.snackbar.error('Failed to load customers');
           this.isLoadingCustomers = false;
+          this.cdr.markForCheck();
         }
       });
   }
@@ -311,10 +347,12 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
           }
           this.snackbar.success('Customers refreshed successfully');
           this.isLoadingCustomers = false;
+          this.cdr.markForCheck();
         },
         error: (error) => {
           this.snackbar.error('Failed to refresh customers');
           this.isLoadingCustomers = false;
+          this.cdr.markForCheck();
         }
       });
   }
@@ -355,6 +393,8 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
     
     if (this.purchaseOrderForm.valid) {
       this.loading = true;
+      this.cdr.markForCheck(); // Show loader immediately
+      
       const formData = this.preparePurchaseOrderData();
       
       const serviceCall = this.isEdit 
@@ -371,10 +411,12 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
               this.router.navigate(['/purchase-order']);
             }
             this.loading = false;
+            this.cdr.markForCheck();
           },
           error: (error) => {
             this.snackbar.error(error?.error?.message || `Failed to ${this.isEdit ? 'update' : 'create'} purchase order`);
             this.loading = false;
+            this.cdr.markForCheck();
           }
         });
     } else {
@@ -438,10 +480,15 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
     const totalTaxAmount = this.productsFormArray.controls
       .reduce((sum, group: any) => sum + (group.get('taxAmount').value || 0), 0);
       
+    const packagingCharges = Number(this.purchaseOrderForm.get('packagingAndForwadingCharges')?.value || 0);
+    this.totalAmount = totalPrice;
+    this.totalTaxAmount = totalTaxAmount;
+    this.grandTotal = totalPrice + totalTaxAmount + packagingCharges;
+
     this.purchaseOrderForm.patchValue({ 
       price: totalPrice,
       taxAmount: totalTaxAmount,
-      totalAmount: totalPrice + totalTaxAmount 
+      totalAmount: this.grandTotal 
     }, { emitEvent: false });
   }
 
@@ -458,6 +505,7 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
   private fetchPurchaseOrderDetails(id: number, setLoading: boolean = false): void {
     if (setLoading) {
       this.loading = true;
+      this.cdr.markForCheck();
     }
     this.purchaseOrderService.getPurchaseOrderDetails(id)
       .pipe(takeUntil(this.destroy$))
@@ -473,12 +521,14 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
           }
           if (setLoading) {
             this.loading = false;
+            this.cdr.markForCheck();
           }
         },
         error: (error: any) => {
           this.snackbar.error(error?.error?.message || 'Failed to load purchase order details');
           if (setLoading) {
             this.loading = false;
+            this.cdr.markForCheck();
           }
         }
       });
@@ -506,9 +556,10 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
 
     // Populate products - handle both 'products' and 'items' from API response
     const productsArray = data.products || data.items || [];
-    productsArray.forEach((item: any, index: number) => {
+    productsArray.forEach((item: any) => {
       const productGroup = this.createProductFormGroup();
-      this.setupProductCalculations(productGroup, index);
+      const subscription = this.setupProductCalculations(productGroup);
+      this.productSubscriptions.push(subscription);
       
       // Calculate price and tax if not provided
       const quantity = Number(item.quantity || 0);
@@ -542,6 +593,8 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
       this.productsFormArray.push(productGroup);
     });
     this.isEdit = true;
+    this.calculateTotalAmount();
+    this.cdr.markForCheck();
   }
 
   // Selection helpers for converting to purchase
@@ -633,6 +686,8 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
     }
 
     this.loading = true;
+    this.cdr.markForCheck();
+
     this.purchaseOrderService.convertToPurchase(requestBody)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
@@ -649,11 +704,13 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
           } else {
             this.snackbar.error(response?.message || 'Failed to convert purchase order to purchase');
             this.loading = false;
+            this.cdr.markForCheck();
           }
         },
         error: (error: any) => {
           this.snackbar.error(error?.error?.message || 'Failed to convert purchase order to purchase');
           this.loading = false;
+          this.cdr.markForCheck();
         }
       });
   }
@@ -743,24 +800,7 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
       if (value === null || value === undefined || value === '') {
         return null;
       }
-
-      const numeric = Number(value);
-      if (isNaN(numeric) || numeric < 0) {
-        return { min: true };
-      }
-
-      const parent = control.parent as FormGroup | null;
-      const quantityRaw = parent?.get('quantity')?.value;
-      const quantityValue = quantityRaw === null || quantityRaw === undefined || quantityRaw === '' 
-        ? null 
-        : Number(quantityRaw);
-      if (quantityValue !== null && !isNaN(quantityValue) && numeric > quantityValue) {
-        return { maxQuantity: true };
-      }
-
       return null;
     };
   }
-
 }
-

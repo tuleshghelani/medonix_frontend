@@ -96,43 +96,6 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
     // Only process them when needed
     this.filteredOptions = [];
     this.displayedOptions = [];
-    
-    // Set up click outside listener using Renderer2 for proper cleanup
-    this.clickOutsideListener = this.renderer.listen('document', 'click', (event: Event) => {
-      this.onClickOutside(event);
-    });
-    
-    // Pre-cache labels for all options (do this asynchronously)
-    if (this.options.length > 0) {
-      requestAnimationFrame(() => {
-        this.preCacheLabels();
-      });
-    }
-  }
-  
-  private preCacheLabels(): void {
-    // Cache labels for a batch of options per frame to avoid blocking
-    const batchSize = 100;
-    let processed = 0;
-    
-    const processBatch = () => {
-      const end = Math.min(processed + batchSize, this.options.length);
-      for (let i = processed; i < end; i++) {
-        const option = this.options[i];
-        if (!this.labelCache.has(option)) {
-          this.labelCache.set(option, this.getOptionLabel(option));
-        }
-      }
-      processed = end;
-      
-      if (processed < this.options.length) {
-        this.animationFrameId = requestAnimationFrame(processBatch);
-      }
-    };
-    
-    if (this.options.length > 0) {
-      this.animationFrameId = requestAnimationFrame(processBatch);
-    }
   }
 
   ngAfterViewInit(): void {
@@ -379,6 +342,13 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
           this.isFirstClick = false;
         }
       }
+
+      // Attach click outside listener when opening
+      if (!this.clickOutsideListener) {
+        this.clickOutsideListener = this.renderer.listen('document', 'click', (event: Event) => {
+          this.onClickOutside(event);
+        });
+      }
       
       // Use requestAnimationFrame to avoid blocking UI
       requestAnimationFrame(() => {
@@ -406,6 +376,12 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
       if (this.scrollListener) {
         this.scrollListener();
         this.scrollListener = undefined;
+      }
+      
+      // Remove click outside listener when closing
+      if (this.clickOutsideListener) {
+        this.clickOutsideListener();
+        this.clickOutsideListener = null;
       }
     }
     this.cdr.markForCheck();
@@ -441,6 +417,13 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
     
     this.isOpen = true;
     this.highlightedIndex = -1;
+
+    // Attach click outside listener when opening
+    if (!this.clickOutsideListener) {
+      this.clickOutsideListener = this.renderer.listen('document', 'click', (event: Event) => {
+        this.onClickOutside(event);
+      });
+    }
     
     // Use requestAnimationFrame to avoid blocking UI
     requestAnimationFrame(() => {
@@ -1047,12 +1030,8 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
       this.lastFilteredOptions = [];
       this.labelCache.clear(); // Clear label cache when options change
       
-      // Pre-cache labels asynchronously for new options
-      if (this.options.length > 0) {
-        requestAnimationFrame(() => {
-          this.preCacheLabels();
-        });
-      }
+      // Pre-cache labels removed for performance
+      // if (this.options.length > 0) { ... }
       
       // Update display text if value was set before options loaded
       if (!this.multiple && this.selectedValue) {

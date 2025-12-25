@@ -1,8 +1,8 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, ValidatorFn, AbstractControl, ValidationErrors } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-import { Subject, takeUntil, Subscription } from 'rxjs';
+import { Subject, takeUntil, Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 import { formatDate } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 
@@ -37,7 +37,8 @@ interface ProductForm {
     SearchableSelectComponent
   ],
   templateUrl: './add-purchase-challan.component.html',
-  styleUrls: ['./add-purchase-challan.component.scss']
+  styleUrls: ['./add-purchase-challan.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AddPurchaseChallanComponent implements OnInit, OnDestroy {
   purchaseChallanForm!: FormGroup;
@@ -49,9 +50,18 @@ export class AddPurchaseChallanComponent implements OnInit, OnDestroy {
   isEdit = false;
   private destroy$ = new Subject<void>();
   private productSubscriptions: Subscription[] = [];
+  productMap = new Map<number, any>();
+  totalAmount = 0;
+  totalTaxAmount = 0;
+  grandTotal = 0;
+
 
   get productsFormArray() {
     return this.purchaseChallanForm.get('products') as FormArray;
+  }
+
+  trackByProductIndex(index: number, item: any): any {
+    return item;
   }
 
   constructor(
@@ -62,7 +72,8 @@ export class AddPurchaseChallanComponent implements OnInit, OnDestroy {
     private snackbar: SnackbarService,
     private http: HttpClient,
     private router: Router,
-    private encryptionService: EncryptionService
+    private encryptionService: EncryptionService,
+    private cdr: ChangeDetectorRef
   ) {
     this.initForm();
   }
@@ -97,10 +108,8 @@ export class AddPurchaseChallanComponent implements OnInit, OnDestroy {
     this.products = [];
     this.customers = [];
 
-    // Reset form to release form subscriptions
-    if (this.purchaseChallanForm) {
-      this.purchaseChallanForm.reset();
-    }
+    this.purchaseChallanForm.reset();
+    this.productMap.clear();
   }
 
   private initForm() {
@@ -112,6 +121,13 @@ export class AddPurchaseChallanComponent implements OnInit, OnDestroy {
       packagingAndForwadingCharges: [0, [Validators.required, Validators.min(0)]],
       products: this.fb.array([])
     });
+
+    this.purchaseChallanForm.get('packagingAndForwadingCharges')?.valueChanges
+      .pipe(takeUntil(this.destroy$), debounceTime(300))
+      .subscribe(() => {
+        this.calculateTotalAmount();
+        this.cdr.markForCheck();
+      });
 
     // Add initial product form group
     this.addProduct();
@@ -133,60 +149,75 @@ export class AddPurchaseChallanComponent implements OnInit, OnDestroy {
 
   addProduct() {
     const productGroup = this.createProductFormGroup();
-    this.setupProductCalculations(productGroup, this.productsFormArray.length);
+    const subscription = this.setupProductCalculations(productGroup);
+    this.productSubscriptions.push(subscription);
     this.productsFormArray.push(productGroup);
   }
 
   removeProduct(index: number): void {
     if (this.productsFormArray.length === 1) return;
     
-    // Unsubscribe from the removed product's subscription
+    // Unsubscribe from the removed product's subscription bundle
     if (this.productSubscriptions[index]) {
       this.productSubscriptions[index].unsubscribe();
       this.productSubscriptions.splice(index, 1);
     }
     
     this.productsFormArray.removeAt(index);
-    
-    // Resubscribe remaining products with correct indices
-    this.productsFormArray.controls.forEach((control, newIndex) => {
-      if (this.productSubscriptions[newIndex]) {
-        this.productSubscriptions[newIndex].unsubscribe();
-      }
-      this.setupProductCalculations(control as FormGroup, newIndex);
-    });
-
     this.calculateTotalAmount();
+    this.cdr.markForCheck();
   }
 
-  private setupProductCalculations(group: FormGroup, index: number) {
+  // Memory optimization: build Map for O(1) product lookups
+  private buildProductMap(): void {
+    this.productMap.clear();
+    for (const product of this.products) {
+      this.productMap.set(product.id, product);
+    }
+  }
+
+  private setupProductCalculations(group: FormGroup): Subscription {
+    const subscription = new Subscription();
+
     // Listen to product selection to get tax percentage and purchaseAmount
     const productIdSubscription = group.get('productId')?.valueChanges
-      .pipe(takeUntil(this.destroy$))
+      .pipe(
+        takeUntil(this.destroy$),
+        debounceTime(150),
+        distinctUntilChanged()
+      )
       .subscribe((productId) => {
         if (productId) {
-          const selectedProduct = this.products.find(p => p.id === productId);
+          const selectedProduct = this.productMap.get(productId);
           if (selectedProduct) {
             const taxPercentage = selectedProduct.taxPercentage || 0;
             const unitPrice = selectedProduct.purchaseAmount || 0;
             group.patchValue({ taxPercentage, unitPrice }, { emitEvent: false });
-            this.calculateProductPrice(index);
+            this.calculateProductPrice(group);
           }
         }
       });
+    
+    if (productIdSubscription) {
+      subscription.add(productIdSubscription);
+    }
 
     // Listen to quantity and unitPrice changes
     const valueSubscription = group.valueChanges
-      .pipe(takeUntil(this.destroy$))
+      .pipe(
+        takeUntil(this.destroy$),
+         debounceTime(150)
+      )
       .subscribe(() => {
-        this.calculateProductPrice(index);
+        this.calculateProductPrice(group);
       });
     
-    this.productSubscriptions[index] = valueSubscription;
+    subscription.add(valueSubscription);
+    
+    return subscription;
   }
 
-  private calculateProductPrice(index: number): void {
-    const group = this.productsFormArray.at(index) as FormGroup;
+  private calculateProductPrice(group: FormGroup): void {
     if (!group) return;
 
     const quantity = Number(group.get('quantity')?.value || 0);
@@ -205,6 +236,7 @@ export class AddPurchaseChallanComponent implements OnInit, OnDestroy {
     }, { emitEvent: false });
 
     this.calculateTotalAmount();
+    this.cdr.markForCheck();
   }
 
   getTotalAmount(): number {
@@ -230,12 +262,15 @@ export class AddPurchaseChallanComponent implements OnInit, OnDestroy {
         next: (response) => {
           if (response.success) {
             this.products = response.data;
+            this.buildProductMap();
           }
           this.isLoadingProducts = false;
+          this.cdr.markForCheck();
         },
         error: (error) => {
           this.snackbar.error('Failed to load products');
           this.isLoadingProducts = false;
+          this.cdr.markForCheck();
         }
       });
   }
@@ -248,13 +283,16 @@ export class AddPurchaseChallanComponent implements OnInit, OnDestroy {
         next: (response) => {
           if (response.success) {
             this.products = response.data;
+            this.buildProductMap();
             this.snackbar.success('Products refreshed successfully');
           }
           this.isLoadingProducts = false;
+          this.cdr.markForCheck();
         },
         error: (error) => {
           this.snackbar.error('Failed to refresh products');
           this.isLoadingProducts = false;
+          this.cdr.markForCheck();
         }
       });
   }
@@ -269,10 +307,12 @@ export class AddPurchaseChallanComponent implements OnInit, OnDestroy {
             this.customers = response.data;
           }
           this.isLoadingCustomers = false;
+          this.cdr.markForCheck();
         },
         error: (error) => {
           this.snackbar.error('Failed to load customers');
           this.isLoadingCustomers = false;
+          this.cdr.markForCheck();
         }
       });
   }
@@ -288,10 +328,12 @@ export class AddPurchaseChallanComponent implements OnInit, OnDestroy {
           }
           this.snackbar.success('Customers refreshed successfully');
           this.isLoadingCustomers = false;
+          this.cdr.markForCheck();
         },
         error: (error) => {
           this.snackbar.error('Failed to refresh customers');
           this.isLoadingCustomers = false;
+          this.cdr.markForCheck();
         }
       });
   }
@@ -348,10 +390,12 @@ export class AddPurchaseChallanComponent implements OnInit, OnDestroy {
               this.router.navigate(['/purchase-challan']);
             }
             this.loading = false;
+            this.cdr.markForCheck();
           },
           error: (error) => {
             this.snackbar.error(error?.error?.message || `Failed to ${this.isEdit ? 'update' : 'create'} purchase challan`);
             this.loading = false;
+            this.cdr.markForCheck();
           }
         });
     } else {
@@ -418,10 +462,15 @@ export class AddPurchaseChallanComponent implements OnInit, OnDestroy {
     const totalTaxAmount = this.productsFormArray.controls
       .reduce((sum, group: any) => sum + (group.get('taxAmount').value || 0), 0);
       
+    const packagingCharges = Number(this.purchaseChallanForm.get('packagingAndForwadingCharges')?.value || 0);
+    this.totalAmount = totalPrice;
+    this.totalTaxAmount = totalTaxAmount;
+    this.grandTotal = totalPrice + totalTaxAmount + packagingCharges;
+
     this.purchaseChallanForm.patchValue({ 
       price: totalPrice,
       taxAmount: totalTaxAmount,
-      totalAmount: totalPrice + totalTaxAmount 
+      totalAmount: this.grandTotal 
     }, { emitEvent: false });
   }
 
@@ -479,9 +528,11 @@ export class AddPurchaseChallanComponent implements OnInit, OnDestroy {
     this.productsFormArray.clear();
 
     // Populate products
-    data.items.forEach((item: any, index: number) => {
+    data.items.forEach((item: any) => {
       const productGroup = this.createProductFormGroup();
-      this.setupProductCalculations(productGroup, index);
+      const subscription = this.setupProductCalculations(productGroup);
+      this.productSubscriptions.push(subscription);
+      
       productGroup.patchValue({
         id: item.id, // Store item ID for updates
         productId: item.productId,

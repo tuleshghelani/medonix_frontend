@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, of, tap } from 'rxjs';
+import { BehaviorSubject, Observable, of, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { Product, ProductResponse, ProductSearchRequest } from '../models/product.model';
 import { CacheService } from '../shared/services/cache.service';
@@ -12,6 +12,13 @@ import { EncryptionService } from '../shared/services/encryption.service';
 export class ProductService {
   private readonly CACHE_KEY = 'active_products';
   private apiUrl = `${environment.apiUrl}/api/products`;
+  
+  // In-memory cache for decrypted product data (avoids repeated decryption)
+  private cachedProducts: any[] | null = null;
+  private productsSubject = new BehaviorSubject<any[]>([]);
+  
+  /** Observable stream of cached products for reactive access */
+  public readonly products$ = this.productsSubject.asObservable();
 
   constructor(
     private http: HttpClient, 
@@ -25,10 +32,18 @@ export class ProductService {
 
   getProducts(params: ProductSearchRequest): Observable<any> {
     if (params.status === 'A') {
+      // Return in-memory cache if available (no re-decryption needed)
+      if (this.cachedProducts) {
+        return of({ success: true, data: this.cachedProducts });
+      }
+      
+      // Try localStorage cache (decrypt once and store in memory)
       const encryptedData = localStorage.getItem(this.CACHE_KEY);
       if (encryptedData) {
-        const decryptedData = this.encryptionService.decrypt(encryptedData);
-        if (decryptedData) {
+        const decryptedData = this.encryptionService.decrypt(encryptedData) as any;
+        if (decryptedData && decryptedData.data) {
+          this.cachedProducts = decryptedData.data;
+          this.productsSubject.next(this.cachedProducts!);
           return of(decryptedData);
         }
       }
@@ -44,6 +59,11 @@ export class ProductService {
     }).pipe(
       tap(response => {
         if (params.status === 'A' && response.success) {
+          // Update in-memory cache
+          this.cachedProducts = response.data;
+          this.productsSubject.next(this.cachedProducts!);
+          
+          // Persist to localStorage (encrypted)
           const encryptedData = this.encryptionService.encrypt(response);
           localStorage.setItem(this.CACHE_KEY, encryptedData);
         }
@@ -52,6 +72,8 @@ export class ProductService {
   }
 
   refreshProducts(): Observable<any> {
+    // Invalidate in-memory cache
+    this.cachedProducts = null;
     localStorage.removeItem(this.CACHE_KEY);
     return this.getProducts({ status: 'A' });
   }

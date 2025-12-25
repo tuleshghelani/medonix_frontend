@@ -36,7 +36,7 @@
               (click)="refreshCustomers()" 
               [disabled]="isLoadingCustomers"
               title="Refresh Customers"
-              (touchstart)="$event.preventDefault()"
+  
             >
               <i class="fas" [ngClass]="isLoadingCustomers ? 'fa-spinner fa-spin' : 'fa-sync-alt'"></i>
             </button>
@@ -98,7 +98,7 @@
                 class="btn-icon edit" 
                 (click)="editPurchaseOrder(purchaseOrder.id!)"
                 title="Edit Purchase Order"
-                (touchstart)="$event.preventDefault()"
+    
               >
                 <i class="fas fa-eye"></i>
               </button>
@@ -107,7 +107,7 @@
                 class="btn-icon pdf" 
                 (click)="generatePdf(purchaseOrder.id!, purchaseOrder.invoiceNumber)"
                 title="Export PDF"
-                (touchstart)="$event.preventDefault()"
+    
               >
                 <i class="fas fa-file-pdf"></i>
               </button>
@@ -117,7 +117,7 @@
                 (click)="convertToPurchase(purchaseOrder.id!, purchaseOrder.invoiceNumber)"
                 title="Convert to Purchase"
                 [disabled]="isLoading"
-                (touchstart)="$event.preventDefault()"
+    
               >
                 <i class="fas fa-exchange-alt"></i>
               </button> -->
@@ -126,7 +126,7 @@
                 class="btn-icon delete" 
                 (click)="deletePurchaseOrder(purchaseOrder.id!)"
                 title="Delete Purchase Order"
-                (touchstart)="$event.preventDefault()"
+    
               >
                 <i class="fas fa-trash"></i>
               </button>
