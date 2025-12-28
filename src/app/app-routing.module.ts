@@ -4,6 +4,7 @@ import { LoginComponent } from './components/auth/login/login.component';
 import { CategoryComponent } from './components/category/category.component';
 import { ProductComponent } from './components/product/product.component';
 import { AuthGuard } from './guards/auth.guard';
+import { GuestGuard } from './guards/guest.guard';
 
 import { SaleComponent } from './components/sale/sale.component';
 import { ProfitComponent } from './components/profit/profit.component';
@@ -36,7 +37,7 @@ import { AddCustomerPriceComponent } from './components/all-customer-price/add-c
 
 const routes: Routes = [
   { path: '', redirectTo: '/login', pathMatch: 'full' },
-  { path: 'login', component: LoginComponent },
+  { path: 'login', component: LoginComponent, canActivate: [GuestGuard] },
   { 
     path: 'category', 
     component: CategoryComponent, 
@@ -264,7 +265,7 @@ const routes: Routes = [
   },
   {
     path: '**',
-    redirectTo: '/login',
+    redirectTo: '/purchase',
     pathMatch: 'full'
   },
 ];
