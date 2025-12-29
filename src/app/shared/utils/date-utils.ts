@@ -51,8 +51,15 @@ export class DateUtils {
   
 
   formatDateDDMMYYYY(dateStr: string): string {
-    const date = new Date(dateStr);
-    return `${String(date.getDate()).padStart(2, '0')}-${String(date.getMonth() + 1).padStart(2, '0')}-${date.getFullYear()}`;
+    if (!dateStr) return '';
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return '';
+      return `${String(date.getDate()).padStart(2, '0')}-${String(date.getMonth() + 1).padStart(2, '0')}-${date.getFullYear()}`;
+    } catch (error) {
+      console.error('Error formatting date DD-MM-YYYY:', error);
+      return '';
+    }
   }
 
   formatDateTimeForApi(dateStr: string): string {

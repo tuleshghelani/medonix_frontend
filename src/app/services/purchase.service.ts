@@ -81,4 +81,18 @@ export class PurchaseService {
       })
     );
   }
+
+  exportExcel(params: { startDate: string; endDate: string }): Observable<{ blob: Blob; filename: string }> {
+    return this.http.post(`${this.apiUrl}/export-excel`, params, {
+      responseType: 'blob',
+      observe: 'response'
+    }).pipe(
+      map(response => {
+        const contentDisposition = response.headers.get('Content-Disposition');
+        const filename = contentDisposition?.split('filename=')[1]?.replace(/"/g, '') || `purchase_export_${params.startDate}_${params.endDate}.xlsx`;
+        const blob = new Blob([response.body!], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        return { blob, filename };
+      })
+    );
+  }
 }
