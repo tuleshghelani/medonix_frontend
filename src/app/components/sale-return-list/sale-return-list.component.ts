@@ -304,4 +304,52 @@ export class SaleReturnListComponent implements OnInit, OnDestroy {
         }
       });
   }
+
+  isExportButtonDisabled(): boolean {
+    const startDate = this.searchForm.get('startDate')?.value;
+    const endDate = this.searchForm.get('endDate')?.value;
+    return !startDate || !endDate;
+  }
+
+  exportExcel(): void {
+    const startDate = this.searchForm.get('startDate')?.value;
+    const endDate = this.searchForm.get('endDate')?.value;
+
+    if (!startDate || !endDate) {
+      this.snackbar.error('Please select both start date and end date to export');
+      return;
+    }
+
+    const formattedStartDate = this.dateUtils.formatDateDDMMYYYY(startDate);
+    const formattedEndDate = this.dateUtils.formatDateDDMMYYYY(endDate);
+
+    this.isLoading = true;
+    this.saleService.exportSaleReturnExcel({
+      startDate: formattedStartDate,
+      endDate: formattedEndDate
+    })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: ({ blob, filename }) => {
+          // Create a download link
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = filename || `sale_return_export_${formattedStartDate}_${formattedEndDate}.xlsx`;
+          document.body.appendChild(link);
+          link.click();
+          
+          // Clean up
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+          
+          this.snackbar.success('Excel file downloaded successfully');
+          this.isLoading = false;
+        },
+        error: (error) => {
+          this.snackbar.error(error?.error?.message || 'Failed to export Excel file');
+          this.isLoading = false;
+        }
+      });
+  }
 }
