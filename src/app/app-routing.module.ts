@@ -6,7 +6,6 @@ import { ProductComponent } from './components/product/product.component';
 import { AuthGuard } from './guards/auth.guard';
 import { GuestGuard } from './guards/guest.guard';
 
-import { SaleComponent } from './components/sale/sale.component';
 import { ProfitComponent } from './components/profit/profit.component';
 import { CustomerComponent } from './components/customer/customer.component';
 import { AddCombinedPurchaseSaleComponent } from './components/add-combined-purchase-sale/add-combined-purchase-sale.component';
@@ -18,9 +17,6 @@ import { DailyProfitComponent } from './components/all-profits/daily-profit/dail
 import { CreateAttendanceComponent } from './components/attendance/create-attendance/create-attendance.component';
 import { AttendanceListComponent } from './components/attendance/attendance-list/attendance-list.component';
 import { AttendanceDetailComponent } from './components/attendance/attendance-detail/attendance-detail.component';
-import { AddSaleComponent } from './components/add-sale/add-sale.component';
-import { AddSaleReturnComponent } from './components/add-sale-return/add-sale-return.component';
-import { SaleReturnListComponent } from './components/sale-return-list/sale-return-list.component';
 import { DataCenterComponent } from './components/data-center/data-center.component';
 import { RoleGuard } from './guards/role.guard';
 import { UserListComponent } from './components/users/user-list/user-list.component';
@@ -70,33 +66,9 @@ const routes: Routes = [
   },
   {
     path: 'sale',
-    component: SaleComponent,
+    loadChildren: () => import('./components/all-sale/sale.module').then(m => m.SaleModule),
     canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN', 'STAFF_ADMIN', 'DEALER'] }
-  },
-  {
-    path: 'sale/create',
-    component: AddSaleComponent,
-    canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN', 'STAFF_ADMIN'] }
-  },
-  {
-    path: 'sale/return/create',
-    component: AddSaleReturnComponent,
-    canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN', 'STAFF_ADMIN'] }
-  },
-  {
-    path: 'sale/return/:id',
-    component: AddSaleReturnComponent,
-    canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN', 'STAFF_ADMIN'] }
-  },
-  {
-    path: 'sale/return',
-    component: SaleReturnListComponent,
-    canActivate: [AuthGuard, RoleGuard],
-    data: { roles: ['ADMIN', 'STAFF_ADMIN','DEALER'] }
+    data: { preload: true, roles: ['ADMIN', 'STAFF_ADMIN', 'DEALER'] }
   },
   {
     path: 'profit',
