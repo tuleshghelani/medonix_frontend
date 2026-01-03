@@ -1,1 +1,0 @@
-import{E as e}from"./chunk-IIIQTK2D.js";var o=(()=>{class t{transform(r){return r==null?0:Math.round(r)}static{this.\u0275fac=function(n){return new(n||t)}}static{this.\u0275pipe=e({name:"round",type:t,pure:!0,standalone:!0})}}return t})();export{o as a};

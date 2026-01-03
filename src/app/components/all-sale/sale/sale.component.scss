@@ -65,26 +65,6 @@
           app-searchable-select {
             flex: 1;
           }
-
-          .btn-icon {
-            width: 42px;
-            padding: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid var(--border-color);
-            border-radius: var(--border-radius);
-            background: var(--primary);
-
-            &:hover:not(:disabled) {
-              background: var(--primary);
-            }
-
-            &:disabled {
-              opacity: 0.6;
-              cursor: not-allowed;
-            }
-          }
         }
       }
 
@@ -280,9 +260,7 @@
       font-size: 1.25rem;
     }
   }
-}
 
-@media (max-width: 576px) {
   .table-controls {
     flex-direction: column;
     gap: 1rem;
@@ -462,14 +440,6 @@
 }
 
 .product-select-group {
-  display: flex;
-  gap: 0.5rem;
-  align-items: flex-start;
-
-  app-searchable-select {
-    flex: 1;
-  }
-
   .btn-icon.refresh {
     background-color: var(--background);
     color: white;

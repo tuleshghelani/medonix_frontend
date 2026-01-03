@@ -1,23 +1,13 @@
 import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup } from '@angular/forms';
 import { SaleService } from '../../../services/sale.service';
 import { Sale, SaleSearchRequest } from '../../../models/sale.model';
-import { ToastrService } from 'ngx-toastr';
 import { SnackbarService } from '../../../shared/services/snackbar.service';
 import { DateUtils } from '../../../shared/utils/date-utils';
-import { Router, RouterModule } from '@angular/router';
-import { PaginationComponent } from '../../../shared/components/pagination/pagination.component';
-import { RoundPipe } from '../../../round.pipe';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { SaleModalComponent } from '../../sale-modal/sale-modal.component';
-import { LoaderComponent } from '../../../shared/components/loader/loader.component';
-import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select.component';
+import { Router } from '@angular/router';
 import { CustomerService } from '../../../services/customer.service';
-import { ModalService } from '../../../services/modal.service';
-import { CacheService } from '../../../shared/services/cache.service';
 import { EncryptionService } from '../../../shared/services/encryption.service';
-import { AuthService, UserRole } from '../../../services/auth.service';
+import { AuthService } from '../../../services/auth.service';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
@@ -41,9 +31,6 @@ export class SaleComponent implements OnInit, OnDestroy {
   totalElements = 0;
   startIndex = 0;
   endIndex = 0;
-  selectedSales: Sale | null = null;
-  products: Sale[] = [];
-  isLoadingProducts = false;
   customers: any[] = [];
   isLoadingCustomers = false;
   canManageSales = false;
@@ -54,10 +41,7 @@ export class SaleComponent implements OnInit, OnDestroy {
     private customerService: CustomerService,
     private fb: FormBuilder,
     private snackbar: SnackbarService,
-    private dialog: MatDialog,
-    private modalService: ModalService,
     private dateUtils: DateUtils,
-    private cacheService: CacheService,
     private encryptionService: EncryptionService,
     private router: Router,
     private authService: AuthService,
@@ -77,10 +61,10 @@ export class SaleComponent implements OnInit, OnDestroy {
   private initializeForm(): void {
     this.searchForm = this.fb.group({
       search: [''],
-      customerId: [''],
+      customerId: [''], // Note: Not used in API but kept for future use
       startDate: [''],
       endDate: [''],
-      batchNumber: ['']
+      batchNumber: [''] // Note: Not used in API but kept for future use
     });
   }
 
@@ -89,59 +73,15 @@ export class SaleComponent implements OnInit, OnDestroy {
     this.loadSales();
   }
 
-  private formatDateForApi(dateStr: string, isStartDate: boolean): string {
-    if (!dateStr) return '';
-
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return '';
-
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear();
-    const time = isStartDate ? '00:00:00' : '23:59:59';
-
-    return `${day}-${month}-${year} ${time}`;
-  }
-
-  loadSalesRecord(): void {
-    this.isLoading = true;
-    const formValues = this.searchForm.value;
-
-    const startDate = formValues.startDate ? this.formatDateForApi(formValues.startDate, true) : '';
-    const endDate = formValues.endDate ? this.formatDateForApi(formValues.endDate, false) : '';
-
-    const params: SaleSearchRequest = {
-      currentPage: this.currentPage,
-      perPageRecord: this.pageSize,
-      search: formValues.search || ''
-    };
-
-    // Only add dates if they are not empty
-    if (startDate) {
-      params.startDate = startDate;
-    }
-    if (endDate) {
-      params.endDate = endDate;
-    }
-
-    this.saleService.searchSales(params)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (response) => {
-          this.sales = response.data.content;
-          this.totalPages = response.data.totalPages;
-          this.totalElements = response.data.totalElements;
-          this.startIndex = this.currentPage * this.pageSize;
-          this.endIndex = Math.min((this.currentPage + 1) * this.pageSize, this.totalElements);
-          this.isLoading = false;
-          this.cdr.markForCheck();
-        },
-        error: () => {
-          this.snackbar.error('Failed to load sales');
-          this.isLoading = false;
-          this.cdr.markForCheck();
-        }
-      });
+  private downloadFile(blob: Blob, filename: string): void {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   }
 
   onPageChange(page: number): void {
@@ -252,21 +192,8 @@ export class SaleComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: ({ blob, filename }) => {
-          // Use invoiceNumber if available, otherwise use the filename from response
-          const pdfFilename = 'sale-' + (invoiceNumber ? `${invoiceNumber}.pdf` : filename);
-          
-          // Create a download link
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = pdfFilename;
-          document.body.appendChild(link);
-          link.click();
-          
-          // Clean up
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(url);
-          
+          const pdfFilename = invoiceNumber ? `sale-${invoiceNumber}.pdf` : filename;
+          this.downloadFile(blob, pdfFilename);
           this.snackbar.success('PDF downloaded successfully');
         },
         error: (error) => {
@@ -301,18 +228,8 @@ export class SaleComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: ({ blob, filename }) => {
-          // Create a download link
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = filename || `sale_export_${formattedStartDate}_${formattedEndDate}.xlsx`;
-          document.body.appendChild(link);
-          link.click();
-          
-          // Clean up
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(url);
-          
+          const excelFilename = filename || `sale_export_${formattedStartDate}_${formattedEndDate}.xlsx`;
+          this.downloadFile(blob, excelFilename);
           this.snackbar.success('Excel file downloaded successfully');
           this.isLoading = false;
           this.cdr.markForCheck();
