@@ -34,7 +34,7 @@ export class PurchaseService {
     return this.http.post(`${this.apiUrl}/detail`, { id, isPurchaseReturn });
   }
 
-  updateQcPass(payload: { purchaseItemId: number; qcPass: number }): Observable<any> {
+  updateQcPass(payload: { purchaseItemId: number; qcPass: number | null }): Observable<any> {
     return this.http.post(`${this.apiUrl}/update-qc-pass`, payload);
   }
 

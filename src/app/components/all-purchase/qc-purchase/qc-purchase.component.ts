@@ -185,21 +185,45 @@ export class QcPurchaseComponent implements OnInit, OnDestroy {
     const qcPassControl = group.get('qcPass');
     const rawValue = qcPassControl?.value;
 
-    // If the field is empty, treat it as "no value" and do not update the backend.
-    if (rawValue === null || rawValue === '') {
-      return;
-    }
-
-    const qcPass = Number(rawValue);
-
     if (!purchaseItemId) {
       this.snackbar.error('purchaseItemId is required');
       return;
     }
 
+    // If the field is empty or null, send null to the API
+    if (rawValue === null || rawValue === '' || rawValue === undefined) {
+      if (this.savingItemId === purchaseItemId) {
+        return;
+      }
+
+      this.isSaving = true;
+      this.savingItemId = purchaseItemId;
+
+      this.purchaseService.updateQcPass({ purchaseItemId, qcPass: null }).pipe(takeUntil(this.destroy$)).subscribe({
+        next: (res: any) => {
+          if (res?.success) {
+            this.snackbar.success(res.message || 'QC pass updated successfully');
+          } else {
+            this.snackbar.error(res?.message || 'Failed to update QC pass');
+          }
+          this.isSaving = false;
+          this.savingItemId = null;
+        },
+        error: (error: any) => {
+          const message = error?.error?.message || 'Failed to update QC pass';
+          this.snackbar.error(message);
+          this.isSaving = false;
+          this.savingItemId = null;
+        }
+      });
+      return;
+    }
+
+    const qcPass = Number(rawValue);
+
     if (isNaN(qcPass) || qcPass < 0) {
       this.snackbar.error('QC pass quantity cannot be negative');
-      qcPassControl?.setValue(0);
+      qcPassControl?.setValue(null);
       return;
     }
 

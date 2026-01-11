@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, Validators, AbstractControl } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { formatDate } from '@angular/common';
 
@@ -25,6 +25,7 @@ export class AddPurchaseReturnComponent implements OnInit, OnDestroy {
   constructor(
     private fb: FormBuilder,
     private route: ActivatedRoute,
+    private router: Router,
     private purchaseService: PurchaseService,
     private productService: ProductService,
     private snackbar: SnackbarService,
@@ -295,6 +296,7 @@ export class AddPurchaseReturnComponent implements OnInit, OnDestroy {
       next: (res: any) => {
         if (res?.success) {
           this.snackbar.success(res.message || 'Purchase return created successfully');
+          this.router.navigate(['purchase/return']);
         } else {
           this.snackbar.error(res?.message || 'Failed to create purchase return');
         }
