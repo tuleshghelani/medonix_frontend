@@ -172,18 +172,20 @@ export class AddSaleComponent implements OnInit, OnDestroy {
   private setupProductCalculations(group: FormGroup): Subscription {
     const subscription = new Subscription();
 
-    // Listen to product selection to get tax percentage
+    // Listen to product selection to get tax percentage and saleAmount
     const productIdSubscription = group.get('productId')?.valueChanges
       .pipe(
         takeUntil(this.destroy$),
-        distinctUntilChanged()
+        distinctUntilChanged() // Only trigger when productId actually changes
       )
       .subscribe((productId) => {
         if (productId) {
+          // Memory optimization: O(1) lookup via Map instead of O(n) find()
           const selectedProduct = this.productMap.get(productId);
           if (selectedProduct) {
             const taxPercentage = selectedProduct.taxPercentage || 0;
-            group.patchValue({ taxPercentage }, { emitEvent: false });
+            const unitPrice = selectedProduct.saleAmount || 0;
+            group.patchValue({ taxPercentage, unitPrice }, { emitEvent: false });
             this.calculateProductPrice(group);
           }
         }

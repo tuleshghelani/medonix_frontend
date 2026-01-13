@@ -236,6 +236,12 @@ const routes: Routes = [
     data: { preload: true, roles: ['ADMIN', 'STAFF_ADMIN'] }
   },
   {
+    path: 'product-batch-stock',
+    loadChildren: () => import('./components/product-batch-stock/product-batch-stock.module').then(m => m.ProductBatchStockModule),
+    canActivate: [AuthGuard, RoleGuard],
+    data: { preload: true, roles: ['ADMIN', 'STAFF_ADMIN'] }
+  },
+  {
     path: '**',
     redirectTo: '/purchase',
     pathMatch: 'full'

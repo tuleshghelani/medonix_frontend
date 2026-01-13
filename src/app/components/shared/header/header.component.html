@@ -72,6 +72,11 @@
                 <i class="fas fa-money-bill-wave"></i> Customer Price
               </a>
             </li>
+            <li *ngIf="isAdmin() || isStaffAdmin()">
+              <a routerLink="/product-batch-stock" routerLinkActive="active" (click)="closeAllMenus()">
+                <i class="fas fa-boxes"></i> Batch Wise Product
+              </a>
+            </li>
             <!-- <li *ngIf="isAdmin()">
               <a routerLink="/users" routerLinkActive="active">Users</a>
             </li> -->
