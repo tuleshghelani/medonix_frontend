@@ -137,6 +137,7 @@
       overflow-x: hidden;
       padding: 6px 0;
       -webkit-overflow-scrolling: touch; // Smooth scrolling on iOS
+      touch-action: pan-y; // Allow vertical panning (scrolling) on touch devices
       
       &::-webkit-scrollbar {
         width: 8px;

@@ -43,16 +43,15 @@
   
   <div class="select-dropdown" *ngIf="isOpen" [style.max-height]="maxHeight"
        (mousedown)="onDropdownPointerDown($event)"
-       (touchstart)="onDropdownPointerDown($event)"
-       (touchend)="onDropdownPointerDown($event)"
        role="listbox"
        [attr.aria-label]="'Options list'">
     <div class="options-container" 
-         [class.virtual-scroll]="virtualScroll && filteredOptions.length > initialDisplayLimit" 
+         [class.virtual-scroll]="virtualScroll && filteredOptions.length > adaptiveDisplayLimit" 
          #optionsContainer
-         (scroll)="onOptionsContainerScroll($event)">
+         (scroll)="onOptionsContainerScroll($event)"
+         (touchcancel)="cancelPendingSelection()">
       <!-- Virtual scroll spacer for items before visible range -->
-      <div *ngIf="virtualScroll && filteredOptions.length > initialDisplayLimit && offsetY > 0" 
+      <div *ngIf="virtualScroll && filteredOptions.length > adaptiveDisplayLimit && offsetY > 0" 
            class="virtual-scroll-spacer" 
            [style.height.px]="offsetY"></div>
       
@@ -61,9 +60,8 @@
         class="option" 
         *ngFor="let option of displayedOptions; let i = index; trackBy: trackByOptionId"
         (click)="selectOption(option, $event)"
-        (touchstart)="selectOption(option, $event)"
         [class.selected]="isSelected(option)"
-        [class.highlighted]="(virtualScroll && filteredOptions.length > initialDisplayLimit ? startIndex + i : i) === highlightedIndex"
+        [class.highlighted]="(virtualScroll && filteredOptions.length > adaptiveDisplayLimit ? startIndex + i : i) === highlightedIndex"
         role="option"
         [attr.aria-selected]="isSelected(option)"
       >
@@ -76,7 +74,7 @@
       </div>
       
       <!-- Virtual scroll spacer for items after visible range -->
-      <div *ngIf="virtualScroll && filteredOptions.length > initialDisplayLimit" 
+      <div *ngIf="virtualScroll && filteredOptions.length > adaptiveDisplayLimit" 
            class="virtual-scroll-spacer" 
            [style.height.px]="totalHeight - offsetY - (displayedOptions.length * virtualScrollItemHeight)"></div>
       

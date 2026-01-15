@@ -38,9 +38,9 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
   @Input() maxHeight: string = '300px';
   @Input() virtualScroll = true; // Default to true for performance
   @Input() searchDebounceMs = 300;
-  @Input() initialDisplayLimit: number = 100; // Limit initial display for large lists
+  @Input() initialDisplayLimit: number = 100; // Limit initial display for large lists (adaptive based on dataset size)
   @Input() virtualScrollItemHeight: number = 40; // Height of each option item in pixels
-  @Input() virtualScrollBuffer: number = 25; // Number of items to render outside viewport (increased for smoother scrolling)
+  @Input() virtualScrollBuffer: number = 25; // Number of items to render outside viewport (will be adaptive based on list size)
 
   @Output() selectionChange = new EventEmitter<any>();
 
@@ -83,6 +83,18 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
   private originalStyles: Map<HTMLElement, { [key: string]: string }> = new Map();
   private labelCache: Map<SelectOption, string> = new Map();
   private animationFrameId: number | null = null;
+  // Index map for O(1) lookup instead of O(n) find operations
+  private optionsIndexMap: Map<any, SelectOption> = new Map();
+
+  // Touch handling for mobile/tablet to prevent accidental selection during scroll
+  private pendingSelection: { option: SelectOption; timeoutId: ReturnType<typeof setTimeout> } | null = null;
+  private touchStartTime: number = 0;
+  private touchStartY: number = 0;
+  private touchStartElement: HTMLElement | null = null;
+  private touchStartOption: SelectOption | null = null;
+  private containerTouchStartListener?: () => void;
+  private containerTouchEndListener?: () => void;
+  private containerTouchMoveListener?: () => void;
 
   constructor(
     private elementRef: ElementRef,
@@ -96,6 +108,35 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
     // Only process them when needed
     this.filteredOptions = [];
     this.displayedOptions = [];
+    // Build index map for efficient lookups
+    this.buildOptionsIndexMap();
+  }
+  
+  private buildOptionsIndexMap(): void {
+    this.optionsIndexMap.clear();
+    for (const option of this.options) {
+      const value = option[this.valueKey];
+      if (value !== undefined && value !== null) {
+        this.optionsIndexMap.set(value, option);
+      }
+    }
+  }
+  
+  private getOptionByValue(value: any): SelectOption | undefined {
+    // Use index map for O(1) lookup instead of O(n) find
+    return this.optionsIndexMap.get(value);
+  }
+  
+  get adaptiveDisplayLimit(): number {
+    // Adaptive initial display limit based on dataset size for better performance
+    const listSize = this.filteredOptions.length || this.options.length;
+    return listSize > 20000 ? 50 :
+           listSize > 10000 ? 75 :
+           this.initialDisplayLimit;
+  }
+  
+  private getAdaptiveDisplayLimit(): number {
+    return this.adaptiveDisplayLimit;
   }
 
   ngAfterViewInit(): void {
@@ -107,6 +148,89 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
       }
     }, 0);
     this.timeouts.push(timeoutId);
+    
+    // Setup passive touch listeners for container-level event delegation
+    this.setupContainerTouchListeners();
+  }
+  
+  private setupContainerTouchListeners(): void {
+    const container = this.optionsContainer?.nativeElement;
+    if (!container) return;
+    
+    // Use native addEventListener with passive option for smooth scrolling
+    // Renderer2.listen doesn't support passive option, so we use native API
+    const touchStartHandler = (event: TouchEvent) => this.onContainerTouchStart(event);
+    const touchMoveHandler = (event: TouchEvent) => this.onContainerTouchMove(event);
+    const touchEndHandler = (event: TouchEvent) => this.onContainerTouchEnd(event);
+    
+    container.addEventListener('touchstart', touchStartHandler, { passive: true });
+    container.addEventListener('touchmove', touchMoveHandler, { passive: true });
+    container.addEventListener('touchend', touchEndHandler, { passive: true });
+    
+    // Store cleanup functions
+    this.containerTouchStartListener = () => container.removeEventListener('touchstart', touchStartHandler);
+    this.containerTouchMoveListener = () => container.removeEventListener('touchmove', touchMoveHandler);
+    this.containerTouchEndListener = () => container.removeEventListener('touchend', touchEndHandler);
+  }
+  
+  private onContainerTouchStart(event: TouchEvent): void {
+    if (!event.touches || event.touches.length === 0) return;
+    
+    const touch = event.touches[0];
+    this.touchStartY = touch.clientY;
+    this.touchStartTime = Date.now();
+    this.touchStartElement = (event.target as HTMLElement)?.closest('.option') as HTMLElement;
+    this.touchStartOption = null;
+    
+    // Find the option element
+    if (this.touchStartElement) {
+      const optionIndex = Array.from(this.touchStartElement.parentElement?.children || []).indexOf(this.touchStartElement);
+      if (optionIndex >= 0 && optionIndex < this.displayedOptions.length) {
+        // Account for virtual scroll offset
+        const actualIndex = this.virtualScroll && this.filteredOptions.length > this.getAdaptiveDisplayLimit() 
+          ? this.startIndex + optionIndex 
+          : optionIndex;
+        if (actualIndex >= 0 && actualIndex < this.filteredOptions.length) {
+          this.touchStartOption = this.filteredOptions[actualIndex];
+        }
+      }
+    }
+    
+    this.cancelPendingSelection();
+  }
+  
+  private onContainerTouchMove(event: TouchEvent): void {
+    if (!event.touches || event.touches.length === 0 || this.touchStartY === 0) return;
+    
+    const touch = event.touches[0];
+    const deltaY = Math.abs(touch.clientY - this.touchStartY);
+    
+    // If movement exceeds 10px, it's a scroll - cancel selection
+    if (deltaY > 10) {
+      this.touchStartOption = null; // Mark as scrolling
+    }
+  }
+  
+  private onContainerTouchEnd(event: TouchEvent): void {
+    // Only select if it was a tap (not a scroll) and we have a valid option
+    if (this.touchStartOption && this.touchStartTime > 0) {
+      const touchDuration = Date.now() - this.touchStartTime;
+      // Only select if it was a quick tap (< 400ms) - longer duration likely means scrolling
+      if (touchDuration < 400) {
+        // Small delay to ensure any scroll momentum has stopped
+        setTimeout(() => {
+          if (this.touchStartOption) {
+            this.selectOption(this.touchStartOption, event);
+          }
+        }, 100);
+      }
+    }
+    
+    // Reset touch state
+    this.touchStartY = 0;
+    this.touchStartTime = 0;
+    this.touchStartElement = null;
+    this.touchStartOption = null;
   }
 
   ngOnDestroy(): void {
@@ -124,6 +248,20 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
     if (this.scrollListener) {
       this.scrollListener();
       this.scrollListener = undefined;
+    }
+    
+    // Remove container touch listeners
+    if (this.containerTouchStartListener) {
+      this.containerTouchStartListener();
+      this.containerTouchStartListener = undefined;
+    }
+    if (this.containerTouchMoveListener) {
+      this.containerTouchMoveListener();
+      this.containerTouchMoveListener = undefined;
+    }
+    if (this.containerTouchEndListener) {
+      this.containerTouchEndListener();
+      this.containerTouchEndListener = undefined;
     }
     
     // Clear all timeouts
@@ -156,6 +294,7 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
     this.sanitizedHtmlCache.clear();
     this.labelCache.clear();
     this.originalStyles.clear();
+    this.optionsIndexMap.clear();
     
     // Clear all string properties
     this.searchText = '';
@@ -167,7 +306,14 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
     this.highlightedIndex = -1;
     this.selectedValue = null;
     this.selectedValues = [];
-    
+
+    // Cancel any pending touch selection
+    this.cancelPendingSelection();
+    this.touchStartTime = 0;
+    this.touchStartY = 0;
+    this.touchStartElement = null;
+    this.touchStartOption = null;
+
     // Nullify callbacks
     this.onChange = () => {};
     this.onTouch = () => {};
@@ -212,8 +358,9 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
   }
   
   onDropdownPointerDown(event?: Event): void {
-    // Prevent input blur from closing dropdown prematurely on mobile
-    if (event) {
+    // Prevent input blur from closing dropdown prematurely on desktop
+    // Only prevent default on mouse events, not touch events (to allow scrolling)
+    if (event && event.type === 'mousedown') {
       event.preventDefault();
       event.stopPropagation();
     }
@@ -288,7 +435,7 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
     } else {
       this.selectedValue = value;
       if (value) {
-        const selectedOption = this.options.find(opt => opt[this.valueKey] === value);
+        const selectedOption = this.getOptionByValue(value);
         if (selectedOption) {
           this.searchText = this.getOptionLabel(selectedOption);
           this.isPlaceholderVisible = false;
@@ -367,7 +514,7 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
         this.adjustDropdownPosition();
         
         // Setup virtual scrolling if enabled
-        if (this.virtualScroll && this.filteredOptions.length > this.initialDisplayLimit) {
+        if (this.virtualScroll && this.filteredOptions.length > this.getAdaptiveDisplayLimit()) {
           this.setupVirtualScroll();
         }
       });
@@ -382,6 +529,13 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
       if (this.clickOutsideListener) {
         this.clickOutsideListener();
         this.clickOutsideListener = null;
+      }
+      
+      // Clear filtered options for very large lists to free memory
+      if (this.options.length > 10000 && this.filteredOptions.length > 5000) {
+        this.filteredOptions = [];
+        this.displayedOptions = [];
+        this.lastFilteredOptions = [];
       }
     }
     this.cdr.markForCheck();
@@ -542,7 +696,7 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
       if (!this.multiple) {
         this.isOpen = false;
         this.highlightedIndex = -1;
-        const selected = this.options.find(opt => opt[this.valueKey] === this.selectedValue);
+        const selected = this.getOptionByValue(this.selectedValue);
         this.searchText = selected ? this.getOptionLabel(selected) : '';
         
         // Update the contenteditable div with the display text
@@ -633,11 +787,16 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
       clearTimeout(this.searchDebounceTimer);
     }
     
+    // Adaptive debounce: longer for large datasets to improve performance
+    const adaptiveDebounce = this.options.length > 10000 ? 500 : 
+                            this.options.length > 5000 ? 400 : 
+                            this.searchDebounceMs;
+    
     this.searchDebounceTimer = setTimeout(() => {
       this.filterOptions();
       this.isOpen = true;
       this.cdr.markForCheck();
-    }, this.searchDebounceMs);
+    }, adaptiveDebounce);
   }
 
   filterOptions(): void {
@@ -655,26 +814,72 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
       // Show all options (virtual scrolling will handle display)
       this.filteredOptions = [...this.options];
     } else {
-      // Optimize filtering with cached labels
+      // Optimize filtering with cached labels and early termination
       const results: SelectOption[] = [];
+      const optionsLength = this.options.length;
       
-      // Use more efficient filtering
-      for (const option of this.options) {
-        const label = this.getCachedLabel(option).toLowerCase();
+      // For very large datasets, use optimized filtering
+      if (optionsLength > 10000) {
+        // Process in chunks to avoid blocking UI
+        const chunkSize = 1000;
+        let processed = 0;
         
-        // Fast path: exact match at start (prioritize these)
-        if (label.startsWith(searchLower)) {
-          results.push(option);
-          continue;
+        const processChunk = () => {
+          const endIndex = Math.min(processed + chunkSize, optionsLength);
+          
+          for (let i = processed; i < endIndex; i++) {
+            const option = this.options[i];
+            const label = this.getCachedLabel(option).toLowerCase();
+            
+            // Fast path: exact match at start (prioritize these)
+            if (label.startsWith(searchLower)) {
+              results.push(option);
+              continue;
+            }
+            
+            // Fast path: contains match
+            if (label.includes(searchLower)) {
+              results.push(option);
+            }
+          }
+          
+          processed = endIndex;
+          
+          if (processed < optionsLength) {
+            // Process next chunk asynchronously
+            requestAnimationFrame(processChunk);
+          } else {
+            // Finished processing
+            this.filteredOptions = results.length > 0 ? results : [];
+            this.lastSearchText = this.searchText;
+            this.lastFilteredOptions = [...this.filteredOptions];
+            this.highlightedIndex = this.filteredOptions.length > 0 ? 0 : -1;
+            this.updateDisplayedOptions();
+            this.cdr.markForCheck();
+          }
+        };
+        
+        processChunk();
+        return; // Exit early, will continue asynchronously
+      } else {
+        // For smaller datasets, use direct filtering
+        for (const option of this.options) {
+          const label = this.getCachedLabel(option).toLowerCase();
+          
+          // Fast path: exact match at start (prioritize these)
+          if (label.startsWith(searchLower)) {
+            results.push(option);
+            continue;
+          }
+          
+          // Fast path: contains match
+          if (label.includes(searchLower)) {
+            results.push(option);
+          }
         }
         
-        // Fast path: contains match
-        if (label.includes(searchLower)) {
-          results.push(option);
-        }
+        this.filteredOptions = results.length > 0 ? results : [];
       }
-      
-      this.filteredOptions = results.length > 0 ? results : [];
     }
     
     // Cache results
@@ -699,7 +904,9 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
   }
   
   private updateDisplayedOptions(): void {
-    if (!this.virtualScroll || this.filteredOptions.length <= this.initialDisplayLimit) {
+    const adaptiveDisplayLimit = this.getAdaptiveDisplayLimit();
+    
+    if (!this.virtualScroll || this.filteredOptions.length <= adaptiveDisplayLimit) {
       // Don't use virtual scrolling for small lists
       this.displayedOptions = this.filteredOptions;
       this.totalHeight = this.filteredOptions.length * this.virtualScrollItemHeight;
@@ -710,7 +917,7 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
     // Calculate visible range
     const container = this.optionsContainer?.nativeElement;
     if (!container) {
-      this.displayedOptions = this.filteredOptions.slice(0, this.initialDisplayLimit);
+      this.displayedOptions = this.filteredOptions.slice(0, this.getAdaptiveDisplayLimit());
       return;
     }
     
@@ -718,12 +925,17 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
     this.containerHeight = Math.max(container.clientHeight || parseInt(this.maxHeight) || 300, 200);
     const visibleCount = Math.ceil(this.containerHeight / this.virtualScrollItemHeight);
     
-    // Calculate start/end with larger buffer to prevent white background
+    // Adaptive buffer: smaller for very large lists to reduce DOM elements
+    const adaptiveBuffer = this.filteredOptions.length > 10000 ? 10 :
+                          this.filteredOptions.length > 5000 ? 15 :
+                          this.virtualScrollBuffer;
+    
+    // Calculate start/end with adaptive buffer to prevent white background
     const rawStartIndex = Math.floor(this.scrollTop / this.virtualScrollItemHeight);
-    this.startIndex = Math.max(0, rawStartIndex - this.virtualScrollBuffer);
+    this.startIndex = Math.max(0, rawStartIndex - adaptiveBuffer);
     
     // Ensure we always render enough items to fill the viewport plus buffer
-    const minItems = visibleCount + (this.virtualScrollBuffer * 3);
+    const minItems = visibleCount + (adaptiveBuffer * 2); // Reduced multiplier for large lists
     this.endIndex = Math.min(
       this.filteredOptions.length,
       this.startIndex + minItems
@@ -761,9 +973,9 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
       
       const newScrollTop = container.scrollTop;
       
-      // Only update if scroll position changed significantly (more than 5px)
-      // This prevents micro-movements from triggering updates
-      if (Math.abs(newScrollTop - this.lastScrollTop) < 5) {
+      // Only update if scroll position changed significantly (more than 15px)
+      // This prevents micro-movements from triggering updates and improves performance
+      if (Math.abs(newScrollTop - this.lastScrollTop) < 15) {
         return;
       }
       
@@ -863,6 +1075,13 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
     this.selectionChange.emit({ value: this.selectedValue });
     this.interactingWithDropdown = false;
     this.cdr.markForCheck();
+  }
+
+  cancelPendingSelection(): void {
+    if (this.pendingSelection) {
+      clearTimeout(this.pendingSelection.timeoutId);
+      this.pendingSelection = null;
+    }
   }
 
   clearSelection(event: Event): void {
@@ -1025,17 +1244,31 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['options'] && !changes['options'].firstChange) {
+      // Rebuild index map when options change
+      this.buildOptionsIndexMap();
+      
       // Clear filter cache when options change
       this.lastSearchText = '';
       this.lastFilteredOptions = [];
       this.labelCache.clear(); // Clear label cache when options change
       
-      // Pre-cache labels removed for performance
-      // if (this.options.length > 0) { ... }
+      // Limit cache sizes for large datasets
+      if (this.options.length > 10000) {
+        // Clear caches more aggressively for very large datasets
+        if (this.sanitizedHtmlCache.size > 50) {
+          this.sanitizedHtmlCache.clear();
+        }
+        if (this.labelCache.size > 5000) {
+          // Keep only recent entries
+          const entries = Array.from(this.labelCache.entries()).slice(-2000);
+          this.labelCache.clear();
+          entries.forEach(([key, value]) => this.labelCache.set(key, value));
+        }
+      }
       
       // Update display text if value was set before options loaded
       if (!this.multiple && this.selectedValue) {
-        const selectedOption = this.options.find(opt => opt[this.valueKey] === this.selectedValue);
+        const selectedOption = this.getOptionByValue(this.selectedValue);
         if (selectedOption) {
           this.searchText = this.getOptionLabel(selectedOption);
           this.isPlaceholderVisible = false;
@@ -1065,7 +1298,7 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
       this.isOpen = false;
       this.interactingWithDropdown = false;
       if (!this.multiple) {
-        const selected = this.options.find(opt => opt[this.valueKey] === this.selectedValue);
+        const selected = this.getOptionByValue(this.selectedValue);
         this.searchText = selected ? this.getOptionLabel(selected) : '';
         
         // Update the contenteditable div with display text
@@ -1095,8 +1328,9 @@ export class SearchableSelectComponent implements ControlValueAccessor, OnInit, 
     }
     
     const sanitized = this.sanitizer.bypassSecurityTrustHtml(html);
-    // Limit cache size to prevent memory issues
-    if (this.sanitizedHtmlCache.size > 100) {
+    // Limit cache size to prevent memory issues (reduced for large datasets)
+    const maxCacheSize = this.options.length > 10000 ? 50 : 100;
+    if (this.sanitizedHtmlCache.size > maxCacheSize) {
       const firstKey = this.sanitizedHtmlCache.keys().next().value;
       if (firstKey) {
         this.sanitizedHtmlCache.delete(firstKey);
