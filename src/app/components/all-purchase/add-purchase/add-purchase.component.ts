@@ -556,6 +556,9 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
       }, { emitEvent: false });
       this.productsFormArray.push(productGroup);
     });
+    
+    // Calculate totals after populating form from API
+    this.calculateTotalAmount();
     this.isEdit = true;
   }
 
