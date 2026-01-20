@@ -11,7 +11,6 @@ import { CommonModule } from '@angular/common';
 import { SnackbarService } from '../../shared/services/snackbar.service';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
 import { RouterModule } from '@angular/router';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
@@ -66,8 +65,7 @@ export class ProductComponent implements OnInit, OnDestroy {
     private productService: ProductService,
     private categoryService: CategoryService,
     private fb: FormBuilder,
-    private snackbarService: SnackbarService,
-    private sanitizer: DomSanitizer
+    private snackbarService: SnackbarService
   ) {
     this.initializeForms();
   }
@@ -109,19 +107,6 @@ export class ProductComponent implements OnInit, OnDestroy {
         this.calculateTotalRemainingQuantity();
       });
 
-    // Update the name control listener
-    const editableDiv = document.querySelector('.editable-content');
-    if (editableDiv) {
-      editableDiv.addEventListener('input', () => {
-        const content = editableDiv.innerHTML;
-        if (content.trim()) {
-          this.productForm.patchValue({ name: content }, { emitEvent: true });
-          this.productForm.get('name')?.markAsTouched();
-        } else {
-          this.productForm.get('name')?.setErrors({ required: true });
-        }
-      });
-    }
 
     this.searchForm = this.fb.group({
       search: [''],
@@ -183,15 +168,6 @@ export class ProductComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const editableDiv = document.querySelector('.editable-content') as HTMLElement;
-    const productName = editableDiv?.innerHTML || '';
-
-    if (!productName.trim()) {
-      this.productForm.get('name')?.setErrors({ required: true });
-      this.productForm.get('name')?.markAsTouched();
-      return;
-    }
-
     if (this.productForm.invalid) {
       Object.keys(this.productForm.controls).forEach(key => {
         const control = this.productForm.get(key);
@@ -204,8 +180,7 @@ export class ProductComponent implements OnInit, OnDestroy {
 
     this.isLoading = true;
     const productData: any = {
-      ...this.productForm.getRawValue(),
-      name: productName
+      ...this.productForm.getRawValue()
     };
 
     const request = this.isEditing
@@ -242,20 +217,17 @@ export class ProductComponent implements OnInit, OnDestroy {
     });
   }
 
-  sanitizeHtml(html: string): SafeHtml {
-    return this.sanitizer.bypassSecurityTrustHtml(html);
-  }
-
   editProduct(product: Product): void {
     this.isEditing = true;
     this.editingId = product.id;
 
-    // Create a temporary div to decode HTML content
+    // Strip HTML tags from product name for plain text input
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = product.name;
+    const plainTextName = tempDiv.textContent || tempDiv.innerText || product.name;
 
     this.productForm.patchValue({
-      name: product.name,
+      name: plainTextName,
       hsnCode: product.hsnCode,
       productCode: product.productCode,
       materialName: product.materialName,
@@ -274,14 +246,6 @@ export class ProductComponent implements OnInit, OnDestroy {
 
     // Calculate total remaining quantity after setting values
     this.calculateTotalRemainingQuantity();
-
-    // Set the content after a short delay to ensure the contenteditable is ready
-    setTimeout(() => {
-      const editableDiv = document.querySelector('.editable-content') as HTMLElement;
-      if (editableDiv) {
-        editableDiv.innerHTML = product.name || '';
-      }
-    }, 0);
 
     this.isDialogOpen = true;
   }
@@ -385,23 +349,6 @@ export class ProductComponent implements OnInit, OnDestroy {
     this.calculateTotalRemainingQuantity();
 
     this.isDialogOpen = true;
-    setTimeout(() => {
-      const editableDiv = document.querySelector('.editable-content') as HTMLElement;
-      if (editableDiv) {
-        editableDiv.innerHTML = '';
-        editableDiv.focus();
-        // Reinitialize the input listener
-        editableDiv.addEventListener('input', () => {
-          const content = editableDiv.innerHTML;
-          if (content.trim()) {
-            this.productForm.patchValue({ name: content }, { emitEvent: true });
-            this.productForm.get('name')?.markAsTouched();
-          } else {
-            this.productForm.get('name')?.setErrors({ required: true });
-          }
-        });
-      }
-    });
   }
 
   closeDialog(): void {
@@ -418,19 +365,6 @@ export class ProductComponent implements OnInit, OnDestroy {
     return field ? field.invalid && (field.dirty || field.touched) : false;
   }
 
-  toggleBold(): void {
-    document.execCommand('bold', false);
-    const editableDiv = document.querySelector('.editable-content') as HTMLElement;
-    if (editableDiv) {
-      const content = editableDiv.innerHTML;
-      if (content.trim()) {
-        this.productForm.patchValue({ name: content }, { emitEvent: true });
-        this.productForm.get('name')?.markAsTouched();
-      } else {
-        this.productForm.get('name')?.setErrors({ required: true });
-      }
-    }
-  }
 
   validateRemainingQuantity() {
     const remainingQuantity = this.productForm.get('remainingQuantity')?.value;

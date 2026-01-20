@@ -74,7 +74,7 @@
       <table class="table">
         <thead>
           <tr>
-            <th>Name</th>
+            <th class="name-column">Name</th>
             <th>Product Code</th>
             <th>Material</th>
             <th>HSN Code</th>
@@ -92,7 +92,7 @@
         </thead>
         <tbody>
           <tr *ngFor="let product of products">
-            <td data-label="Name" [innerHTML]="sanitizeHtml(product.name)"></td>
+            <td data-label="Name" class="name-column">{{ product.name }}</td>
             <td data-label="Product Code">{{ product.productCode || '—' }}</td>
             <td data-label="Material">{{ product.materialName || '—' }}</td>
             <td data-label="HSN Code">{{ product.hsnCode || '—' }}</td>
@@ -159,18 +159,14 @@
         <label for="name">
           <i class="fas fa-tag"></i> Product Name <span class="required">*</span>
         </label>
-        <div class="input-with-button">
-          <button type="button" class="btn-format" (click)="toggleBold()" title="Bold">
-            B
-          </button>
-          <div 
-            contenteditable="true"
-            id="name"
-            class="editable-content"
-            [class.is-invalid]="productForm.get('name')?.invalid && productForm.get('name')?.touched"
-            placeholder="Enter product name"
-          ></div>
-        </div>
+        <input 
+          type="text" 
+          id="name" 
+          formControlName="name" 
+          class="form-control"
+          [class.is-invalid]="productForm.get('name')?.invalid && productForm.get('name')?.touched"
+          placeholder="Enter product name"
+        >
         <div class="invalid-feedback" *ngIf="productForm.get('name')?.invalid && productForm.get('name')?.touched">
           Product name is required
         </div>

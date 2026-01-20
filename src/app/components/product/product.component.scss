@@ -109,10 +109,30 @@
   .products-list {
     .table-responsive {
       overflow-x: auto;
+      overflow-y: visible;
+      -webkit-overflow-scrolling: touch;
       border-radius: 16px;
       border: 1px solid rgba(0, 0, 0, 0.04);
       box-shadow: 0 24px 40px rgba(15, 23, 42, 0.05);
       background: white;
+      
+      &::-webkit-scrollbar {
+        height: 8px;
+      }
+      
+      &::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.05);
+        border-radius: 4px;
+      }
+      
+      &::-webkit-scrollbar-thumb {
+        background: rgba(253, 120, 35, 0.5);
+        border-radius: 4px;
+        
+        &:hover {
+          background: rgba(253, 120, 35, 0.7);
+        }
+      }
     }
 
     .badge-active {
@@ -209,8 +229,10 @@
 
   .table {
     width: 100%;
+    min-width: 1200px;
     border-collapse: separate;
     border-spacing: 0;
+    table-layout: auto;
 
     thead {
       background-color: rgba(15, 23, 42, 0.02);
@@ -222,6 +244,7 @@
         text-transform: uppercase;
         font-size: 0.75rem;
         letter-spacing: 0.08em;
+        white-space: nowrap;
       }
     }
 
@@ -229,10 +252,18 @@
       padding: 1rem;
       border-top: 1px solid rgba(15, 23, 42, 0.06);
       vertical-align: middle;
+      white-space: nowrap;
     }
 
     tbody tr:hover {
       background-color: rgba(253, 120, 35, 0.04);
+    }
+
+    .name-column {
+      min-width: 33%;
+      width: 33%;
+      white-space: normal;
+      word-wrap: break-word;
     }
   }
 
@@ -320,7 +351,7 @@
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 576px) {
   .product-container {
     padding: 1rem;
 
@@ -377,6 +408,7 @@
       position: relative;
       padding-left: 48%;
       text-align: right;
+      white-space: normal;
 
       &::before {
         content: attr(data-label);
@@ -388,6 +420,24 @@
         text-align: left;
         color: var(--text-secondary);
       }
+    }
+    
+    .table .name-column {
+      min-width: auto;
+      width: 100%;
+    }
+  }
+}
+
+@media (min-width: 577px) and (max-width: 1024px) {
+  .product-container {
+    .table {
+      min-width: 1000px;
+    }
+    
+    .table .name-column {
+      min-width: 250px;
+      width: 30%;
     }
   }
 }
