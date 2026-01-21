@@ -202,9 +202,6 @@
                       (change)="onGetQuantityChange(i, $event)"
                       [readonly]="false"
                     >
-                    <div class="invalid-feedback" *ngIf="productsFormArray.at(i).get('getQuantity')?.errors?.['maxQuantity']">
-                      Get Quantity cannot exceed Quantity
-                    </div>
                     <div class="invalid-feedback" *ngIf="productsFormArray.at(i).get('getQuantity')?.errors?.['min']">
                       Get Quantity must be 0 or greater
                     </div>

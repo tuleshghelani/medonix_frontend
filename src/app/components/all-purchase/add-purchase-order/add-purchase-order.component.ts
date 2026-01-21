@@ -374,7 +374,7 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
         if (errors['required']) return true;
         if (errors['min'] && fieldName === 'quantity') return true;
         if (errors['min'] && fieldName === 'unitPrice') return true;
-        if (errors['min'] || errors['max'] || errors['maxQuantity']) return true;
+        if (errors['min'] || errors['max']) return true;
         if (errors['min']) return true;
       }
     }
@@ -758,13 +758,13 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (value > quantity) {
-      control?.setValue(quantity, { emitEvent: false });
-      control?.updateValueAndValidity();
-      this.snackbar.warning('Get Quantity cannot exceed Quantity');
-      this.syncGetQuantityToServer(index, quantity);
-      return;
-    }
+    // if (value > quantity) {
+    //   control?.setValue(quantity, { emitEvent: false });
+    //   control?.updateValueAndValidity();
+    //   this.snackbar.warning('Get Quantity cannot exceed Quantity');
+    //   this.syncGetQuantityToServer(index, quantity);
+    //   return;
+    // }
 
     control?.setValue(value, { emitEvent: false });
     control?.updateValueAndValidity();
@@ -797,8 +797,13 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
   private getQuantityValidator(): ValidatorFn {
     return (control: AbstractControl): ValidationErrors | null => {
       const value = control.value;
+      // Allow null, undefined, or empty
       if (value === null || value === undefined || value === '') {
         return null;
+      }
+      const num = typeof value === 'number' ? value : Number(value);
+      if (!Number.isNaN(num) && num < 0) {
+        return { min: true };
       }
       return null;
     };
