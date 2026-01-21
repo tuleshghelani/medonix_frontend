@@ -429,7 +429,7 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
   }
 
   private preparePurchaseOrderData() {
-    const formValue = this.purchaseOrderForm.value;
+    const formValue = this.purchaseOrderForm.getRawValue();
     const data: any = {
       orderDate: formatDate(formValue.orderDate, 'dd-MM-yyyy', 'en'),
       customerId: formValue.customerId,
