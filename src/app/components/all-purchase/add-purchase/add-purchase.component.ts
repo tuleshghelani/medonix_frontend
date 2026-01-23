@@ -256,6 +256,15 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
     return this.getTotalAmount() + this.getTotalTaxAmount() + packagingCharges;
   }
 
+  private transformProductsWithDisplayName(products: any[]): any[] {
+    return products.map(product => ({
+      ...product,
+      displayName: product.materialName 
+        ? `${product.name} (${product.materialName})` 
+        : product.name
+    }));
+  }
+
   private loadProducts(): void {
     this.isLoadingProducts = true;
     this.productService.getProducts({ status: 'A' })
@@ -263,7 +272,7 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (response) => {
           if (response.success) {
-            this.products = response.data;
+            this.products = this.transformProductsWithDisplayName(response.data);
             this.buildProductMap();
           }
           this.isLoadingProducts = false;
@@ -292,7 +301,7 @@ export class AddPurchaseComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (response) => {
           if (response.success) {
-            this.products = response.data;
+            this.products = this.transformProductsWithDisplayName(response.data);
             this.buildProductMap();
             this.snackbar.success('Products refreshed successfully');
           }
