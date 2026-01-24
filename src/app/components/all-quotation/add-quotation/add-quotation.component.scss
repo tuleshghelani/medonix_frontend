@@ -629,35 +629,90 @@
     }
   }
   
+// Fix z-index stacking for table rows with dropdowns
+.products-table {
+  tbody {
+    tr {
+      position: relative;
+      
+      // When a row contains an active dropdown, elevate its z-index
+      &:has(.searchable-select.active) {
+        z-index: 100;
+        position: relative;
+      }
+      
+      td {
+        // Ensure td doesn't create new stacking context unless needed
+        position: static;
+        
+        // When td contains active dropdown, allow overflow
+        &:has(.searchable-select.active) {
+          position: relative;
+          z-index: 100;
+          overflow: visible;
+        }
+      }
+    }
+  }
+}
+
+.form-field-container {
+  // Allow dropdown to overflow
+  overflow: visible;
+  
+  &:has(.searchable-select.active) {
+    z-index: 1000;
+    position: relative;
+  }
+}
+
 .select-group {
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
   width: 100%;
-  // Prevent dropdown issues on mobile
+  // Allow dropdown overflow
+  overflow: visible;
   position: relative;
+  
+  // Elevate z-index when dropdown is active
+  &:has(.searchable-select.active) {
+    z-index: 1000;
+  }
 
   app-searchable-select {
     flex: 1;
-    // Ensure dropdown appears above content on mobile
-    z-index: 100;
+    position: relative;
+    
+    // When active, ensure highest z-index
+    &.active,
+    &:focus-within {
+      z-index: 1001;
+    }
+    
+    // Dropdown should appear above everything
+    ::ng-deep .select-dropdown {
+      z-index: 9999 !important;
+      position: absolute;
+    }
     
     // Mobile dropdown positioning
     @media (max-width: 768px) {
       position: relative;
       
       // Override any fixed positioning that might cause issues
-      ::ng-deep .dropdown-menu {
+      ::ng-deep .select-dropdown {
         position: fixed !important;
         top: auto !important;
-        left: 1rem !important;
-        right: 1rem !important;
-        width: calc(100vw - 2rem) !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        width: 100vw !important;
         max-width: none !important;
-        z-index: 1000 !important;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
-        border-radius: 8px !important;
-        max-height: 50vh !important;
+        z-index: 9999 !important;
+        box-shadow: 0 -4px 32px rgba(0, 0, 0, 0.2) !important;
+        border-radius: 16px 16px 0 0 !important;
+        max-height: 60vh !important;
         overflow-y: auto !important;
       }
     }

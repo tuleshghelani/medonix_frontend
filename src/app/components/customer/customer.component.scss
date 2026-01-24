@@ -44,24 +44,29 @@
 }
 
 .status-badge {
-  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
   border-radius: 20px;
   font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
 
   &.active {
-    background-color: rgba(90, 158, 111, 0.1); // accent2
-    color: var(--accent2);
+    background-color: rgba(30, 158, 104, 0.12);
+    color: var(--success);
   }
 
   &.inactive {
-    background-color: rgba(96, 125, 139, 0.1); // text-secondary
+    background-color: rgba(96, 125, 139, 0.12);
     color: var(--text-secondary);
   }
 
   &.pending {
-    background-color: rgba($supporting, 0.12);
-    color: var(--supporting);
+    background-color: rgba(201, 130, 0, 0.12);
+    color: var(--warning);
   }
 }
 
@@ -166,23 +171,26 @@
     }
 
     .status-badge {
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 0.875rem;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
 
       &.active {
-        background-color: var(--accent2);
-        color: white;
+        background-color: var(--success);
+        color: #ffffff;
       }
 
       &.inactive {
-        background-color: var(--primary);
-        color: white;
+        background-color: var(--neutral-medium);
+        color: #ffffff;
       }
 
       &.pending {
-        background-color: var(--supporting);
-        color: white;
+        background-color: var(--warning);
+        color: #ffffff;
       }
     }
   }
@@ -214,60 +222,75 @@
   }
 } 
 
+// Actions Column - Professional Edit Button
+td.actions {
+  text-align: center;
+  vertical-align: middle;
+}
+
 .actions {
   display: flex;
   gap: 8px;
   align-items: center;
+  justify-content: center;
+}
 
-  .btn-icon {
-    background: none;
-    border: none;
-    padding: 6px;
-    cursor: pointer;
-    border-radius: 4px;
-    transition: all 0.2s ease;
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  -webkit-tap-highlight-color: transparent;
 
-    &.edit {
-      color: var(--secondary);
-      background-color: rgba(var(--secondary-rgb), 0.1);
-      padding: 8px;
-      border-radius: 6px;
-      transition: all 0.2s ease;
+  &.edit {
+    background: linear-gradient(135deg, rgba(0, 153, 156, 0.1) 0%, rgba(0, 153, 156, 0.15) 100%);
+    color: var(--secondary);
+    border: 1px solid rgba(0, 153, 156, 0.2);
+    box-shadow: 0 2px 4px rgba(0, 153, 156, 0.08);
 
-      &:hover {
-        background-color: var(--secondary);
-        color: white;
-        transform: translateY(-1px);
-      }
+    i {
+      font-size: 15px;
+      transition: transform 0.2s ease;
+    }
 
-      &:active {
-        transform: translateY(0);
-      }
+    &:hover {
+      background: linear-gradient(135deg, var(--secondary) 0%, var(--secondary-dark) 100%);
+      color: #ffffff;
+      border-color: var(--secondary);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 153, 156, 0.3);
 
       i {
-        font-size: 16px;
+        transform: scale(1.1);
       }
     }
 
-    i {
-      font-size: 16px;
+    &:active {
+      transform: translateY(0) scale(0.95);
+      box-shadow: 0 1px 4px rgba(0, 153, 156, 0.2);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--secondary);
+      outline-offset: 2px;
     }
   }
 }
 
 @media (max-width: 768px) {
-  .actions {
-    display: flex;
-    flex-direction: row;
-    gap: 8px;
-    justify-content: flex-start;
-    
-    .btn-icon {
-      padding: 6px;
-      
-      i {
-        font-size: 14px;
-      }
+  .btn-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+
+    &.edit i {
+      font-size: 16px;
     }
   }
 }

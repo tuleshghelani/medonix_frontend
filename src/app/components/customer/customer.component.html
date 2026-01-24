@@ -101,8 +101,14 @@
                 </span>
               </td>
               <td class="actions">
-                <button class="btn-icon edit" (click)="openCustomerModal(customer)">
-                  <i class="fas fa-edit"></i>
+                <button 
+                  type="button"
+                  class="btn-icon edit" 
+                  (click)="openCustomerModal(customer)"
+                  [attr.aria-label]="'Edit ' + customer.name"
+                  title="Edit customer"
+                >
+                  <i class="fas fa-pen"></i>
                 </button>
               </td>
             </tr>

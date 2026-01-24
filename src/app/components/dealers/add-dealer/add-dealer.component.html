@@ -83,9 +83,24 @@
         </div>
 
         <div class="actions">
-          <button type="submit" [disabled]="isSubmitting || form.invalid" class="primary">
-            <span *ngIf="!isSubmitting">Submit registration</span>
-            <span *ngIf="isSubmitting" class="spinner"></span>
+          <button 
+            type="submit" 
+            [disabled]="isSubmitting || form.invalid" 
+            [class.submitting]="isSubmitting"
+            class="btn-submit"
+            aria-label="Submit dealer registration"
+            (touchstart)="$event.stopPropagation()"
+          >
+            <span class="btn-content" [class.hidden]="isSubmitting">
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+              Submit registration
+            </span>
+            <span class="loader-wrapper" [class.visible]="isSubmitting">
+              <span class="spinner-ring"></span>
+              <span class="loader-text">Processing...</span>
+            </span>
           </button>
         </div>
       </form>

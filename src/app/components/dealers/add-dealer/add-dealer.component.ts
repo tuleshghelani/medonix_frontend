@@ -5,7 +5,7 @@ import { ToastrService } from 'ngx-toastr';
 import { Title } from '@angular/platform-browser';
 import { Meta } from '@angular/platform-browser';
 import { Subject, Subscription } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { takeUntil, finalize } from 'rxjs/operators';
 
 @Component({
   selector: 'app-add-dealer',
@@ -58,7 +58,13 @@ export class AddDealerComponent implements OnInit, OnDestroy {
     this.isSubmitting = true;
 
     const sub = this.dealersService.registerDealer(payload)
-      .pipe(takeUntil(this.destroy$))
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          // Always reset submitting state - runs on success, error, or unsubscribe
+          this.isSubmitting = false;
+        })
+      )
       .subscribe({
         next: (response) => {
           if (response?.success) {
@@ -71,8 +77,7 @@ export class AddDealerComponent implements OnInit, OnDestroy {
         error: (err) => {
           const message = err?.error?.message || 'Failed to register dealer. Please try again.';
           this.toastr.error(message, 'Error');
-        },
-        complete: () => {
+          // Safety fallback - ensure button is re-enabled on error
           this.isSubmitting = false;
         }
       });
