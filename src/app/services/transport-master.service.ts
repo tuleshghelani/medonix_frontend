@@ -76,5 +76,3 @@ export class TransportMasterService {
     return this.http.post(`${this.apiUrl}/details`, { id });
   }
 }
-
-

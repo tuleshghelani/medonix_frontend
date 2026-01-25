@@ -24,10 +24,6 @@ export class TransportService {
     return this.http.get(`${this.apiUrl}/${id}`);
   }
 
-  // updateTransport(id: number, data: any): Observable<any> {
-  //   return this.http.put(`${this.apiUrl}/${id}`, data);
-  // }
-
   deleteTransport(id: number): Observable<any> {
     return this.http.delete(`${this.apiUrl}/${id}`);
   }
