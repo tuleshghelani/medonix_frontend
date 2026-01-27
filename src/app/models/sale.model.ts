@@ -20,6 +20,7 @@ export interface Sale {
   price?: number;
   taxAmount?: number;
   customerId?: number;
+  discountAmount?: number;
   products?: SaleProduct[];
 }
 
@@ -46,6 +47,9 @@ export interface SaleProduct {
   quantity: number;
   unitPrice: number;
   price: number;
+  discountPercentage?: number;
+  discountAmount?: number;
+  discountPrice?: number;
   taxPercentage: number;
   taxAmount: number;
   batchNumber?: string;
