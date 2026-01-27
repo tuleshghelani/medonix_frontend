@@ -313,17 +313,27 @@
     padding: 1rem;
     white-space: nowrap;
     border-bottom: 2px solid var(--border-color);
+    font-size: 0.875rem;
 
     // Product Name header - increased width
     &:first-child {
-      width: 30%;
-      min-width: 300px;
+      width: 20%;
+      min-width: 250px;
     }
 
     // Sale Rate header - decreased width
     &:nth-child(4) {
-      width: 10%;
-      max-width: 120px;
+      width: 8%;
+      max-width: 100px;
+    }
+
+    // Discount columns - compact width
+    &:nth-child(6),
+    &:nth-child(7),
+    &:nth-child(8),
+    &:nth-child(9) {
+      width: 8%;
+      min-width: 100px;
     }
   }
 
@@ -334,26 +344,40 @@
 
     .form-control {
       min-width: 80px;
+      font-size: 0.875rem;
     }
 
     // Product Name column - increased width
     &:first-child {
-      width: 30%;
-      min-width: 300px;
+      width: 20%;
+      min-width: 250px;
       
       .form-control {
-        min-width: 300px;
+        min-width: 250px;
       }
     }
 
     // Sale Rate column - decreased width
     &:nth-child(4) {
-      width: 10%;
-      max-width: 120px;
+      width: 8%;
+      max-width: 100px;
       
       .form-control {
-        min-width: 100px;
-        max-width: 120px;
+        min-width: 80px;
+        max-width: 100px;
+      }
+    }
+
+    // Discount columns - compact width
+    &:nth-child(6),
+    &:nth-child(7),
+    &:nth-child(8),
+    &:nth-child(9) {
+      width: 8%;
+      min-width: 100px;
+      
+      .form-control {
+        min-width: 90px;
       }
     }
   }
@@ -400,6 +424,46 @@
   animation: fadeIn 0.3s ease-in;
 }
 
+// Discount styles
+.discount-type-selector {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+
+  .form-check {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+
+    .form-check-input {
+      margin: 0;
+      cursor: pointer;
+    }
+
+    .form-check-label {
+      margin: 0;
+      cursor: pointer;
+      font-size: 0.875rem;
+      user-select: none;
+    }
+  }
+}
+
+.discount-amount-display {
+  color: #28a745;
+  font-weight: 500;
+}
+
+.discount-price-display {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.discount-amount {
+  color: #28a745;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -428,6 +492,13 @@
   .products-table {
     td, th {
       padding: 0.75rem 0.5rem;
+      font-size: 0.8rem;
+    }
+
+    .discount-type-selector {
+      .form-check-label {
+        font-size: 0.75rem;
+      }
     }
   }
 }
