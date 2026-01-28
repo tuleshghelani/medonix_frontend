@@ -85,7 +85,7 @@ export class ProductComponent implements OnInit, OnDestroy {
       minimumStock: [0, [Validators.required, Validators.min(0)]],
       purchaseAmount: [0, [Validators.required, Validators.min(0)]],
       saleAmount: [null, [Validators.required, Validators.min(0)]],
-      measurement: ['kg'],
+      measurement: ['NOS'],
       status: ['A'],
       description: [''],
       remainingQuantity: [0, [Validators.required]],
@@ -286,7 +286,7 @@ export class ProductComponent implements OnInit, OnDestroy {
       materialName: '',
       purchaseAmount: 0,
       saleAmount: null,
-      measurement: 'kg',
+      measurement: 'NOS',
       taxPercentage: 5,
       remainingQuantity: 0,
       blockedQuantity: 0
@@ -339,7 +339,7 @@ export class ProductComponent implements OnInit, OnDestroy {
       minimumStock: 0,
       purchaseAmount: 0,
       saleAmount: null,
-      measurement: 'kg',
+      measurement: 'NOS',
       taxPercentage: 5,
       remainingQuantity: 0,
       blockedQuantity: 0

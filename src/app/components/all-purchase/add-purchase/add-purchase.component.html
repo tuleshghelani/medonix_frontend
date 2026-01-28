@@ -116,7 +116,11 @@
                 <th>Quantity</th>
                 <th>Batch Number</th>
                 <th>Rate</th>
-                <th>Price</th>
+                <th>Subtotal</th>
+                <th>Discount Type</th>
+                <th>Discount %</th>
+                <th>Discount Amount</th>
+                <th>After Discount</th>
                 <th>Tax Amount</th>
                 <th>Remarks</th>
                 <th>Actions</th>
@@ -203,25 +207,126 @@
                 </td>
                 <td>
                   <div class="input-group">
-                    <!-- <span class="input-group-text">₹</span> -->
                     <input 
                       type="number" 
                       formControlName="price" 
                       class="form-control"
                       readonly
                       [value]="getFormattedPrice(i)"
+                      title="Subtotal (before discount)"
+                    >
+                  </div>
+                </td>
+                <td>
+                  <div class="form-field-container">
+                    <div class="discount-type-selector">
+                      <div class="form-check form-check-inline">
+                        <input 
+                          class="form-check-input" 
+                          type="radio" 
+                          formControlName="discountType" 
+                          [value]="'percentage'"
+                          [id]="'discountTypePercentage' + i"
+                          (change)="onDiscountTypeChange(i)"
+                        >
+                        <label class="form-check-label" [for]="'discountTypePercentage' + i">%</label>
+                      </div>
+                      <div class="form-check form-check-inline">
+                        <input 
+                          class="form-check-input" 
+                          type="radio" 
+                          formControlName="discountType" 
+                          [value]="'amount'"
+                          [id]="'discountTypeAmount' + i"
+                          (change)="onDiscountTypeChange(i)"
+                        >
+                        <label class="form-check-label" [for]="'discountTypeAmount' + i">₹</label>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="form-field-container">
+                    <div class="input-group" *ngIf="productsFormArray.at(i).get('discountType')?.value === 'percentage'">
+                      <span class="input-group-text">%</span>
+                      <input 
+                        type="number" 
+                        formControlName="discountPercentage" 
+                        class="form-control"
+                        [class.is-invalid]="isProductFieldInvalid(i, 'discountPercentage')"
+                        placeholder="0.00"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                      >
+                    </div>
+                    <div class="input-group" *ngIf="productsFormArray.at(i).get('discountType')?.value !== 'percentage'">
+                      <input 
+                        type="number" 
+                        formControlName="discountPercentage" 
+                        class="form-control"
+                        readonly
+                        value="0"
+                        style="display: none;"
+                      >
+                      <span class="form-control" style="background-color: #f8f9fa; color: #6c757d;">-</span>
+                    </div>
+                    <div class="invalid-feedback" *ngIf="isProductFieldInvalid(i, 'discountPercentage')">
+                      Discount percentage must be between 0 and 100
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="form-field-container">
+                    <div class="input-group" *ngIf="productsFormArray.at(i).get('discountType')?.value === 'amount'">
+                      <span class="input-group-text">₹</span>
+                      <input 
+                        type="number" 
+                        formControlName="discountAmount" 
+                        class="form-control"
+                        [class.is-invalid]="isProductFieldInvalid(i, 'discountAmount')"
+                        placeholder="0.00"
+                        min="0"
+                        step="0.01"
+                      >
+                    </div>
+                    <div class="input-group" *ngIf="productsFormArray.at(i).get('discountType')?.value !== 'amount'">
+                      <span class="input-group-text">₹</span>
+                      <input 
+                        type="number" 
+                        formControlName="discountAmount" 
+                        class="form-control discount-amount-display"
+                        readonly
+                        [value]="getFormattedDiscountAmount(i)"
+                        title="Calculated discount amount"
+                      >
+                    </div>
+                    <div class="invalid-feedback" *ngIf="isProductFieldInvalid(i, 'discountAmount')">
+                      Discount amount cannot exceed subtotal
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="input-group">
+                    <input 
+                      type="number" 
+                      formControlName="discountPrice" 
+                      class="form-control discount-price-display"
+                      readonly
+                      [value]="getFormattedDiscountPrice(i)"
+                      title="Price after discount"
                     >
                   </div>
                 </td>
                 <td>
                   <div class="input-group">
-                    <!-- <span class="input-group-text">₹</span> -->
                     <input 
                       type="number" 
                       formControlName="taxAmount" 
                       class="form-control"
                       readonly
                       [value]="getFormattedTaxAmount(i)"
+                      title="Tax calculated on discounted price"
                     >
                   </div>
                 </td>
@@ -262,12 +367,20 @@
           <strong>{{ productsFormArray.length }}</strong>
         </div>
         <div class="summary-item">
-          <span>Total Price:</span>
+          <span>Subtotal:</span>
           <strong>₹{{ totalAmount | number:'1.2-2' }}</strong>
         </div>
+        <div class="summary-item" *ngIf="totalDiscountAmount > 0">
+          <span>Total Discount:</span>
+          <strong class="discount-amount">-₹{{ totalDiscountAmount | number:'1.2-2' }}</strong>
+        </div>
         <div class="summary-item">
-          <span>Total Tax Amount:</span>
+          <span>Tax Amount:</span>
           <strong>₹{{ totalTaxAmount | number:'1.2-2' }}</strong>
+        </div>
+        <div class="summary-item">
+          <span>Total After Discount & Tax:</span>
+          <strong>₹{{ getTotalFinalPrice() | number:'1.2-2' }}</strong>
         </div>
         <div class="summary-item">
           <span>Packaging & Forwarding Charges:</span>

@@ -26,6 +26,7 @@ export interface Purchase {
   totalProducts: number;
   price?: number;
   taxAmount?: number;
+  discountAmount?: number;
 }
 
 export interface PurchaseSearchRequest {
@@ -47,6 +48,9 @@ export interface PurchaseProduct {
   quantity: number;
   unitPrice: number;
   price: number;
+  discountPercentage?: number;
+  discountAmount?: number;
+  discountPrice?: number;
   taxPercentage: number;
   taxAmount: number;
   batchNumber?: string;
