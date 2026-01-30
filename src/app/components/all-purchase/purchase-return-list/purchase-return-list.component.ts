@@ -18,6 +18,7 @@ import { AuthService } from '../../../services/auth.service';
 interface PurchaseReturn {
   id: number;
   totalPurchaseAmount: number;
+  discountAmount?: number;
   purchaseReturnDate: string;
   invoiceNumber: string;
   customerName: string;

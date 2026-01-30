@@ -102,6 +102,7 @@
             <th scope="col">Invoice No.</th>
             <th scope="col">Customer Name</th>
             <th scope="col">Purchase Return Date</th>
+            <th scope="col">Discount</th>
             <th scope="col">Total Amount</th>
             <th scope="col" *ngIf="canManagePurchases">Actions</th>
           </tr>
@@ -112,6 +113,10 @@
             <td data-label="Invoice No."><strong>{{ purchaseReturn.invoiceNumber }}</strong></td>
             <td data-label="Customer Name">{{ purchaseReturn.customerName }}</td>
             <td data-label="Purchase Return Date">{{ purchaseReturn.purchaseReturnDate | date:'dd-MM-yyyy' }}</td>
+            <td data-label="Discount">
+              <span *ngIf="purchaseReturn.discountAmount && purchaseReturn.discountAmount > 0" class="discount-amount">-₹{{ purchaseReturn.discountAmount | number:'1.2-2' }}</span>
+              <span *ngIf="!purchaseReturn.discountAmount || purchaseReturn.discountAmount === 0">-</span>
+            </td>
             <td data-label="Total Amount"><strong>{{ purchaseReturn.totalPurchaseAmount }}</strong></td>
             <td class="actions" data-label="Actions" *ngIf="canManagePurchases">
               <button 
