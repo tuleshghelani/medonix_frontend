@@ -92,6 +92,33 @@
       display: block;
     }
   }
+
+  .select-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    app-searchable-select {
+      flex: 1 1 auto;
+      min-width: 0; // allows flexbox to size correctly without collapsing
+    }
+
+    .refresh {
+      flex: 0 0 auto;
+      height: 40px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+    }
+  }
+
+  small.text-muted {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--text-secondary, #6c757d);
+  }
 }
 
 .modal-actions {
@@ -157,6 +184,17 @@
   .modal-content {
     width: 95%;
     max-width: 95%;
+  }
+
+  .modal-body {
+    .select-group {
+      flex-direction: column;
+      align-items: stretch;
+
+      .refresh {
+        width: 100%;
+      }
+    }
   }
 }
 

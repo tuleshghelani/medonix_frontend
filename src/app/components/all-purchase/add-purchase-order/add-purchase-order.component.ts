@@ -51,10 +51,15 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
   isLoadingCustomers = false;
   isEdit = false;
   private destroy$ = new Subject<void>();
+  private formReinit$ = new Subject<void>();
   private productSubscriptions: Subscription[] = [];
   private selectedItemIds = new Set<number>();
   showPackagingChargesModal = false;
-  purchaseId?: number;
+  /**
+   * Linked purchases for this Purchase Order (from detail response).
+   * Source of truth: `purchaseIds` array from backend.
+   */
+  linkedPurchaseIds: number[] = [];
   productMap = new Map<number, any>();
   totalAmount = 0;
   totalTaxAmount = 0;
@@ -66,6 +71,42 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
 
   trackByProductIndex(index: number, item: any): any {
     return item;
+  }
+
+  private getItemPurchaseIdsByIndex(index: number): number[] {
+    const group = this.productsFormArray.at(index) as FormGroup | null;
+    const value = group?.get('purchaseIds')?.value;
+    return Array.isArray(value) ? value : [];
+  }
+
+  private getItemPurchaseItemIdsByIndex(index: number): number[] {
+    const group = this.productsFormArray.at(index) as FormGroup | null;
+    const value = group?.get('purchaseItemIds')?.value;
+    return Array.isArray(value) ? value : [];
+  }
+
+  getItemPurchaseIds(index: number): number[] {
+    return this.getItemPurchaseIdsByIndex(index);
+  }
+
+  getItemPurchaseItemIds(index: number): number[] {
+    return this.getItemPurchaseItemIdsByIndex(index);
+  }
+
+  hasItemPurchaseLink(index: number): boolean {
+    return this.getItemPurchaseIdsByIndex(index).length > 0;
+  }
+
+  isConvertibleItem(index: number): boolean {
+    if (!this.isEdit) return false;
+    const group = this.productsFormArray.at(index) as FormGroup;
+    const itemId = group?.get('id')?.value;
+    // Only saved items can be converted, and only if not already linked.
+    return !!itemId && !this.hasItemPurchaseLink(index);
+  }
+
+  hasConvertibleItems(): boolean {
+    return this.productsFormArray.controls.some((_, idx) => this.isConvertibleItem(idx));
   }
 
   constructor(
@@ -107,6 +148,8 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
     // Complete destroy subject to clean up all takeUntil subscriptions
     this.destroy$.next();
     this.destroy$.complete();
+    this.formReinit$.next();
+    this.formReinit$.complete();
 
     // Clear arrays to release memory
     this.products = [];
@@ -121,9 +164,13 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
   }
 
   private initForm() {
+    // Re-init boundary: cleanup previous form subscriptions
+    this.formReinit$.next();
+
     this.purchaseOrderForm = this.fb.group({
       id: [null],
       customerId: ['', Validators.required],
+      purchaseId: [null], // Optional: append PO items into an existing Purchase
       orderDate: [formatDate(new Date(), 'yyyy-MM-dd', 'en'), Validators.required],
       invoiceNumber: [null],
       packagingAndForwadingCharges: [0, [Validators.required, Validators.min(0)]],
@@ -131,7 +178,7 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
     });
 
     this.purchaseOrderForm.get('packagingAndForwadingCharges')?.valueChanges
-      .pipe(takeUntil(this.destroy$), debounceTime(300))
+      .pipe(takeUntil(this.destroy$), takeUntil(this.formReinit$), debounceTime(300))
       .subscribe(() => {
         this.calculateTotalAmount();
         this.cdr.markForCheck();
@@ -152,7 +199,9 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
       taxPercentage: [{ value: 0, disabled: true }],
       taxAmount: [{ value: 0, disabled: true }],
       remarks:[null, []],
-      purchaseId: [null] // Purchase ID if this item has been converted to purchase
+      // New linkage arrays from backend (source of truth)
+      purchaseIds: [[] as number[]],
+      purchaseItemIds: [[] as number[]]
     });
   }
 
@@ -384,6 +433,8 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
 
   resetForm() {
     this.isEdit = false;
+    this.linkedPurchaseIds = [];
+    this.selectedItemIds.clear();
     this.purchaseOrderForm.patchValue({ id: null });
     this.initForm();
   }
@@ -409,6 +460,9 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
               this.snackbar.success(`Purchase Order ${this.isEdit ? 'updated' : 'created'} successfully`);
               localStorage.removeItem('purchaseOrderId');
               this.router.navigate(['/purchase-order']);
+            } else {
+              // Backend may return a 200 with success=false (e.g., invalid purchaseId)
+              this.snackbar.error(response?.message || `Failed to ${this.isEdit ? 'update' : 'create'} purchase order`);
             }
             this.loading = false;
             this.cdr.markForCheck();
@@ -430,9 +484,14 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
 
   private preparePurchaseOrderData() {
     const formValue = this.purchaseOrderForm.getRawValue();
+    const purchaseId =
+      formValue.purchaseId === null || formValue.purchaseId === undefined || formValue.purchaseId === ''
+        ? null
+        : Number(formValue.purchaseId);
     const data: any = {
       orderDate: formatDate(formValue.orderDate, 'dd-MM-yyyy', 'en'),
       customerId: formValue.customerId,
+      purchaseId: purchaseId,
       invoiceNumber: formValue.invoiceNumber,
       packagingAndForwadingCharges: Number(formValue.packagingAndForwadingCharges || 0),
       products: formValue.products.map((product: ProductForm, index: number) => {
@@ -513,10 +572,6 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
         next: (response: any) => {
           if (response.id) {
             this.isEdit = true;
-            // Store purchaseId if available in response
-            if (response.purchaseId) {
-              this.purchaseId = response.purchaseId;
-            }
             this.populateForm(response);
           }
           if (setLoading) {
@@ -549,7 +604,11 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
       orderDate: formatDate(new Date(data.orderDate), 'yyyy-MM-dd', 'en'),
       invoiceNumber: data.invoiceNumber,
       packagingAndForwadingCharges: data.packagingAndForwadingCharges || 0,
+      purchaseId: null
     });
+
+    // New backend linkage (source of truth)
+    this.linkedPurchaseIds = Array.isArray(data.purchaseIds) ? data.purchaseIds : [];
 
     // Clear existing products
     this.productsFormArray.clear();
@@ -578,12 +637,13 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
         taxPercentage: taxPercentage,
         taxAmount: taxAmount,
         remarks: item.remarks || '',
-        purchaseId: item.purchaseId || null // Store purchaseId if item has been converted
+        purchaseIds: Array.isArray(item.purchaseIds) ? item.purchaseIds : [],
+        purchaseItemIds: Array.isArray(item.purchaseItemIds) ? item.purchaseItemIds : []
       }, { emitEvent: false });
 
-      // Disable form controls if purchaseId exists (either at order level or item level)
-      const itemPurchaseId = item.purchaseId || null;
-      if (this.purchaseId || itemPurchaseId) {
+      // Disable per-item when it has any purchase linkage
+      const itemPurchaseIds = Array.isArray(item.purchaseIds) ? item.purchaseIds : [];
+      if (itemPurchaseIds.length > 0) {
         productGroup.get('productId')?.disable();
         productGroup.get('quantity')?.disable();
         productGroup.get('unitPrice')?.disable();
@@ -611,6 +671,9 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
   }
 
   toggleSelection(index: number, event: Event): void {
+    if (!this.isConvertibleItem(index)) {
+      return;
+    }
     const id = this.getItemIdByIndex(index);
     if (!id) return;
     const input = event.target as HTMLInputElement;
@@ -642,7 +705,7 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
     this.showPackagingChargesModal = true;
   }
 
-  onPackagingChargesConfirm(data: number | { id: number; invoiceNumber: string; packagingAndForwadingCharges: number }): void {
+  onPackagingChargesConfirm(data: number | { id: number; invoiceNumber: string; packagingAndForwadingCharges: number; purchaseId?: number | null }): void {
     this.showPackagingChargesModal = false;
     
     // Get selected item IDs
@@ -654,13 +717,20 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
     }
     
     // Handle both number (backward compatibility) and object (new format with invoice number)
-    let requestBody: { id: number; invoiceNumber: string; packagingAndForwadingCharges: number; purchaseOrderItemIds: number[] };
+    let requestBody: { id: number; invoiceNumber?: string; packagingAndForwadingCharges: number; purchaseOrderItemIds: number[]; purchaseId?: number | null };
     
     if (typeof data === 'object' && data.id !== undefined) {
       // New format: object with id, invoiceNumber (from user input), and packagingAndForwadingCharges
+      // If purchaseId is provided, store it in the form (for future create/update flows).
+      if (data.purchaseId !== undefined) {
+        this.purchaseOrderForm.get('purchaseId')?.setValue(data.purchaseId ?? null, { emitEvent: false });
+      }
       requestBody = {
-        ...data,
-        purchaseOrderItemIds: purchaseOrderItemIds
+        id: data.id,
+        invoiceNumber: data.invoiceNumber,
+        packagingAndForwadingCharges: data.packagingAndForwadingCharges,
+        purchaseOrderItemIds: purchaseOrderItemIds,
+        ...(data.purchaseId !== undefined ? { purchaseId: data.purchaseId ?? null } : {})
       };
     } else {
       // Fallback: use form values if number is passed (shouldn't happen but for safety)
@@ -695,11 +765,14 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
           if (response?.success) {
             this.snackbar.success(response?.message || 'Purchase order converted to purchase successfully');
             if (response?.data?.purchaseId) {
-              this.purchaseId = response.data.purchaseId;
+              const purchaseId = Number(response.data.purchaseId);
+              if (Number.isFinite(purchaseId) && !this.linkedPurchaseIds.includes(purchaseId)) {
+                this.linkedPurchaseIds = [...this.linkedPurchaseIds, purchaseId];
+              }
             }
             // Clear selections after successful conversion
             this.selectedItemIds.clear();
-            // Refresh the component to reload purchase order details with updated purchaseId
+            // Refresh the component to reload purchase order details with updated purchaseIds/purchaseItemIds
             this.fetchPurchaseOrderDetails(requestBody.id, true);
           } else {
             this.snackbar.error(response?.message || 'Failed to convert purchase order to purchase');
@@ -720,7 +793,7 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
   }
 
   private disableProductFormControls(): void {
-    // Disable all product form controls when purchaseId exists
+    // Disable all product form controls (utility).
     this.productsFormArray.controls.forEach((control) => {
       const productGroup = control as FormGroup;
       productGroup.get('productId')?.disable();

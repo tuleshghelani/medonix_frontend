@@ -106,10 +106,10 @@
         <div class="products-header">
           <h3 id="products-heading"><i class="fas fa-boxes" aria-hidden="true"></i> Products</h3>
           <div>
-            <button type="button" class="btn btn-success me-2" *ngIf="isEdit && purchaseOrderForm.get('id')?.value && !purchaseId" (click)="convertToPurchase()">
+            <button type="button" class="btn btn-success me-2" *ngIf="isEdit && purchaseOrderForm.get('id')?.value && hasConvertibleItems()" (click)="convertToPurchase()">
               <i class="fa-solid fa-shopping-cart"></i> Convert to Purchase
             </button>
-            <button type="button" class="btn btn-sm btn-primary" (click)="addProduct()" [disabled]="!!purchaseId">
+            <button type="button" class="btn btn-sm btn-primary" (click)="addProduct()">
               <i class="fas fa-plus"></i> Add Product
             </button>
           </div>
@@ -119,7 +119,7 @@
           <table class="table products-table">
             <thead>
               <tr>
-                <th class="select-col" *ngIf="!purchaseId">Select</th>
+                <th class="select-col" *ngIf="hasConvertibleItems()">Select</th>
                 <th class="product-name-col">Product Name</th>
                 <th>Quantity</th>
                 <th>Get Quantity</th>
@@ -132,8 +132,8 @@
             </thead>
             <tbody>
               <tr *ngFor="let product of productsFormArray.controls; let i=index; trackBy: trackByProductIndex" [formGroupName]="i">
-                <td class="select-col" *ngIf="!purchaseId">
-                  <div *ngIf="isEdit && productsFormArray.at(i).get('id')?.value && !productsFormArray.at(i).get('purchaseId')?.value">
+                <td class="select-col" *ngIf="hasConvertibleItems()">
+                  <div *ngIf="isConvertibleItem(i)">
                     <input 
                       type="checkbox" 
                       [checked]="isSelected(i)" 
@@ -154,7 +154,7 @@
                       [placeholder]="'Select Product'"
                       [searchPlaceholder]="'Search products...'"
                       [class.is-invalid]="isProductFieldInvalid(i, 'productId')"
-                      [disabled]="!!purchaseId || !!productsFormArray.at(i).get('purchaseId')?.value"
+                      [disabled]="hasItemPurchaseLink(i)"
                       ></app-searchable-select>
                       <button 
                         type="button" 
@@ -170,6 +170,14 @@
                     <div class="invalid-feedback" *ngIf="isProductFieldInvalid(i, 'productId')">
                       Please select a product
                     </div>
+                    <!-- <div class="mt-1" *ngIf="isEdit && getItemPurchaseIds(i).length > 0">
+                      <small class="text-muted">Purchases:</small>
+                      <span class="badge bg-light text-dark ms-1" *ngFor="let pid of getItemPurchaseIds(i)">#{{ pid }}</span>
+                    </div> -->
+                    <!-- <div class="mt-1" *ngIf="isEdit && getItemPurchaseItemIds(i).length > 0">
+                      <small class="text-muted">Purchase items:</small>
+                      <span class="badge bg-light text-dark ms-1" *ngFor="let piid of getItemPurchaseItemIds(i)">#{{ piid }}</span>
+                    </div> -->
                   </div>
                 </td>
                 <td>
@@ -181,7 +189,7 @@
                       [class.is-invalid]="isProductFieldInvalid(i, 'quantity')"
                       placeholder="Qty"
                       min="1"
-                      [readonly]="!!purchaseId || !!productsFormArray.at(i).get('purchaseId')?.value"
+                      [readonly]="hasItemPurchaseLink(i)"
                     >
                     <div class="invalid-feedback" *ngIf="isProductFieldInvalid(i, 'quantity')">
                       Quantity must be 1 or greater
@@ -218,7 +226,7 @@
                         placeholder="Price"
                         min="0.01"
                         step="0.01"
-                        [readonly]="!!purchaseId || !!productsFormArray.at(i).get('purchaseId')?.value"
+                        [readonly]="hasItemPurchaseLink(i)"
                       >
                     </div>
                     <div class="invalid-feedback" *ngIf="isProductFieldInvalid(i, 'unitPrice')">
@@ -255,7 +263,7 @@
                       formControlName="remarks" 
                       class="form-control"
                       placeholder="Remarks"
-                      [readonly]="!!purchaseId || !!productsFormArray.at(i).get('purchaseId')?.value"
+                      [readonly]="hasItemPurchaseLink(i)"
                     >
                   </div>
                 </td>
@@ -264,7 +272,7 @@
                     type="button" 
                     class="btn btn-sm btn-danger" 
                     (click)="removeProduct(i)"
-                    [disabled]="productsFormArray.length === 1 || !!purchaseId || !!productsFormArray.at(i).get('purchaseId')?.value"
+                    [disabled]="productsFormArray.length === 1 || hasItemPurchaseLink(i)"
                     title="Remove Product"
                   >
                     <i class="fas fa-trash"></i>
@@ -275,7 +283,7 @@
           </table>
         </div>
         
-        <button type="button" class="btn btn-sm btn-primary" (click)="addProduct()" [disabled]="!!purchaseId">
+        <button type="button" class="btn btn-sm btn-primary" (click)="addProduct()">
           <i class="fas fa-plus"></i> Add Product
         </button>
       </section>
@@ -334,6 +342,8 @@
   [defaultCharges]="purchaseOrderForm.get('packagingAndForwadingCharges')?.value || 0"
   [requireInvoiceNumber]="true"
   [orderId]="purchaseOrderForm.get('id')?.value"
+  [openedFromPurchaseOrder]="true"
+  [customerId]="purchaseOrderForm.get('customerId')?.value"
   (confirm)="onPackagingChargesConfirm($event)"
   (cancel)="onPackagingChargesCancel()"
 ></app-packaging-charges-modal>

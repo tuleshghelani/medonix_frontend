@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
-import { Purchase, PurchaseResponse, PurchaseSearchRequest } from '../models/purchase.model';
+import { Purchase, PurchaseRecentResponse, PurchaseResponse, PurchaseSearchRequest } from '../models/purchase.model';
 
 @Injectable({
   providedIn: 'root'
@@ -16,6 +16,14 @@ export class PurchaseService {
 
   searchPurchases(params: PurchaseSearchRequest): Observable<PurchaseResponse> {
     return this.http.post<PurchaseResponse>(`${this.apiUrl}/searchPurchase`, params);
+  }
+
+  /**
+   * Recent purchases for quick selection (append PO items into an existing Purchase).
+   * API: `GET /api/purchases/last-6-months`
+   */
+  getPurchasesLast6Months(): Observable<PurchaseRecentResponse> {
+    return this.http.get<PurchaseRecentResponse>(`${this.apiUrl}/last-6-months`);
   }
 
   createPurchase(purchase: Purchase): Observable<any> {

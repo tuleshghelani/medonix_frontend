@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
-import { PurchaseOrder, PurchaseOrderResponse, PurchaseOrderSearchRequest } from '../models/purchase-order.model';
+import { PurchaseOrder, PurchaseOrderCreateUpdateRequest, PurchaseOrderResponse, PurchaseOrderSearchRequest } from '../models/purchase-order.model';
 
 @Injectable({
   providedIn: 'root'
@@ -17,11 +17,11 @@ export class PurchaseOrderService {
     return this.http.post<PurchaseOrderResponse>(`${this.apiUrl}/search`, params);
   }
 
-  createPurchaseOrder(purchaseOrder: PurchaseOrder): Observable<any> {
+  createPurchaseOrder(purchaseOrder: PurchaseOrderCreateUpdateRequest): Observable<any> {
     return this.http.post(`${this.apiUrl}/create`, purchaseOrder);
   }
 
-  updatePurchaseOrder(purchaseOrder: any): Observable<any> {
+  updatePurchaseOrder(purchaseOrder: PurchaseOrderCreateUpdateRequest): Observable<any> {
     return this.http.post(`${this.apiUrl}/create`, purchaseOrder);
   }
 
@@ -47,7 +47,7 @@ export class PurchaseOrderService {
     );
   }
 
-  convertToPurchase(data: { id: number; invoiceNumber: string; packagingAndForwadingCharges: number; purchaseOrderItemIds: number[] }): Observable<any> {
+  convertToPurchase(data: { id: number; invoiceNumber?: string; packagingAndForwadingCharges: number; purchaseOrderItemIds: number[]; purchaseId?: number | null }): Observable<any> {
     return this.http.post(`${this.apiUrl}/convert-to-purchase`, data);
   }
 

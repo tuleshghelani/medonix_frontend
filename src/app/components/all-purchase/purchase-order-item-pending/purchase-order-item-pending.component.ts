@@ -15,7 +15,7 @@ import { EncryptionService } from '../../../shared/services/encryption.service';
 interface PendingPurchaseItem {
   id: number;
   orderId: number;
-  purchaseId?: number | null;
+  purchaseIds: number[];
   customerId: number;
   customerName?: string;
   productId: number;

@@ -56,3 +56,24 @@ export interface PurchaseProduct {
   batchNumber?: string;
   remarks?: string;
 }
+
+/**
+ * Lightweight purchase item used for dropdowns / quick selectors.
+ * Source: `GET /api/purchases/last-6-months`
+ */
+export interface PurchaseRecent {
+  id: number;
+  purchaseDate: string;
+  invoiceNumber: string;
+  totalPurchaseAmount: number;
+  customerId: number;
+  customerName: string;
+  numberOfItems: number;
+  isQcPass: boolean;
+}
+
+export interface PurchaseRecentResponse {
+  success: boolean;
+  message: string;
+  data: PurchaseRecent[];
+}

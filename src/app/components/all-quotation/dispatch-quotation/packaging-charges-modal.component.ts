@@ -1,13 +1,17 @@
 import { Component, EventEmitter, Input, Output, OnChanges, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { formatDate } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { trigger, transition, style, animate } from '@angular/animations';
-import { Subject } from 'rxjs';
+import { Subject, takeUntil } from 'rxjs';
+import { PurchaseService } from '../../../services/purchase.service';
+import { PurchaseRecent } from '../../../models/purchase.model';
+import { SearchableSelectComponent } from '../../../shared/components/searchable-select/searchable-select.component';
 
 @Component({
   selector: 'app-packaging-charges-modal',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, SearchableSelectComponent],
   template: `
     <div class="modal-overlay" *ngIf="show" (click)="onCancel()">
       <div class="modal-content" (click)="$event.stopPropagation()" [@modalAnimation]>
@@ -16,9 +20,38 @@ import { Subject } from 'rxjs';
         </div>
         <form [formGroup]="chargesForm" (ngSubmit)="onSubmit()">
           <div class="modal-body">
+            <!-- Purchase dropdown only when modal is opened from Purchase Order -->
+            <div class="form-group" *ngIf="openedFromPurchaseOrder">
+              <label>
+                <i class="fas fa-link"></i> Purchase (optional)
+              </label>
+              <div class="select-group">
+                <app-searchable-select
+                  formControlName="purchaseId"
+                  [options]="purchaseOptions"
+                  labelKey="displayLabel"
+                  valueKey="id"
+                  [defaultOption]="{ label: 'Create new Purchase (auto)', value: null }"
+                  [searchPlaceholder]="'Search purchases by invoice/customer...'"
+                ></app-searchable-select>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-primary refresh"
+                  (click)="refreshPurchases()"
+                  [disabled]="isLoadingPurchases"
+                  title="Refresh Purchases"
+                >
+                  <i class="fas" [ngClass]="isLoadingPurchases ? 'fa-spinner fa-spin' : 'fa-sync-alt'"></i>
+                </button>
+              </div>
+              <small class="text-muted">
+                Purchases shown are from the last 6 months. Leave blank to create a new Purchase automatically; select one to append items into an existing Purchase.
+              </small>
+            </div>
+
             <div class="form-group" *ngIf="requireInvoiceNumber">
               <label for="invoiceNumber">
-                <i class="fas fa-file-invoice"></i> Invoice Number <span class="required">*</span>
+                <i class="fas fa-file-invoice"></i> Invoice Number <span class="required" *ngIf="isInvoiceRequired()">*</span>
               </label>
               <input 
                 type="text" 
@@ -32,6 +65,7 @@ import { Subject } from 'rxjs';
                 Invoice number is required
               </div>
             </div>
+
             <div class="form-group">
               <label for="packagingAndForwadingCharges">
                 <i class="fas fa-rupee-sign"></i> Packaging & Forwarding Charges <span class="required">*</span>
@@ -85,17 +119,32 @@ export class PackagingChargesModalComponent implements OnChanges, OnDestroy {
   @Input() defaultCharges: number = 0;
   @Input() requireInvoiceNumber: boolean = false;
   @Input() orderId?: number;
-  @Output() confirm = new EventEmitter<number | { id: number; invoiceNumber: string; packagingAndForwadingCharges: number }>();
+  /**
+   * When true, this modal is being used from Purchase Order screens and should show the Purchase dropdown.
+   * (Dispatch quotation and other usages leave this false by default.)
+   */
+  @Input() openedFromPurchaseOrder: boolean = false;
+  @Input() customerId?: number | string | null;
+
+  @Output() confirm = new EventEmitter<
+    | number
+    | { id: number; invoiceNumber: string; packagingAndForwadingCharges: number; purchaseId?: number | null }
+  >();
   @Output() cancel = new EventEmitter<void>();
 
   chargesForm: FormGroup;
   isLoading = false;
+  isLoadingPurchases = false;
+  purchaseOptions: Array<PurchaseRecent & { displayLabel: string }> = [];
+  private purchaseOptionsRaw: PurchaseRecent[] = [];
 
   private destroy$ = new Subject<void>();
+  private open$ = new Subject<void>();
 
-  constructor(private fb: FormBuilder) {
+  constructor(private fb: FormBuilder, private purchaseService: PurchaseService) {
     this.chargesForm = this.fb.group({
       invoiceNumber: [''],
+      purchaseId: [null],
       packagingAndForwadingCharges: [
         0,
         [Validators.required, Validators.min(0)]
@@ -105,20 +154,134 @@ export class PackagingChargesModalComponent implements OnChanges, OnDestroy {
 
   ngOnChanges(): void {
     if (this.show) {
+      // New open-cycle boundary (prevents stacking subscriptions across opens)
+      this.open$.next();
+
       // Set validators for invoice number if required
-      const invoiceNumberControl = this.chargesForm.get('invoiceNumber');
-      if (this.requireInvoiceNumber) {
-        invoiceNumberControl?.setValidators([Validators.required]);
-      } else {
-        invoiceNumberControl?.clearValidators();
-      }
-      invoiceNumberControl?.updateValueAndValidity();
+      this.updateInvoiceNumberValidators();
       
       this.chargesForm.patchValue({
         packagingAndForwadingCharges: this.defaultCharges !== undefined ? this.defaultCharges : 0,
-        invoiceNumber: ''
+        invoiceNumber: '',
+        purchaseId: null
       });
+
+      // Dynamically toggle invoice requirement when purchase changes (Purchase Order flow)
+      this.chargesForm.get('purchaseId')?.valueChanges
+        .pipe(takeUntil(this.destroy$), takeUntil(this.open$))
+        .subscribe(() => {
+          this.updateInvoiceNumberValidators();
+        });
+
+      if (this.openedFromPurchaseOrder) {
+        this.loadPurchases();
+      }
     }
+  }
+
+  isInvoiceRequired(): boolean {
+    if (!this.requireInvoiceNumber) return false;
+
+    // In Purchase Order flow: invoice is required only when purchase is not selected.
+    if (this.openedFromPurchaseOrder) {
+      const purchaseId = this.chargesForm.get('purchaseId')?.value;
+      return purchaseId === null || purchaseId === undefined || purchaseId === '';
+    }
+
+    // Default behavior for other flows
+    return true;
+  }
+
+  private updateInvoiceNumberValidators(): void {
+    const invoiceNumberControl = this.chargesForm.get('invoiceNumber');
+    if (!invoiceNumberControl) return;
+
+    if (!this.requireInvoiceNumber) {
+      invoiceNumberControl.clearValidators();
+      invoiceNumberControl.updateValueAndValidity({ emitEvent: false });
+      return;
+    }
+
+    // Purchase Order flow: required only when no purchase is selected.
+    if (this.openedFromPurchaseOrder) {
+      const isRequired = this.isInvoiceRequired();
+      if (isRequired) {
+        invoiceNumberControl.setValidators([Validators.required]);
+      } else {
+        invoiceNumberControl.clearValidators();
+      }
+      invoiceNumberControl.updateValueAndValidity({ emitEvent: false });
+      return;
+    }
+
+    // Other flows: keep legacy behavior
+    invoiceNumberControl.setValidators([Validators.required]);
+    invoiceNumberControl.updateValueAndValidity({ emitEvent: false });
+  }
+
+  refreshPurchases(): void {
+    this.loadPurchases(true);
+  }
+
+  private loadPurchases(force: boolean = false): void {
+    if (!force && this.purchaseOptionsRaw.length > 0) {
+      this.updatePurchaseOptions();
+      return;
+    }
+
+    this.isLoadingPurchases = true;
+    this.purchaseService.getPurchasesLast6Months()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response?.success) {
+            this.purchaseOptionsRaw = Array.isArray(response.data) ? response.data : [];
+            this.updatePurchaseOptions();
+          } else {
+            this.purchaseOptionsRaw = [];
+            this.purchaseOptions = [];
+          }
+          this.isLoadingPurchases = false;
+        },
+        error: () => {
+          this.purchaseOptionsRaw = [];
+          this.purchaseOptions = [];
+          this.isLoadingPurchases = false;
+        }
+      });
+  }
+
+  private updatePurchaseOptions(): void {
+    const rawCustomerId = this.customerId;
+    const customerId =
+      rawCustomerId === null || rawCustomerId === undefined || rawCustomerId === ''
+        ? null
+        : Number(rawCustomerId);
+
+    // Show ALL purchases from the last 6 months (do not filter),
+    // but prioritize the selected customer's purchases first for better UX.
+    const list = [...this.purchaseOptionsRaw].sort((a, b) => {
+      if (!customerId) return 0;
+      const aMatch = Number(a.customerId) === customerId ? 0 : 1;
+      const bMatch = Number(b.customerId) === customerId ? 0 : 1;
+      return aMatch - bMatch;
+    });
+
+    this.purchaseOptions = list.map(p => ({
+      ...p,
+      displayLabel: this.formatPurchaseLabel(p)
+    }));
+  }
+
+  private formatPurchaseLabel(p: PurchaseRecent): string {
+    const dateLabel = p.purchaseDate ? formatDate(new Date(p.purchaseDate), 'dd-MM-yyyy', 'en') : '-';
+    const amount = typeof p.totalPurchaseAmount === 'number' ? p.totalPurchaseAmount : Number(p.totalPurchaseAmount || 0);
+    const amountLabel = Number.isFinite(amount) ? amount.toFixed(2) : '0.00';
+    const qcLabel = p.isQcPass ? 'QC Pass' : 'QC Pending';
+
+    // Keep the most important fields first (requested): invoiceNumber, customerName, purchaseDate, totalPurchaseAmount
+    // Then include the remaining API fields for clarity.
+    return `${p.invoiceNumber} • ${p.customerName} • ${dateLabel} • ₹${amountLabel} • Items: ${p.numberOfItems} • ${qcLabel} • #${p.id}`;
   }
 
   onCancel(): void {
@@ -128,6 +291,11 @@ export class PackagingChargesModalComponent implements OnChanges, OnDestroy {
   onSubmit(): void {
     if (this.chargesForm.valid) {
       const charges = Number(this.chargesForm.get('packagingAndForwadingCharges')?.value || 0);
+      const purchaseIdControlValue = this.chargesForm.get('purchaseId')?.value;
+      const purchaseId =
+        purchaseIdControlValue === null || purchaseIdControlValue === undefined || purchaseIdControlValue === ''
+          ? null
+          : Number(purchaseIdControlValue);
       
       // If orderId is provided and invoice number is required, emit object with all fields
       if (this.requireInvoiceNumber && this.orderId !== undefined && this.orderId !== null) {
@@ -135,7 +303,8 @@ export class PackagingChargesModalComponent implements OnChanges, OnDestroy {
         this.confirm.emit({
           id: this.orderId,
           invoiceNumber: invoiceNumber,
-          packagingAndForwadingCharges: charges
+          packagingAndForwadingCharges: charges,
+          ...(this.openedFromPurchaseOrder ? { purchaseId } : {})
         });
       } else {
         // Otherwise emit just the charges number for backward compatibility (dispatch-quotation)
@@ -150,6 +319,8 @@ export class PackagingChargesModalComponent implements OnChanges, OnDestroy {
     // Complete destroy subject
     this.destroy$.next();
     this.destroy$.complete();
+    this.open$.next();
+    this.open$.complete();
 
     // Complete EventEmitters
     if (this.confirm && typeof (this.confirm as any).complete === 'function') {
