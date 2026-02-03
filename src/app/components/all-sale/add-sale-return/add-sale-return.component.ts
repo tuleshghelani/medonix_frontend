@@ -160,6 +160,7 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
       customerId: ['', Validators.required],
       saleReturnDate: [formatDate(new Date(), 'yyyy-MM-dd', 'en'), Validators.required],
       invoiceNumber: [''],
+      isDiscount: [false],
       products: this.fb.array([]),
       packagingAndForwadingCharges: [0, [Validators.required, Validators.min(0)]]
     });
@@ -532,6 +533,7 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
       saleReturnDate: formatDate(formValue.saleReturnDate, 'dd-MM-yyyy', 'en'),
       customerId: formValue.customerId,
       invoiceNumber: formValue.invoiceNumber,
+      isDiscount: !!formValue.isDiscount,
       price: this.getTotalAmount(),
       discountAmount: this.getTotalDiscountAmount(),
       taxAmount: this.getTotalTaxAmount(),
@@ -654,11 +656,13 @@ export class AddSaleReturnComponent implements OnInit, OnDestroy {
     this.productSubscriptions = [];
 
     // Populate form with sale return data
+    const isDiscount = data?.isDiscount ?? data?.is_discount ?? false;
     this.returnForm.patchValue({
       id: data.id,
       customerId: data.customerId,
       saleReturnDate: formatDate(new Date(data.saleReturnDate), 'yyyy-MM-dd', 'en'),
       invoiceNumber: data.invoiceNumber,
+      isDiscount,
       packagingAndForwadingCharges: data.packagingAndForwadingCharges || 0
     });
 
