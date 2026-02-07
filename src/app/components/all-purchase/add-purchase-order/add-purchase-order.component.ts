@@ -64,6 +64,7 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
   totalAmount = 0;
   totalTaxAmount = 0;
   grandTotal = 0;
+  private isPopulatingForm = false; // Flag to prevent recalculation during form population
 
   get productsFormArray() {
     return this.purchaseOrderForm.get('products') as FormArray;
@@ -287,6 +288,9 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
 
   private calculateProductPrice(group: FormGroup): void {
     if (!group) return;
+    
+    // Skip recalculation if we're currently populating the form from API data
+    if (this.isPopulatingForm) return;
 
     const quantity = Number(group.get('quantity')?.value || 0);
     const unitPrice = Number(group.get('unitPrice')?.value || 0);
@@ -590,6 +594,9 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
   }
 
   private populateForm(data: any): void {
+    // Set flag to prevent recalculation during population
+    this.isPopulatingForm = true;
+    
     // Clear existing subscriptions before repopulating
     this.productSubscriptions.forEach(sub => {
       if (sub && !sub.closed) {
@@ -605,7 +612,7 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
       invoiceNumber: data.invoiceNumber,
       packagingAndForwadingCharges: data.packagingAndForwadingCharges || 0,
       purchaseId: null
-    });
+    }, { emitEvent: false });
 
     // New backend linkage (source of truth)
     this.linkedPurchaseIds = Array.isArray(data.purchaseIds) ? data.purchaseIds : [];
@@ -614,28 +621,30 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
     this.productsFormArray.clear();
 
     // Populate products - handle both 'products' and 'items' from API response
+    // Use exact API values instead of recalculating
     const productsArray = data.products || data.items || [];
     productsArray.forEach((item: any) => {
       const productGroup = this.createProductFormGroup();
-      const subscription = this.setupProductCalculations(productGroup);
-      this.productSubscriptions.push(subscription);
       
-      // Calculate price and tax if not provided
+      // Use exact values from API response (source of truth)
       const quantity = Number(item.quantity || 0);
       const unitPrice = Number(item.unitPrice || 0);
-      const price = item.price || (quantity * unitPrice);
-      const taxPercentage = item.taxPercentage || 0;
-      const taxAmount = item.taxAmount || (price * taxPercentage / 100);
+      // Use API price directly - don't recalculate
+      const price = Number(item.price || 0);
+      const taxPercentage = Number(item.taxPercentage || 0);
+      // Use API taxAmount directly - don't recalculate
+      const taxAmount = Number(item.taxAmount || 0);
       
+      // Patch values without triggering calculations
       productGroup.patchValue({
         id: item.id, // Store item ID for updates
         productId: item.productId,
         quantity: quantity,
         getQuantity: item.getQuantity ?? null,
         unitPrice: unitPrice,
-        price: price,
+        price: price, // Use exact API value
         taxPercentage: taxPercentage,
-        taxAmount: taxAmount,
+        taxAmount: taxAmount, // Use exact API value
         remarks: item.remarks || '',
         purchaseIds: Array.isArray(item.purchaseIds) ? item.purchaseIds : [],
         purchaseItemIds: Array.isArray(item.purchaseItemIds) ? item.purchaseItemIds : []
@@ -644,16 +653,25 @@ export class AddPurchaseOrderComponent implements OnInit, OnDestroy {
       // Disable per-item when it has any purchase linkage
       const itemPurchaseIds = Array.isArray(item.purchaseIds) ? item.purchaseIds : [];
       if (itemPurchaseIds.length > 0) {
-        productGroup.get('productId')?.disable();
-        productGroup.get('quantity')?.disable();
-        productGroup.get('unitPrice')?.disable();
-        productGroup.get('remarks')?.disable();
+        productGroup.get('productId')?.disable({ emitEvent: false });
+        productGroup.get('quantity')?.disable({ emitEvent: false });
+        productGroup.get('unitPrice')?.disable({ emitEvent: false });
+        productGroup.get('remarks')?.disable({ emitEvent: false });
       }
+
+      // Setup calculations AFTER patching values to prevent recalculation during population
+      const subscription = this.setupProductCalculations(productGroup);
+      this.productSubscriptions.push(subscription);
 
       this.productsFormArray.push(productGroup);
     });
+    
     this.isEdit = true;
+    // Calculate totals from the exact API values
     this.calculateTotalAmount();
+    
+    // Reset flag after population is complete
+    this.isPopulatingForm = false;
     this.cdr.markForCheck();
   }
 
